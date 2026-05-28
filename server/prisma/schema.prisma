@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  city      String   @default("İstanbul")
+  avatar    String?
+  role      String   @default("USER")
+  emailVerified Boolean @default(false)
+  phoneVerified  Boolean @default(false)
+  rating    Float    @default(5.0)
+  totalSwaps Int     @default(0)
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+  lastSeenAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  listings       Listing[]
+  sentOffers     Offer[]   @relation("SentOffers")
+  receivedOffers Offer[]   @relation("ReceivedOffers")
+  messages       Message[]
+  notifications  Notification[]
+}
+
+// ─── Listing ─────────────────────────────────────────────────────────────────
+
+model Listing {
+  id             String   @id @default(cuid())
+  listingCode    String?  @unique   // TKS-XXXXXXX — kullanıcıya gösterilen ilan kodu
+  title          String
+  category       String // Araç | Elektronik | Gayrimenkul | Diğer
+  estimatedValue Int
+  description    String
+  wantedFor      String
+  city           String
+  images         String   // JSON: string[]
+  condition      String   // Mükemmel | İyi | Orta | Yıpranmış
+  tags           String   // JSON: string[]
+  attachments    String?  // JSON: uploaded files / reports
+  videoUrl       String?
+  moderationStatus String @default("approved")
+  rejectionReason  String?
+  isActive       Boolean  @default(true)
+  viewCount      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Vehicle details (null for other categories)
+  brand             String?
+  model             String?
+  year              Int?
+  km                Int?
+  fuel              String?  // Benzin | Dizel | LPG | Hibrit | Elektrik
+  transmission      String?  // Manuel | Otomatik | Yarı Otomatik
+  color             String?
+  hasAccidentRecord Boolean  @default(false)
+  bodyType          String?
+  engineCC          Int?
+
+  // Diğer kategorilerin ek özellikleri (JSON):
+  //   electronics: { type, brand, model, year, storage, ram, ... }
+  //   property:    { type, netSqm, rooms, floor, heating, ... }
+  extraDetails      String?  // JSON
+
+  owner   User   @relation(fields: [ownerId], references: [id])
+  ownerId String
+
+  offers Offer[]
+
+  @@index([ownerId])
+  @@index([category])
+  @@index([city])
+  @@index([isActive])
+  @@index([category, city, isActive])
+  @@index([listingCode])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  href      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, read])
+}
+
+// ─── Offer ───────────────────────────────────────────────────────────────────
+
+model Offer {
+  id                  String   @id @default(cuid())
+  message             String
+  // Beklemede | Görüşülüyor | Onaylandı | Tamamlandı | Reddedildi
+  status              String   @default("Beklemede")
+  offeredValue        Int?
+  offeredListingId    String?
+  offeredListingTitle String?
+
+  // Çift onay — her iki taraf da "Tamamlandı" demeli
+  fromConfirmed       Boolean  @default(false)
+  toConfirmed         Boolean  @default(false)
+
+  // Karşı teklif mesajı
+  counterMessage      String?
+
+  // Buluşma yeri / kargo notu (Onaylandı aşamasında doldurulur)
+  meetingNote         String?
+
+  // Puanlama yapıldı mı?
+  fromRated           Boolean  @default(false)
+  toRated             Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  listing   Listing @relation(fields: [listingId], references: [id])
+  listingId String
+
+  from      User    @relation("SentOffers",     fields: [fromUserId], references: [id])
+  fromUserId String
+
+  to        User    @relation("ReceivedOffers",  fields: [toUserId],   references: [id])
+  toUserId  String
+
+  messages  Message[]
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([listingId])
+  @@index([status])
+  @@index([toUserId, status])
+}
+
+// ─── Message ─────────────────────────────────────────────────────────────────
+
+model Message {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+
+  offer     Offer  @relation(fields: [offerId],     references: [id])
+  offerId   String
+
+  from      User   @relation(fields: [fromUserId],  references: [id])
+  fromUserId String
+
+  @@index([offerId])
+  @@index([offerId, createdAt])
+}

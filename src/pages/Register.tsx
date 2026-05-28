@@ -1,0 +1,156 @@
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
+import { useSEO } from '../hooks/useSEO';
+
+const CITIES = [
+  'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana',
+  'Konya', 'Gaziantep', 'Kayseri', 'Mersin', 'Eskişehir', 'Diyarbakır',
+];
+
+export default function Register() {
+  useSEO({ title: 'Kayıt Ol', description: 'Takaslat\'a ücretsiz kayıt ol ve araç takasına hemen başla.' });
+
+  const navigate = useNavigate();
+  const registerUser = useAppStore((s) => s.registerUser);
+
+  const [name,     setName]     = useState('');
+  const [email,    setEmail]    = useState('');
+  const [password, setPassword] = useState('');
+  const [city,     setCity]     = useState('');
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [searchParams] = useSearchParams();
+  const refId = searchParams.get('ref');
+
+  useEffect(() => {
+    if (refId) {
+      // Davet kodunu localStorage'a yaz — register sonrası bonus için
+      localStorage.setItem('takaslat-referred-by', refId);
+    }
+  }, [refId]);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    if (password.length < 6) { setError('Şifre en az 6 karakter olmalı'); return; }
+    setLoading(true);
+    try {
+      await registerUser(name, email, password, city || undefined);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kayıt başarısız');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0f2d6e] via-[#1B4FD8] to-[#1e40af] flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center gap-2">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </div>
+            <span className="text-2xl font-bold text-white tracking-tight">Takaslat</span>
+          </Link>
+          <p className="mt-2 text-white/70 text-sm">Araç takasının en akıllı adresi</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <h1 className="text-xl font-bold text-slate-900 mb-6">Yeni hesap oluştur</h1>
+
+          {refId && (
+            <div className="mb-4 px-4 py-3 bg-pink-50 border border-pink-200 rounded-xl flex items-center gap-2">
+              <span className="text-xl">🎁</span>
+              <div>
+                <p className="text-xs font-bold text-pink-700">Davet ile geliyorsun!</p>
+                <p className="text-[11px] text-pink-600">Hoş geldin bonusu kazanacaksın</p>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ahmet Yılmaz"
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@email.com"
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="En az 6 karakter"
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Şehir <span className="text-slate-400 font-normal">(isteğe bağlı)</span>
+              </label>
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white"
+              >
+                <option value="">Seçin…</option>
+                {CITIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
+            >
+              {loading ? 'Hesap oluşturuluyor…' : 'Kayıt Ol'}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Zaten hesabın var mı?{' '}
+            <Link to="/login" className="text-blue-600 font-medium hover:underline">
+              Giriş yap
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

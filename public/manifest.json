@@ -1,0 +1,42 @@
+{
+  "name": "Takaslat — Akıllı Takas Platformu",
+  "short_name": "Takaslat",
+  "description": "Araç, elektronik, gayrimenkul ve daha fazlası için akıllı takas platformu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#1B4FD8",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "tr",
+  "categories": ["lifestyle", "shopping", "business"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Yeni İlan Ver",
+      "short_name": "İlan Ver",
+      "url": "/create",
+      "description": "Hızlı yeni ilan oluştur"
+    },
+    {
+      "name": "Görüşmeler",
+      "short_name": "Sohbet",
+      "url": "/conversations",
+      "description": "Mesajlarına bak"
+    }
+  ]
+}
