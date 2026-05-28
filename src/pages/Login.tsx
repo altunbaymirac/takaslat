@@ -73,7 +73,7 @@ export default function Login() {
             </div>
             <span className="text-2xl font-bold text-white tracking-tight">Takaslat</span>
           </Link>
-          <p className="mt-2 text-white/70 text-sm">Araç takasının en akıllı adresi</p>
+          <p className="mt-2 text-white/70 text-sm">Takasın en akıllı adresi</p>
         </div>
 
         {/* Card */}
