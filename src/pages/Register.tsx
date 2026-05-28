@@ -2,6 +2,8 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
+import { checkRateLimit, resetRateLimit, getRemainingAttempts } from '../lib/rateLimit';
+import { checkPasswordStrength } from '../lib/sanitize';
 
 const CITIES = [
   'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana',
@@ -20,6 +22,8 @@ export default function Register() {
   const [city,     setCity]     = useState('');
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
+  const pwScore = checkPasswordStrength(password);
+  const remaining = getRemainingAttempts('register', 'global');
   const [searchParams] = useSearchParams();
   const refId = searchParams.get('ref');
 
@@ -34,9 +38,12 @@ export default function Register() {
     e.preventDefault();
     setError('');
     if (password.length < 6) { setError('Şifre en az 6 karakter olmalı'); return; }
+    if (pwScore.score < 1) { setError('Daha güçlü bir şifre seç'); return; }
     setLoading(true);
     try {
+      checkRateLimit('register', 'global');
       await registerUser(name, email, password, city || undefined);
+      resetRateLimit('register', 'global');
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kayıt başarısız');
@@ -116,6 +123,16 @@ export default function Register() {
                 required
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               />
+              {password.length > 0 && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="flex gap-1 flex-1">
+                    {[0,1,2,3,4].map(i => (
+                      <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i < pwScore.score ? 'bg-current' : 'bg-slate-200'} ${pwScore.color}`} />
+                    ))}
+                  </div>
+                  <span className={`text-xs font-medium ${pwScore.color}`}>{pwScore.label}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -136,11 +153,17 @@ export default function Register() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || remaining === 0}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
             >
               {loading ? 'Hesap oluşturuluyor…' : 'Kayıt Ol'}
             </button>
+            {remaining <= 1 && remaining > 0 && (
+              <p className="text-center text-xs text-amber-600">⚠️ Son kayıt denemesi</p>
+            )}
+            {remaining === 0 && (
+              <p className="text-center text-xs text-red-600 font-medium">🔒 Çok fazla deneme — bir süre bekle</p>
+            )}
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">

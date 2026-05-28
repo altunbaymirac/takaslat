@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { forgotPassword, resetPassword } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
+import { checkRateLimit, resetRateLimit, getRemainingAttempts } from '../lib/rateLimit';
 
 type Mode = 'login' | 'forgot' | 'reset';
 
@@ -24,15 +25,20 @@ export default function Login() {
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
 
+  const remaining = getRemainingAttempts(mode === 'forgot' ? 'forgotPassword' : 'login', email || 'global');
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       if (mode === 'login') {
+        checkRateLimit('login', email);
         await loginUser(email, password, twoFactorCode || undefined);
+        resetRateLimit('login', email);
         navigate('/');
       } else if (mode === 'forgot') {
+        checkRateLimit('forgotPassword', email);
         const res = await forgotPassword(email);
         setDevCode(res.devCode ?? null);
         setMode('reset');
@@ -153,11 +159,21 @@ export default function Login() {
               </>
             )}
 
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || remaining === 0}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
             >
               {loading ? '…' : mode === 'login' ? 'Giriş Yap' : mode === 'forgot' ? 'Kod Gönder' : 'Şifreyi Güncelle'}
             </button>
+            {mode !== 'reset' && remaining <= 2 && remaining > 0 && (
+              <p className="text-center text-xs text-amber-600">
+                ⚠️ {remaining} deneme hakkın kaldı
+              </p>
+            )}
+            {remaining === 0 && (
+              <p className="text-center text-xs text-red-600 font-medium">
+                🔒 Çok fazla deneme — bir süre bekle
+              </p>
+            )}
           </form>
 
           {/* Demo hint — sadece login modunda */}
