@@ -541,7 +541,7 @@ export async function confirmOfferComplete(offerId: string): Promise<SwapOffer> 
     await delay(200)
     const o = mockOffers.find(x => x.id === offerId)
     if (!o) throw new Error('Teklif bulunamadi')
-    o.status = 'Tamamlandi'
+    o.status = 'Tamamlandı'
     return o
   }
   const { data: { user } } = await supabase.auth.getUser()
@@ -555,7 +555,7 @@ export async function confirmOfferComplete(offerId: string): Promise<SwapOffer> 
   if (isFrom) patch.from_confirmed = true
   if (isTo)   patch.to_confirmed   = true
   const bothConfirmed = (isFrom && offer.to_confirmed) || (isTo && offer.from_confirmed)
-  if (bothConfirmed) patch.status = 'Tamamlandi'
+  if (bothConfirmed) patch.status = 'Tamamlandı'
 
   const { data, error } = await supabase.from('offers').update(patch).eq('id', offerId).select(OFFER_SELECT).single()
   if (error) throw new Error(error.message)
@@ -571,7 +571,7 @@ export async function reviseOfferApi(offerId: string, patch: { offeredValue?: nu
     await delay(200)
     const o = mockOffers.find(x => x.id === offerId)
     if (!o) throw new Error('Teklif bulunamadi')
-    Object.assign(o, patch, { status: 'Gorusuluyor' as const })
+    Object.assign(o, patch, { status: 'Görüşülüyor' as const })
     return o
   }
   const { data, error } = await supabase
@@ -580,7 +580,7 @@ export async function reviseOfferApi(offerId: string, patch: { offeredValue?: nu
       ...(patch.offeredValue         !== undefined && { offered_value: patch.offeredValue }),
       ...(patch.offeredListingId     !== undefined && { offered_listing_id: patch.offeredListingId }),
       ...(patch.offeredListingTitle  !== undefined && { offered_listing_title: patch.offeredListingTitle }),
-      status: 'Gorusuluyor',
+      status: 'Görüşülüyor',
       updated_at: new Date().toISOString(),
     })
     .eq('id', offerId)
