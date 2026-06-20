@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import NotificationBell from './NotificationBell';
-import { useT } from '../lib/i18n';
 
 const NAV = [
   { to: '/',              label: 'İlanlar'    },
@@ -22,8 +21,6 @@ export default function Navbar() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { lang, setLang } = useT();
-
   const pending = offers.filter(
     (o) => o.toUserId === currentUserId && o.status === 'Beklemede'
   ).length;
@@ -107,15 +104,6 @@ export default function Navbar() {
             className="hidden lg:flex w-9 h-9 rounded-xl text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 items-center justify-center transition-colors"
           >
             <kbd className="text-xs font-bold">?</kbd>
-          </button>
-
-          {/* Language toggle */}
-          <button
-            onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}
-            title={lang === 'tr' ? 'Switch to English' : 'Türkçe\'ye geç'}
-            className="text-xs font-bold rounded-xl text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 w-9 h-9 flex items-center justify-center transition-colors uppercase tracking-wide"
-          >
-            {lang === 'tr' ? 'EN' : 'TR'}
           </button>
 
           {/* Dark mode toggle */}

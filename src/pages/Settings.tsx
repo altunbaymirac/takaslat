@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { playDing } from '../lib/sound';
-import { useT, type Lang } from '../lib/i18n';
 import { disableTwoFactor, setupTwoFactor, verifyTwoFactor, requestEmailVerification, confirmEmailVerification } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
@@ -19,7 +18,6 @@ export default function Settings() {
   useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.' });
 
   const { darkMode, toggleDarkMode, soundEnabled, toggleSound, accentColor, setAccentColor, resetOnboarding, currentUser } = useAppStore();
-  const { lang, setLang } = useT();
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [devCode, setDevCode] = useState<string | null>(null);
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
@@ -125,11 +123,11 @@ export default function Settings() {
             </div>
             <button
               onClick={toggleDarkMode}
-              className={`relative w-12 h-6 rounded-full transition-colors ${darkMode ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+              className={`relative w-12 h-6 rounded-full overflow-hidden transition-colors ${darkMode ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
             >
               <span
-                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
-                  darkMode ? 'translate-x-[26px]' : 'translate-x-0.5'
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                  darkMode ? 'translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -185,11 +183,11 @@ export default function Settings() {
               )}
               <button
                 onClick={toggleSound}
-                className={`relative w-12 h-6 rounded-full transition-colors ${soundEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                className={`relative w-12 h-6 rounded-full overflow-hidden transition-colors ${soundEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
               >
                 <span
-                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
-                    soundEnabled ? 'translate-x-[26px]' : 'translate-x-0.5'
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                    soundEnabled ? 'translate-x-6' : 'translate-x-0'
                   }`}
                 />
               </button>
@@ -197,31 +195,6 @@ export default function Settings() {
           </div>
         </section>
 
-        {/* Dil */}
-        <section className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-            <span>🌐</span> Dil
-          </h2>
-
-          <div className="flex gap-2">
-            {[
-              { id: 'tr', name: '🇹🇷 Türkçe' },
-              { id: 'en', name: '🇬🇧 English' },
-            ].map((l) => (
-              <button
-                key={l.id}
-                onClick={() => setLang(l.id as Lang)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                  lang === l.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600'
-                }`}
-              >
-                {l.name}
-              </button>
-            ))}
-          </div>
-        </section>
 
         {/* Güvenlik */}
         <section className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
@@ -355,7 +328,7 @@ export default function Settings() {
             <strong>Takaslat</strong> — Akıllı Takas Platformu
           </p>
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-            v1.0.0 · Gerçek zamanlı AI · TypeScript + React + Express
+            v1.0.0 · Gerçek zamanlı AI · React + Supabase
           </p>
         </section>
       </div>
