@@ -292,7 +292,17 @@ export async function fetchListings(filters: ListingFilters = {}): Promise<Listi
   if (filters.city)      q = q.eq('city', filters.city)
   if (filters.minValue)  q = q.gte('estimated_value', filters.minValue)
   if (filters.maxValue && filters.maxValue < 5_000_000) q = q.lte('estimated_value', filters.maxValue)
-  if (filters.query)     q = q.ilike('title', `%${filters.query}%`)
+  if (filters.query) {
+    const isCode = /^TKS-\d{7}$/i.test(filters.query.trim())
+    if (isCode) {
+      q = q.ilike('listing_code', filters.query.trim())
+    } else {
+      // Birden fazla alanda arama — title, description, brand, model, city
+      q = q.or(
+        `title.ilike.%${filters.query}%,description.ilike.%${filters.query}%,brand.ilike.%${filters.query}%,model.ilike.%${filters.query}%,city.ilike.%${filters.query}%`
+      )
+    }
+  }
   if (filters.brand)     q = q.eq('brand', filters.brand)
   if (filters.fuel)      q = q.eq('fuel', filters.fuel)
   if (filters.minYear)   q = q.gte('year', filters.minYear)
@@ -330,7 +340,7 @@ export async function fetchListingPage(filters: ListingFilters = {}): Promise<Li
 
   if (filters.category && filters.category !== 'Tümü') q = q.eq('category', filters.category)
   if (filters.city)  q = q.eq('city', filters.city)
-  if (filters.query) q = q.ilike('title', `%${filters.query}%`)
+  if (filters.query) q = q.or(`title.ilike.%${filters.query}%,brand.ilike.%${filters.query}%,city.ilike.%${filters.query}%`)
   if (filters.brand) q = q.eq('brand', filters.brand)
 
   if (filters.sort === 'price_asc')  q = q.order('estimated_value', { ascending: true })

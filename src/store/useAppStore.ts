@@ -20,6 +20,8 @@ import {
   getToken,
   setToken,
   clearToken,
+  supabase,
+  USE_MOCK,
 } from '../services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -273,17 +275,42 @@ export const useAppStore = create<AppState>()(
 
       // ── Auth: check stored token on startup
       initAuth: async () => {
-        const stored = getToken();
-        if (!stored) return;
         try {
+          if (!USE_MOCK) {
+            // Supabase: mevcut session'ı kontrol et
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              setToken(session.access_token);
+              const user = await getMe() as AuthUser | null;
+              if (user) {
+                set({
+                  token:           session.access_token,
+                  currentUser:     user,
+                  currentUserId:   user.id,
+                  currentUserName: user.name,
+                });
+                await get().loadOffers();
+                await get().loadNotifications();
+              }
+              // Token yenileme: session değişince store'u güncelle
+              supabase.auth.onAuthStateChange(async (event, newSession) => {
+                if (event === 'SIGNED_OUT' || !newSession) {
+                  clearToken();
+                  set({ token: null, currentUser: null, currentUserId: 'current-user', currentUserName: 'Kullanıcı', offers: [], notifications: [] });
+                } else if (event === 'TOKEN_REFRESHED' && newSession) {
+                  setToken(newSession.access_token);
+                  set({ token: newSession.access_token });
+                }
+              });
+            }
+            return;
+          }
+          // Mock mod — eski token bazlı akış
+          const stored = getToken();
+          if (!stored) return;
           const user = await getMe() as AuthUser | null;
           if (user) {
-            set({
-              token:           stored,
-              currentUser:     user,
-              currentUserId:   user.id,
-              currentUserName: user.name,
-            });
+            set({ token: stored, currentUser: user, currentUserId: user.id, currentUserName: user.name });
             await get().loadOffers();
             await get().loadNotifications();
           }
@@ -339,7 +366,7 @@ export const useAppStore = create<AppState>()(
       },
 
       logoutUser: () => {
-        clearToken();
+        clearToken(); // supabase.auth.signOut() burada çağrılıyor (clearToken içinde)
         set({
           token:           null,
           currentUser:     null,

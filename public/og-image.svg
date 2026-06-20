@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f2d6e"/>
+      <stop offset="50%" style="stop-color:#1B4FD8"/>
+      <stop offset="100%" style="stop-color:#1e40af"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Logo icon -->
+  <rect x="540" y="160" width="120" height="120" rx="24" fill="rgba(255,255,255,0.15)"/>
+  <path d="M572 208 h56 m0 0 l-18-18 m18 18 l-18 18 m0 28 H556 m0 0 l18 18 m-18-18 l18-18"
+        stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Title -->
+  <text x="600" y="350" font-family="system-ui,-apple-system,sans-serif" font-size="72" font-weight="700"
+        fill="white" text-anchor="middle" letter-spacing="-1">Takaslat</text>
+  <!-- Subtitle -->
+  <text x="600" y="420" font-family="system-ui,-apple-system,sans-serif" font-size="32" font-weight="400"
+        fill="rgba(255,255,255,0.75)" text-anchor="middle">Araç Takasının En Akıllı Adresi</text>
+  <!-- Bottom decoration -->
+  <rect x="480" y="480" width="240" height="4" rx="2" fill="rgba(255,255,255,0.3)"/>
+</svg>

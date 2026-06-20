@@ -9,7 +9,7 @@ import type {
   PropertyType, PropertyDetails, HeatingType, TitleDeed,
   ListingAttachment,
 } from '../types';
-import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, uploadFile } from '../services/api';
+import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, uploadFile, uploadImages } from '../services/api';
 import { showToast } from '../components/Toast';
 import { LISTING_TEMPLATES, type ListingTemplate } from '../data/listingTemplates';
 import { VEHICLE_BRANDS, ELECTRONIC_BRANDS } from '../data/brands';
@@ -394,23 +394,42 @@ export default function CreateListing() {
   }, [form, submitted]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+    const files = Array.from(e.target.files ?? []).slice(0, 5);
     if (!files.length) return;
     setUploading(true);
     try {
-      const uploaded = await Promise.all(files.slice(0, 5).map((file) => uploadFile(file, 'image')));
-      update('previewImages', [...form.previewImages, ...uploaded.map((f) => f.url)].slice(0, 5));
-      update('attachments', [...form.attachments, ...uploaded]);
-      const first = uploaded[0];
-      if (first) {
-        const note = await aiVisualDescription({ fileName: first.name, mimeType: first.mimeType, size: first.size });
+      // Önce anlık önizleme için blob URL'leri göster
+      const previews = files.map((f) => URL.createObjectURL(f));
+      update('previewImages', [...form.previewImages, ...previews].slice(0, 5));
+
+      // Supabase Storage'a yükle — kalıcı URL'lerle değiştir
+      const permanentUrls = await uploadImages(files);
+      update('previewImages', [
+        ...form.previewImages.filter((u) => !u.startsWith('blob:')),
+        ...permanentUrls,
+      ].slice(0, 5));
+
+      // Ek olarak attachment listesine de ekle
+      const attachments = files.map((f, i): ListingAttachment => ({
+        id:        `img-${Date.now()}-${i}`,
+        name:      f.name,
+        url:       permanentUrls[i] ?? URL.createObjectURL(f),
+        mimeType:  f.type,
+        kind:      'image',
+        size:      f.size,
+        createdAt: new Date().toISOString(),
+      }));
+      update('attachments', [...form.attachments, ...attachments]);
+
+      // AI görsel analizi (ilk fotoğraf)
+      if (files[0]) {
+        const note = await aiVisualDescription({ fileName: files[0].name, mimeType: files[0].type, size: files[0].size });
         setVisualNote(note.summary);
       }
       showToast('Fotoğraflar yüklendi', 'success');
     } catch {
-      const previews = files.map((_, i) => `https://picsum.photos/seed/${Date.now()}-${i}/800/600`);
-      update('previewImages', [...form.previewImages, ...previews].slice(0, 5));
-      showToast('Upload başarısız oldu, geçici görsel kullanıldı', 'info');
+      showToast('Yükleme başarısız — internet bağlantını kontrol et', 'error');
+      update('previewImages', form.previewImages.filter((u) => !u.startsWith('blob:')));
     } finally {
       setUploading(false);
     }

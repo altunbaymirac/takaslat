@@ -28,7 +28,7 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email === 'demo@takaslat.com';
+  const isAdmin = ['admin', 'ADMIN', 'moderator'].includes(currentUser?.role ?? '');
 
   async function load() {
     setLoading(true);

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Admin paneline erişim engeli
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /conversations
+Disallow: /my-offers
+
+Sitemap: https://takaslat.vercel.app/sitemap.xml

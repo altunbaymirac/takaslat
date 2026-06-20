@@ -10,7 +10,7 @@ interface SEOOptions {
 
 const DEFAULT_TITLE       = 'Takaslat — Araç Takasının En Akıllı Adresi';
 const DEFAULT_DESCRIPTION = 'Aracını akıllıca takas et. Türkiye\'nin en kapsamlı araç takas platformu.';
-const DEFAULT_IMAGE       = '/og-image.png';
+const DEFAULT_IMAGE       = '/og-image.svg';
 
 function setMeta(name: string, content: string, attr: 'name' | 'property' = 'name') {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${name}"]`);

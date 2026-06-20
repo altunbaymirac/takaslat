@@ -77,6 +77,20 @@ export default function Home() {
 
   const hasPersonalSignals = recentlyViewed.length > 0 || favorites.length > 0 || searchHistory.length > 0;
 
+  // ── Gerçek istatistikler (ilan verisinden hesaplanır) ──────────────────────
+  const heroStats = useMemo(() => {
+    const count = listings.length;
+    const avg = count
+      ? Math.round(listings.reduce((sum, l) => sum + (l.estimatedValue || 0), 0) / count)
+      : 0;
+    const cities = new Set(listings.map((l) => l.city).filter(Boolean)).size;
+    const fmtAvg =
+      avg >= 1_000_000 ? `₺${(avg / 1_000_000).toFixed(1)}M`
+      : avg >= 1_000   ? `₺${Math.round(avg / 1_000)}K`
+      : `₺${avg}`;
+    return { count, fmtAvg, cities };
+  }, [listings]);
+
   const trustedListings = useMemo(() => (
     listings
       .filter((l) => l.ownerId !== currentUserId)
@@ -219,9 +233,9 @@ export default function Home() {
         <div className="relative border-t border-white/10 bg-white/5 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto px-4 grid grid-cols-3 divide-x divide-white/10">
             {[
-              { n: `${listings.length}+`, label: 'Aktif İlan' },
-              { n: '₺850K', label: 'Ortalama Değer' },
-              { n: '6', label: 'İl' },
+              { n: `${heroStats.count}`, label: 'Aktif İlan' },
+              { n: heroStats.fmtAvg, label: 'Ortalama Değer' },
+              { n: `${heroStats.cities}`, label: 'İl' },
             ].map(s => (
               <div key={s.label} className="py-4 text-center">
                 <p className="text-xl font-bold text-white">{s.n}</p>

@@ -222,7 +222,7 @@ export default function Navbar() {
                   >
                     <span>🛡️ Güven Merkezi</span>
                   </Link>
-                  {(currentUser.role === 'ADMIN' || currentUser.email === 'demo@takaslat.com') && (
+                  {['admin', 'ADMIN', 'moderator'].includes(currentUser.role ?? '') && (
                     <Link
                       to="/admin"
                       onClick={() => setMenuOpen(false)}

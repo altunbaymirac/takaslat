@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import type { AIMessage, AISuggestion } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { runSwapAI } from '../lib/swapAI';
-import { queryAI, USE_MOCK } from '../services/api';
 
 // ─── Suggestion card ──────────────────────────────────────────────────────────
 
@@ -148,40 +147,19 @@ export default function AIAssistant() {
     setLoading(true);
 
     try {
-      if (!USE_MOCK) {
-        // Konuşma geçmişini hazırla — son 10 turn yeterli
-        const conversation = aiMessages.slice(-10).map((m) => ({
-          role:         m.role,
-          content:      m.content,
-          candidateIds: m.suggestions?.map((s) => s.listingId),
-        }));
-
-        // ── Gerçek mod: backend DB üzerinde çalışır ──────────────────────────
-        const res = await queryAI({
-          query:            text,
-          currentListingId: currentListing?.id ?? null,
-          conversation,
-        });
-        const suggestions = (res.suggestions ?? []) as RichSuggestion[];
-        addAIMessage({
-          role:        'assistant',
-          content:     res.message as string,
-          suggestions: suggestions as unknown as AISuggestion[],
-        });
-      } else {
-        // ── Mock mod: yerel skorlama (gecikme simülasyonu) ───────────────────
-        await new Promise(r => setTimeout(r, 600));
-        const result = runSwapAI({
-          currentListing: currentListing ?? null,
-          allListings:    listings,
-          userQuery:      text,
-        });
-        addAIMessage({
-          role:        'assistant',
-          content:     result.message,
-          suggestions: result.suggestions,
-        });
-      }
+      // ── Yerel skorlama motoru: store'daki gerçek ilanlar üzerinde çalışır ──
+      // (Backend yok; tüm AI mantığı tarayıcıda runSwapAI ile hesaplanır)
+      await new Promise(r => setTimeout(r, 500));
+      const result = runSwapAI({
+        currentListing: currentListing ?? null,
+        allListings:    listings,
+        userQuery:      text,
+      });
+      addAIMessage({
+        role:        'assistant',
+        content:     result.message,
+        suggestions: result.suggestions,
+      });
     } catch {
       addAIMessage({ role: 'assistant', content: 'Bir hata oluştu, lütfen tekrar deneyin.' });
     } finally {

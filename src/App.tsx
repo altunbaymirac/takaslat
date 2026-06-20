@@ -16,6 +16,7 @@ import Home from './pages/Home';
 import ListingDetail from './pages/ListingDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 
 // ── Lazy (route-level code splitting) ───────────────────────────────────────
 const CreateListing = lazy(() => import('./pages/CreateListing'));
@@ -87,8 +88,9 @@ function AppInner() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors">
       <TermsModal />
       <Routes>
-        <Route path="/login"    element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/register"       element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
           path="*"
