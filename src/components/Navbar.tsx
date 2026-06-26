@@ -53,10 +53,8 @@ export default function Navbar() {
     <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-6">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-          <div className="bg-[#1B4FD8] rounded-[10px] h-8 px-2.5 flex items-center justify-center shadow-sm flex-shrink-0">
-            <span className="font-black text-amber-400 text-[14px] leading-none tracking-tight">takaslat</span>
-          </div>
+        <Link to="/" className="flex items-center flex-shrink-0">
+          <img src="/icon-192.svg" alt="takaslat" className="h-10 w-10 rounded-xl shadow-sm" />
         </Link>
 
         {/* Desktop nav */}
