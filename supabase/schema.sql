@@ -198,7 +198,10 @@ CREATE POLICY "Taraflar mesaj gönderebilir"  ON public.messages FOR INSERT
 
 -- Notifications
 CREATE POLICY "Kullanıcı kendi bildirimlerini görür"    ON public.notifications FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Sistem bildirim ekleyebilir"             ON public.notifications FOR INSERT WITH CHECK (true);
+-- Bildirimler ideal olarak DB trigger'larla oluşturulmalı.
+-- Şimdilik sadece kimlik doğrulanmış kullanıcılar insert yapabilir
+-- ve yalnızca kendi user_id'lerine bildirim ekleyebilirler.
+CREATE POLICY "Sistem bildirim ekleyebilir"             ON public.notifications FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Kullanıcı bildirimlerini güncelleyebilir" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 
 -- ─── 7. REALTIME ─────────────────────────────────────────────────────────────
