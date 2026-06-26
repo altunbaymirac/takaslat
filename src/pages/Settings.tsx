@@ -96,6 +96,19 @@ export default function Settings() {
     }
   }
 
+  if (!currentUser) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-6">
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Ayarlara erişmek için giriş yap</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">Hesap ayarlarını yönetmek için giriş yapman gerekiyor.</p>
+        <div className="flex gap-3">
+          <a href="/login" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">Giriş Yap</a>
+          <a href="/register" className="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl transition-colors">Kayıt Ol</a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <header className="mb-6">

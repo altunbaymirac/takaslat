@@ -113,6 +113,19 @@ export default function MyOffers() {
 
   const { offers, currentUserId, updateOfferStatus } = useAppStore();
 
+  if (!currentUserId) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-6">
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Tekliflerini görmek için giriş yap</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">Gönderdiğin ve aldığın teklifleri görmek için hesabına giriş yapman gerekiyor.</p>
+        <div className="flex gap-3">
+          <a href="/login" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">Giriş Yap</a>
+          <a href="/register" className="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl transition-colors">Kayıt Ol</a>
+        </div>
+      </div>
+    );
+  }
+
   const outgoing = offers.filter((o) => o.fromUserId === currentUserId);
   const incoming = offers.filter((o) => o.toUserId === currentUserId);
 

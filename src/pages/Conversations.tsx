@@ -280,7 +280,7 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
       {relatedListing && (
         <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200">
           <Link to={`/listing/${relatedListing.id}`} className="flex items-center gap-3 group">
-            <img src={relatedListing.images[0]} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+            <img src={relatedListing.images?.[0] ?? 'https://picsum.photos/seed/listing/100/100'} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-semibold text-slate-700 group-hover:text-blue-600 transition-colors truncate">
                 {relatedListing.title}
