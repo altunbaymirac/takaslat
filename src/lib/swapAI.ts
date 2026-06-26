@@ -102,13 +102,13 @@ function negotiationTip(source: Listing, target: Listing): string {
   const diff = target.estimatedValue - source.estimatedValue;
   const absDiff = Math.abs(diff);
 
-  if (absDiff < 30_000) return 'Fiyatlar çok yakın, nakit fark olmadan takas mümkün.';
+  if (absDiff < 30_000) return 'Fiyatlar çok yakın, nakit fark ödemeden takası teklif edebilirsin.';
   if (diff > 0) {
-    if (absDiff < 80_000) return `Yaklaşık ${fmt(absDiff)} fark var. Hedef ilan sahibinden %10-15 indirim isteyin.`;
-    return `${fmt(absDiff)} fark söz konusu. Aracınızın bakım geçmişini öne çıkararak pazarlık edin.`;
+    if (absDiff < 80_000) return `Aradaki fark yaklaşık ${fmt(absDiff)}. Karşı taraftan %10-15 indirim isteyebilirsin.`;
+    return `${fmt(absDiff)} fark var. Aracının bakım geçmişini öne çıkarırsan pazarlıkta avantaj sağlarsın.`;
   }
-  if (absDiff < 80_000) return `${fmt(absDiff)} fazla değer sunuyorsunuz; nakit fark talep edebilirsiniz.`;
-  return `${fmt(absDiff)} avantajınız var. Hedef ilan sahibine nakit fark veya ek aksesuar teklif edin.`;
+  if (absDiff < 80_000) return `Sen ${fmt(absDiff)} daha değerli bir araç sunuyorsun, nakit fark isteyebilirsin.`;
+  return `${fmt(absDiff)} avantajın var. Karşı tarafa nakit fark ya da ekstra aksesuar teklif edebilirsin.`;
 }
 
 // ─── Message generator ───────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
   const q = query.toLowerCase();
 
   if (results.length === 0) {
-    return 'Üzgünüm, belirttiğiniz kriterlere uyan bir eşleşme bulamadım. Filtrelerinizi genişletmeyi deneyin.';
+    return 'Şu an eşleşen bir ilan bulamadım. Farklı bir marka veya fiyat aralığı deneyelim mi?';
   }
 
   const top = results[0];
@@ -125,18 +125,18 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
 
   if (source) {
     const intro = topScore >= 80
-      ? `**${source.title}** için harika eşleşmeler buldum! En iyi sonuç **%${topScore}** uyumlulukla aşağıda.`
+      ? `**${source.title}** için güçlü eşleşmeler buldum. En iyi sonuç **%${topScore}** uyumlulukla aşağıda.`
       : topScore >= 60
-      ? `**${source.title}** için ${results.length} olası takas buldum. Fiyat farkına dikkat edin.`
-      : `**${source.title}** için uyumluluk düşük olsa da değerlendirilebilecek ${results.length} ilan var.`;
+      ? `**${source.title}** için ${results.length} seçenek buldum. Fiyat farklarına bir göz at.`
+      : `**${source.title}** için çok güçlü bir eşleşme yok ama ${results.length} ilan var, bakabilirsin.`;
 
     const priceLine = source
-      ? `\n\nAracınızın tahmini değeri **${fmt(source.estimatedValue)}**. ` +
+      ? `\n\nAracının tahmini değeri **${fmt(source.estimatedValue)}**. ` +
         (top.priceDiff > 0
-          ? `En yakın eşleşmede **${fmt(top.priceDiff)} ek ödeme** gerekebilir.`
+          ? `En iyi eşleşmede **${fmt(top.priceDiff)} ek ödeme** gerekebilir.`
           : top.priceDiff < 0
-          ? `En yakın eşleşmeden **${fmt(Math.abs(top.priceDiff))} nakit fark** talep edebilirsiniz.`
-          : 'Fiyatlar neredeyse eşit — nakit fark gerekmeyebilir.')
+          ? `En iyi eşleşmeden **${fmt(Math.abs(top.priceDiff))} nakit fark** isteyebilirsin.`
+          : 'Fiyatlar neredeyse eşit, nakit fark gerekmez.')
       : '';
 
     return intro + priceLine;
@@ -144,13 +144,13 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
 
   // General query
   if (q.includes('fiyat') || q.includes('fark') || q.includes('analiz')) {
-    return `Fiyat analizi için iki ilanı karşılaştırıyorum. İdeal takas aralığı **%15-20 fark**tır. ${fmt(200_000)} üzeri farklar genellikle nakit tamamlama gerektirir. Aşağıdaki ilanları inceleyin.`;
+    return `İdeal takas aralığı genelde **%15-20 fark** olarak kabul görür. ${fmt(200_000)} üzerindeki farklar nakit tamamlama gerektirir. Aşağıdaki ilanlara bakabilirsin.`;
   }
   if (q.includes('müzakere') || q.includes('pazarlık') || q.includes('taktik')) {
-    return `Takas müzakeresinde başarı için:\n\n1. **Belgeleri hazırlayın** — bakım fişleri, ekspertiz raporu\n2. **Piyasa fiyatını bilin** — sahibinden.com üzerinden son satışlara bakın\n3. **İlk teklifi %10 düşük yapın** — yükseltmek için alan bırakın\n4. **Şehir içi buluşun** — aynı şehirde takas genellikle daha kolay\n5. **Nakit fark esnekliği** — 50-100k arası fark çoğu zaman kabul görür\n\nAşağıdaki ilanlarla başlamak ister misiniz?`;
+    return `Takasta işe yarayan birkaç tüyo:\n\n1. **Belgelerini hazırla** — bakım fişleri, ekspertiz raporu işe yarar\n2. **Piyasayı araştır** — sahibinden.com'da son satışlara bak\n3. **İlk teklifi %10 düşük ver** — yükseltmek için yer bırak\n4. **Aynı şehirde buluşmaya çalış** — lojistik kolaylaşır\n5. **50-100k arası fark** çoğu zaman kabul görür\n\nAşağıdaki ilanlarla başlamak ister misin?`;
   }
 
-  return `Aramanıza göre **${results.length} ilan** buldum. En uyumlu sonuç **%${topScore}** skorla listeleniyor. Detaylar aşağıda.`;
+  return `Aramanla ilgili **${results.length} ilan** buldum. En uyumlu sonuç **%${topScore}** skorda. Aşağıda detaylar var.`;
 }
 
 // ─── Main scorer ─────────────────────────────────────────────────────────────

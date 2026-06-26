@@ -184,8 +184,8 @@ export default function AIAssistant() {
     const msg: AIMessage = {
       role: 'assistant',
       content: currentListing
-        ? `Merhaba! 👋 **${currentListing.title}** ilanını inceliyorum.\n\nUygun takasları bulabilir, fiyat analizi yapabilir veya müzakere tavsiyesi verebilirim. Sohbeti sürdürebilirsin — *"daha ucuz olanları göster"*, *"ilkini anlat"* gibi takiplerle filtreleyebilirim.`
-        : `Merhaba! 👋 Ben **TakaslAI**, Türkiye'nin akıllı takas asistanı.\n\nBenimle sohbet edebilirsin:\n- "Toyota Corolla için takas bul"\n- "Daha ucuz olanlar?"\n- "İlkini anlat"\n- "BMW iyi mi?"\n- "Pazarlık tavsiyesi"\n\nNasıl yardımcı olabilirim?`,
+        ? `**${currentListing.title}** ilanındasın. Ne öğrenmek istiyorsun?\n\nTakas seçeneklerini bulabilirim, fiyat değerlendirmesi yapabilirim ya da pazarlık için ne söylemen gerektiğini anlatabilirim.`
+        : `Merhaba! Ben TakaslAI. Takas bulmana, fiyat karşılaştırmasına ya da pazarlık tüyolarına yardımcı olabilirim.\n\nMesela şunu yazabilirsin:\n- "Toyota Corolla arıyorum"\n- "Daha ucuz var mı?"\n- "BMW alınır mı?"\n- "Nasıl pazarlık yapayım?"`,
     };
     addAIMessage(msg);
   }, [aiPanelOpen]);
