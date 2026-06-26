@@ -112,6 +112,53 @@ function MessageText({ content }: { content: string }) {
   return <>{content.split('\n').map((line, i) => renderLine(line, i))}</>;
 }
 
+// ─── Dynamic quick actions ───────────────────────────────────────────────────
+
+function buildListingQuickActions(listing: ReturnType<typeof useAppStore.getState>['listings'][0]): string[] {
+  const v = listing.vehicleDetails;
+  const actions: string[] = [];
+
+  // 1. Her zaman: bu ilan için en iyi eşleşmeler
+  actions.push(`${v?.brand ?? listing.title} için en uygun takasları bul`);
+
+  // 2. Yakıt tipine göre alternatif öneri
+  if (v?.fuel === 'Dizel') {
+    actions.push('Hibrit veya benzinli alternatifler var mı?');
+  } else if (v?.fuel === 'Benzin') {
+    actions.push('Dizel veya hibrit alternatifler göster');
+  } else if (v?.fuel === 'Hibrit' || v?.fuel === 'Elektrik') {
+    actions.push('Benzer hibrit/elektrik ilanlar var mı?');
+  } else {
+    actions.push('Farklı yakıt tipinde alternatifler?');
+  }
+
+  // 3. Km durumuna göre
+  if (v?.km !== undefined) {
+    if (v.km > 150_000) {
+      actions.push('Daha düşük kilometreli seçenekler?');
+    } else if (v.km < 50_000) {
+      actions.push('Aynı km aralığında başka ne var?');
+    } else {
+      actions.push('Daha az km\'li araçları göster');
+    }
+  } else {
+    actions.push('Daha az km\'li araçları göster');
+  }
+
+  // 4. Hasar kaydı / fiyat / wantedFor'a göre
+  if (v?.hasAccidentRecord) {
+    actions.push('Hasarsız ve yakın fiyatlı alternatifler?');
+  } else if (listing.wantedFor && listing.wantedFor.length > 5) {
+    // wantedFor'dan ilk kelime grubunu al (max 4 kelime)
+    const want = listing.wantedFor.split(/[\s,،]+/).slice(0, 3).join(' ');
+    actions.push(`"${want}" isteğine uygun ilanlar?`);
+  } else {
+    actions.push('Pazarlık için müzakere taktikleri?');
+  }
+
+  return actions.slice(0, 4);
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AIAssistant() {
@@ -144,17 +191,12 @@ export default function AIAssistant() {
   }, [aiPanelOpen]);
 
   const quickActions = currentListing
-    ? [
-        `${currentListing.title} için en uygun takas önerilerini bul`,
-        'Daha ucuz seçenekler göster',
-        'Sadece hasarsız olanları göster',
-        'Hangisi en iyi seçim?',
-      ]
+    ? buildListingQuickActions(currentListing)
     : [
-        'Platform fiyat analizi',
+        'En iyi eşleşmeleri bul',
         'Müzakere taktikleri neler?',
-        'BMW iyi marka mı?',
-        'Ankara\'daki ilanları göster',
+        'Fiyat analizi yap',
+        'Hasarsız ilanları göster',
       ];
 
   const sendMessage = async (overrideText?: string) => {
