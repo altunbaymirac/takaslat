@@ -34,7 +34,7 @@ function SuggestionCard({ s, fallbackListing }: {
     : 'bg-red-50 text-red-700 border-red-200';
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm">
+    <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 shadow-sm">
       <div className="flex gap-3">
         {image && <img src={image} alt="" className="w-16 h-16 object-cover rounded-xl flex-shrink-0" />}
         <div className="flex-1 min-w-0">
@@ -318,7 +318,7 @@ export default function AIAssistant() {
           {loading && (
             <div className="flex items-end gap-2">
               <div className="w-7 h-7 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xs flex-shrink-0">✦</div>
-              <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+              <div className="bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
                 <div className="flex gap-1.5 items-center">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dot-1" />
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dot-2" />
@@ -351,7 +351,7 @@ export default function AIAssistant() {
         )}
 
         {/* ── Input ── */}
-        <div className="border-t border-slate-200 bg-white px-4 py-3 flex-shrink-0">
+        <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 flex-shrink-0">
           <div className="flex gap-2">
             <input
               type="text"

@@ -322,7 +322,7 @@ export default function ListingDetail() {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Galeri */}
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm">
             <div className="relative aspect-video bg-slate-100">
               <img
                 src={listing.images[activeImage]}
