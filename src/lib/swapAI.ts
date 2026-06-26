@@ -117,6 +117,9 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
   const q = query.toLowerCase();
 
   if (results.length === 0) {
+    if (!source) {
+      return 'Hangi araç için eşleşme arıyorsun? Bir ilan sayfasını açıp buradan "En iyi eşleşmeleri bul" dersen sana özel sonuçlar getirebilirim.';
+    }
     return 'Şu an eşleşen bir ilan bulamadım. Farklı bir marka veya fiyat aralığı deneyelim mi?';
   }
 
@@ -146,10 +149,19 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
   if (q.includes('fiyat') || q.includes('fark') || q.includes('analiz')) {
     return `İdeal takas aralığı genelde **%15-20 fark** olarak kabul görür. ${fmt(200_000)} üzerindeki farklar nakit tamamlama gerektirir. Aşağıdaki ilanlara bakabilirsin.`;
   }
-  if (q.includes('müzakere') || q.includes('pazarlık') || q.includes('taktik')) {
-    return `Takasta işe yarayan birkaç tüyo:\n\n1. **Belgelerini hazırla** — bakım fişleri, ekspertiz raporu işe yarar\n2. **Piyasayı araştır** — sahibinden.com'da son satışlara bak\n3. **İlk teklifi %10 düşük ver** — yükseltmek için yer bırak\n4. **Aynı şehirde buluşmaya çalış** — lojistik kolaylaşır\n5. **50-100k arası fark** çoğu zaman kabul görür\n\nAşağıdaki ilanlarla başlamak ister misin?`;
+  if (q.includes('müzakere') || q.includes('pazarlık') || q.includes('taktik') || q.includes('nasıl')) {
+    return `Takasta işe yarayan birkaç tüyo:\n\n1. **Belgelerini hazırla** — bakım fişleri, ekspertiz raporu işe yarar\n2. **Piyasayı araştır** — sahibinden.com'da son satışlara bak\n3. **İlk teklifi %10 düşük ver** — yükseltmek için yer bırak\n4. **Aynı şehirde buluşmaya çalış** — lojistik kolaylaşır\n5. **50-100k arası fark** çoğu zaman kabul görür`;
+  }
+  if (q.includes('marka') || q.includes('güvenilir') || q.includes('iyi mi') || q.includes('alınır')) {
+    return `Takaslat'ta en çok işlem gören markalar: **Toyota, Honda, Volkswagen, Renault, Ford**.\n\nGenel tüyo:\n- **Toyota/Honda** — bakım maliyeti düşük, değer kaybı az\n- **VW/Skoda** — konforlu ama servisi pahalı\n- **Renault/Dacia** — uygun fiyat, yaygın servis ağı\n\nBir ilan sayfasını açıp benden analiz istersen o araca özel yorum yapabilirim.`;
+  }
+  if (q.includes('nasıl çalış') || q.includes('takas nedir') || q.includes('ne yapacağım')) {
+    return `Takaslat'ta takas şu şekilde işliyor:\n\n1. **İlanını ver** — aracın hakkında bilgileri gir\n2. **Teklifleri bekle** — ilgilenenlerin tekliflerini al\n3. **Teklif gönder** — beğendiğin bir ilana sen de teklif at\n4. **Anlaşın** — uygulama üzerinden mesajlaşın, buluşun\n\nBir ilan sayfasına gidip "En iyi eşleşmeleri bul" dersen sana uygun takasları bulabilirim.`;
   }
 
+  if (results.length === 0) {
+    return 'Bir marka veya model yazarsan sana uygun ilanları getirebilirim. Ya da bir ilan sayfasını aç, oradan analiz yapalım.';
+  }
   return `Aramanla ilgili **${results.length} ilan** buldum. En uyumlu sonuç **%${topScore}** skorda. Aşağıda detaylar var.`;
 }
 
@@ -227,7 +239,7 @@ function inferSourceFromQuery(query: string, listings: Listing[]): Listing | nul
     if (brand && q.includes(brand)) return l;
     if (model && q.includes(model.split(' ')[0])) return l;
   }
-  return listings[0] ?? null;
+  return null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

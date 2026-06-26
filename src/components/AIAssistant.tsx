@@ -193,10 +193,10 @@ export default function AIAssistant() {
   const quickActions = currentListing
     ? buildListingQuickActions(currentListing)
     : [
-        'En iyi eşleşmeleri bul',
-        'Müzakere taktikleri neler?',
-        'Fiyat analizi yap',
+        'Nasıl pazarlık yapayım?',
         'Hasarsız ilanları göster',
+        'Hangi markalar güvenilir?',
+        'Takas nasıl çalışır?',
       ];
 
   const sendMessage = async (overrideText?: string) => {
