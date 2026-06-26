@@ -13,6 +13,7 @@ const DIESEL_KEYWORDS = ['dizel', 'diesel', 'tdi', 'crdi'];
 // ─── Scoring ─────────────────────────────────────────────────────────────────
 
 function scorePriceMatch(source: Listing, target: Listing): { pts: number; reason: string | null } {
+  if (!source.estimatedValue || source.estimatedValue === 0) return { pts: 10, reason: null };
   const diff = Math.abs(source.estimatedValue - target.estimatedValue);
   const ratio = diff / source.estimatedValue;
   if (ratio <= 0.04) return { pts: 40, reason: 'Fiyatlar neredeyse eşit' };
@@ -24,7 +25,7 @@ function scorePriceMatch(source: Listing, target: Listing): { pts: number; reaso
 }
 
 function scorePreference(wantedFor: string, target: Listing): { pts: number; reasons: string[] } {
-  const w = wantedFor.toLowerCase();
+  const w = (wantedFor ?? '').toLowerCase();
   const brand = (target.vehicleDetails?.brand ?? '').toLowerCase();
   const model = (target.vehicleDetails?.model ?? '').toLowerCase();
   const body = (target.vehicleDetails?.bodyType ?? '').toLowerCase();
@@ -32,11 +33,8 @@ function scorePreference(wantedFor: string, target: Listing): { pts: number; rea
   const reasons: string[] = [];
   let pts = 0;
 
-  // Brand exact match
   if (brand && w.includes(brand)) { pts += 25; reasons.push(`İstenen marka: ${target.vehicleDetails?.brand}`); }
-  // Model match
-  else if (model && w.includes(model.split(' ')[0])) { pts += 22; reasons.push(`İstenen model eşleşiyor`); }
-  // Body type
+  else if (model && w.includes(model.split(' ')[0])) { pts += 22; reasons.push('İstenen model eşleşiyor'); }
   else if (SUV_KEYWORDS.some(k => w.includes(k)) && (body.includes('suv') || body.includes('crossover'))) {
     pts += 18; reasons.push('SUV/crossover tercihi uyuşuyor');
   } else if (SEDAN_KEYWORDS.some(k => w.includes(k)) && body.includes('sedan')) {
@@ -44,14 +42,13 @@ function scorePreference(wantedFor: string, target: Listing): { pts: number; rea
   } else if (HATCHBACK_KEYWORDS.some(k => w.includes(k)) && body.includes('hatchback')) {
     pts += 16; reasons.push('Hatchback tercihi uyuşuyor');
   }
-  // Origin preference
+
   if (GERMAN_KEYWORDS.some(k => w.includes(k)) && GERMAN_KEYWORDS.slice(1).includes(brand)) {
     pts += 8; reasons.push('Alman marka tercihi');
   }
   if (JAPANESE_KEYWORDS.some(k => w.includes(k)) && JAPANESE_KEYWORDS.slice(1).includes(brand)) {
     pts += 8; reasons.push('Japon marka tercihi');
   }
-  // Fuel preference
   if (HYBRID_KEYWORDS.some(k => w.includes(k)) && fuel.includes('hibrit')) {
     pts += 10; reasons.push('Hibrit tercihi uyuşuyor');
   }
@@ -65,10 +62,12 @@ function scorePreference(wantedFor: string, target: Listing): { pts: number; rea
 function scoreLocation(source: Listing, target: Listing): { pts: number; reason: string | null } {
   if (source.city === target.city) return { pts: 18, reason: `Aynı şehir (${source.city})` };
   const nearby: Record<string, string[]> = {
-    'İstanbul': ['Bursa'],
-    'Bursa': ['İstanbul'],
-    'Ankara': ['Kayseri'],
+    'İstanbul': ['Bursa', 'Kocaeli'],
+    'Bursa': ['İstanbul', 'Kocaeli'],
+    'Kocaeli': ['İstanbul', 'Bursa'],
+    'Ankara': ['Kayseri', 'Eskişehir'],
     'Kayseri': ['Ankara'],
+    'Eskişehir': ['Ankara'],
   };
   if (nearby[source.city]?.includes(target.city)) return { pts: 8, reason: 'Yakın şehir' };
   return { pts: 3, reason: null };
@@ -76,22 +75,24 @@ function scoreLocation(source: Listing, target: Listing): { pts: number; reason:
 
 function scoreVehicle(target: Listing): { pts: number; reasons: string[] } {
   if (!target.vehicleDetails) return { pts: 10, reasons: [] };
-  const { km, year, hasAccidentRecord } = target.vehicleDetails;
+  const km = target.vehicleDetails.km ?? 0;
+  const year = target.vehicleDetails.year ?? 0;
+  const hasAccidentRecord = target.vehicleDetails.hasAccidentRecord ?? false;
   const reasons: string[] = [];
   let pts = 0;
 
   const condPts: Record<string, number> = { 'Mükemmel': 12, 'İyi': 9, 'Orta': 5, 'Yıpranmış': 1 };
   pts += condPts[target.condition] ?? 5;
 
-  if (km < 50000) { pts += 8; reasons.push('Düşük kilometre'); }
-  else if (km < 80000) { pts += 5; }
-  else if (km > 150000) { pts -= 4; }
+  if (km > 0 && km < 50_000)       { pts += 8; reasons.push('Düşük kilometre'); }
+  else if (km > 0 && km < 80_000)  { pts += 5; }
+  else if (km > 150_000)           { pts -= 4; }
 
-  if (year >= 2021) { pts += 6; reasons.push(`${year} model yeni araç`); }
-  else if (year >= 2018) { pts += 3; }
+  if (year >= 2021)       { pts += 6; reasons.push(`${year} model yeni araç`); }
+  else if (year >= 2018)  { pts += 3; }
 
   if (hasAccidentRecord) { pts -= 8; reasons.push('⚠ Hasar kaydı var'); }
-  else { pts += 4; reasons.push('Hasar kaydı yok'); }
+  else                   { pts += 4; reasons.push('Hasar kaydı yok'); }
 
   return { pts, reasons };
 }
@@ -111,58 +112,66 @@ function negotiationTip(source: Listing, target: Listing): string {
   return `${fmt(absDiff)} avantajın var. Karşı tarafa nakit fark ya da ekstra aksesuar teklif edebilirsin.`;
 }
 
+// ─── General query handler (no listing context) ──────────────────────────────
+
+function buildGeneralMessage(query: string): string | null {
+  const q = query.toLowerCase();
+
+  if (q.includes('müzakere') || q.includes('pazarlık') || q.includes('taktik') || q.includes('nasıl pazarlık')) {
+    return `Takasta işe yarayan birkaç tüyo:\n\n1. **Belgelerini hazırla** — bakım fişleri, ekspertiz raporu işe yarar\n2. **Piyasayı araştır** — sahibinden.com'da son satışlara bak\n3. **İlk teklifi %10 düşük ver** — yükseltmek için yer bırak\n4. **Aynı şehirde buluşmaya çalış** — lojistik kolaylaşır\n5. **50-100k arası fark** çoğu zaman kabul görür`;
+  }
+  if (q.includes('marka') || q.includes('güvenilir') || q.includes('iyi mi') || q.includes('alınır')) {
+    return `En çok işlem gören markalar: **Toyota, Honda, Volkswagen, Renault, Ford**.\n\n- **Toyota/Honda** — bakım maliyeti düşük, değer kaybı az\n- **VW/Skoda** — konforlu ama servisi pahalı\n- **Renault/Dacia** — uygun fiyat, yaygın servis ağı\n\nBir ilan sayfasını açıp benden analiz istersen o araca özel yorum yapabilirim.`;
+  }
+  if (q.includes('nasıl çalış') || q.includes('takas nedir') || q.includes('ne yapacağım')) {
+    return `Takaslat'ta takas şu şekilde işliyor:\n\n1. **İlanını ver** — aracın hakkında bilgileri gir\n2. **Teklifleri bekle** — ilgilenenlerin tekliflerini al\n3. **Teklif gönder** — beğendiğin bir ilana sen de teklif at\n4. **Anlaşın** — uygulama üzerinden mesajlaşın, buluşun`;
+  }
+  if (q.includes('fiyat') || q.includes('değer') || q.includes('analiz')) {
+    return `İdeal takas aralığı genelde **%15-20 fark** olarak kabul görür. ${fmt(200_000)} üzerindeki farklar nakit tamamlama gerektirir.\n\nBir ilan sayfasında benden fiyat analizi istersen sana özel hesaplama yaparım.`;
+  }
+
+  return null;
+}
+
 // ─── Message generator ───────────────────────────────────────────────────────
 
 function buildMessage(query: string, source: Listing | null, results: ReturnType<typeof score>[]): string {
-  const q = query.toLowerCase();
+  // Önce genel sorguları dene (ilan bağlamı olmadan da çalışır)
+  const generalReply = buildGeneralMessage(query);
 
-  if (results.length === 0) {
-    if (!source) {
+  if (!source) {
+    if (generalReply) return generalReply;
+    if (results.length === 0) {
       return 'Hangi araç için eşleşme arıyorsun? Bir ilan sayfasını açıp buradan "En iyi eşleşmeleri bul" dersen sana özel sonuçlar getirebilirim.';
     }
-    return 'Şu an eşleşen bir ilan bulamadım. Farklı bir marka veya fiyat aralığı deneyelim mi?';
+    return `Aramanla ilgili **${results.length} ilan** buldum. Aşağıda detaylar var.`;
+  }
+
+  // İlan bağlamlı sorgular
+  if (results.length === 0) {
+    return 'Bu ilan için şu an eşleşen başka bir ilan bulamadım. Farklı bir şey denememi ister misin?';
   }
 
   const top = results[0];
   const topScore = top.compatibilityScore;
 
-  if (source) {
-    const intro = topScore >= 75
-      ? `**${source.title}** için güçlü eşleşmeler buldum. En iyi sonuç **%${topScore}** uyumlulukla aşağıda.`
-      : topScore >= 50
-      ? `**${source.title}** için ${results.length} seçenek buldum. Fiyat farklarına bir göz at.`
-      : `**${source.title}** için çok güçlü bir eşleşme yok ama ${results.length} ilan var, bakabilirsin.`;
+  const intro = topScore >= 75
+    ? `**${source.title}** için güçlü eşleşmeler buldum. En iyi sonuç **%${topScore}** uyumlulukla aşağıda.`
+    : topScore >= 50
+    ? `**${source.title}** için ${results.length} seçenek buldum. Fiyat farklarına bir göz at.`
+    : `**${source.title}** için çok güçlü bir eşleşme yok ama ${results.length} ilan var, bakabilirsin.`;
 
-    const priceLine = source
-      ? `\n\nAracının tahmini değeri **${fmt(source.estimatedValue)}**. ` +
-        (top.priceDiff > 0
-          ? `En iyi eşleşmede **${fmt(top.priceDiff)} ek ödeme** gerekebilir.`
-          : top.priceDiff < 0
-          ? `En iyi eşleşmeden **${fmt(Math.abs(top.priceDiff))} nakit fark** isteyebilirsin.`
-          : 'Fiyatlar neredeyse eşit, nakit fark gerekmez.')
-      : '';
+  const priceLine = `\n\nAracının tahmini değeri **${fmt(source.estimatedValue)}**. ` +
+    (top.priceDiff > 0
+      ? `En iyi eşleşmede **${fmt(top.priceDiff)} ek ödeme** gerekebilir.`
+      : top.priceDiff < 0
+      ? `En iyi eşleşmeden **${fmt(Math.abs(top.priceDiff))} nakit fark** isteyebilirsin.`
+      : 'Fiyatlar neredeyse eşit, nakit fark gerekmez.');
 
-    return intro + priceLine;
-  }
+  // Genel sorgu da varsa ekle (örn. "pazarlık nasıl yapılır" + ilan açıkken)
+  const extra = generalReply ? `\n\n---\n${generalReply}` : '';
 
-  // General query
-  if (q.includes('fiyat') || q.includes('fark') || q.includes('analiz')) {
-    return `İdeal takas aralığı genelde **%15-20 fark** olarak kabul görür. ${fmt(200_000)} üzerindeki farklar nakit tamamlama gerektirir. Aşağıdaki ilanlara bakabilirsin.`;
-  }
-  if (q.includes('müzakere') || q.includes('pazarlık') || q.includes('taktik') || q.includes('nasıl')) {
-    return `Takasta işe yarayan birkaç tüyo:\n\n1. **Belgelerini hazırla** — bakım fişleri, ekspertiz raporu işe yarar\n2. **Piyasayı araştır** — sahibinden.com'da son satışlara bak\n3. **İlk teklifi %10 düşük ver** — yükseltmek için yer bırak\n4. **Aynı şehirde buluşmaya çalış** — lojistik kolaylaşır\n5. **50-100k arası fark** çoğu zaman kabul görür`;
-  }
-  if (q.includes('marka') || q.includes('güvenilir') || q.includes('iyi mi') || q.includes('alınır')) {
-    return `Takaslat'ta en çok işlem gören markalar: **Toyota, Honda, Volkswagen, Renault, Ford**.\n\nGenel tüyo:\n- **Toyota/Honda** — bakım maliyeti düşük, değer kaybı az\n- **VW/Skoda** — konforlu ama servisi pahalı\n- **Renault/Dacia** — uygun fiyat, yaygın servis ağı\n\nBir ilan sayfasını açıp benden analiz istersen o araca özel yorum yapabilirim.`;
-  }
-  if (q.includes('nasıl çalış') || q.includes('takas nedir') || q.includes('ne yapacağım')) {
-    return `Takaslat'ta takas şu şekilde işliyor:\n\n1. **İlanını ver** — aracın hakkında bilgileri gir\n2. **Teklifleri bekle** — ilgilenenlerin tekliflerini al\n3. **Teklif gönder** — beğendiğin bir ilana sen de teklif at\n4. **Anlaşın** — uygulama üzerinden mesajlaşın, buluşun\n\nBir ilan sayfasına gidip "En iyi eşleşmeleri bul" dersen sana uygun takasları bulabilirim.`;
-  }
-
-  if (results.length === 0) {
-    return 'Bir marka veya model yazarsan sana uygun ilanları getirebilirim. Ya da bir ilan sayfasını aç, oradan analiz yapalım.';
-  }
-  return `Aramanla ilgili **${results.length} ilan** buldum. En uyumlu sonuç **%${topScore}** skorda. Aşağıda detaylar var.`;
+  return intro + priceLine + extra;
 }
 
 // ─── Main scorer ─────────────────────────────────────────────────────────────
@@ -207,7 +216,6 @@ export interface SwapAIRequest {
 export function runSwapAI(req: SwapAIRequest): AIResponse {
   const { currentListing, allListings, userQuery } = req;
 
-  // Pick source: either the current listing, or try to infer from query
   const source = currentListing ?? inferSourceFromQuery(userQuery, allListings);
 
   if (!source) {
@@ -217,7 +225,6 @@ export function runSwapAI(req: SwapAIRequest): AIResponse {
     };
   }
 
-  // Score all other listings
   const candidates = allListings
     .filter((l) => l.id !== source.id && l.ownerId !== source.ownerId)
     .map((l) => score(source, l))
@@ -230,7 +237,7 @@ export function runSwapAI(req: SwapAIRequest): AIResponse {
   };
 }
 
-// Try to infer which listing the user is asking about from their query text
+// Sorgudan kaynak ilan tahmin et (sadece açık marka/model eşleşmelerinde)
 function inferSourceFromQuery(query: string, listings: Listing[]): Listing | null {
   const q = query.toLowerCase();
   for (const l of listings) {
