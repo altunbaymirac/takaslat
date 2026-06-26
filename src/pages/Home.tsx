@@ -202,8 +202,8 @@ export default function Home() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-5">
-            Arabanı sat değil,<br />
-            <span className="text-amber-400">takas et.</span>
+            Ne var ne yok,<br />
+            <span className="text-amber-400">takaslat.</span>
           </h1>
 
           <p className="text-blue-200 text-base sm:text-lg max-w-lg mx-auto mb-10 leading-relaxed">
