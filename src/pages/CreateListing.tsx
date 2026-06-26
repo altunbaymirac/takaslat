@@ -15,7 +15,6 @@ import { LISTING_TEMPLATES, type ListingTemplate } from '../data/listingTemplate
 import { VEHICLE_BRANDS, ELECTRONIC_BRANDS } from '../data/brands';
 import BrandPicker from '../components/BrandPicker';
 
-const categories: Category[] = ['Araç', 'Elektronik', 'Gayrimenkul', 'Diğer'];
 const fuels: FuelType[] = ['Benzin', 'Dizel', 'LPG', 'Hibrit', 'Elektrik'];
 const transmissions: TransmissionType[] = ['Manuel', 'Otomatik', 'Yarı Otomatik'];
 const conditions: Condition[] = ['Mükemmel', 'İyi', 'Orta', 'Yıpranmış'];
