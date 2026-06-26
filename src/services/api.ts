@@ -147,6 +147,14 @@ export async function register(payload: { name: string; email: string; password:
   return { user: { id: data.user.id, name: payload.name, email: payload.email }, token }
 }
 
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function login(email: string, password: string, _twoFactorCode?: string) {
   if (USE_MOCK) {
     await delay(300)
