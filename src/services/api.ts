@@ -241,10 +241,14 @@ export async function resetPassword(_email: string, _code: string, password: str
 export async function setupTwoFactor(): Promise<{ message: string; devCode?: string }> { return { message: 'Mock' } }
 export async function verifyTwoFactor(_code: string): Promise<Record<string, unknown>> { return {} }
 export async function disableTwoFactor(): Promise<Record<string, unknown>> { return {} }
-export async function requestEmailVerification(): Promise<{ message: string; devCode?: string }> { return { message: 'Mock' } }
-export async function confirmEmailVerification(_code: string): Promise<Record<string, unknown>> { return {} }
-export async function requestPhoneVerification(): Promise<{ message: string; devCode?: string }> { return { message: 'Mock' } }
-export async function confirmPhoneVerification(_code: string): Promise<Record<string, unknown>> { return {} }
+export async function requestEmailVerification(): Promise<{ message: string }> {
+  if (USE_MOCK) return { message: 'Mock: doğrulama bağlantısı gönderildi' }
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user?.email) throw new Error('Kullanıcı bulunamadı')
+  const { error } = await supabase.auth.resend({ type: 'signup', email: user.email })
+  if (error) throw new Error(error.message)
+  return { message: 'Doğrulama bağlantısı e-postanıza gönderildi' }
+}
 
 // ─── Listings ─────────────────────────────────────────────────────────────────
 

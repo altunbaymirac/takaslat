@@ -255,7 +255,25 @@ CREATE TRIGGER prevent_role_escalation
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.prevent_role_escalation();
 
--- ─── 10. UPDATED_AT OTOMATİK GÜNCELLEMESİ ───────────────────────────────────
+-- ─── 10. E-POSTA DOĞRULAMA SYNC ──────────────────────────────────────────────
+-- auth.users.email_confirmed_at dolduğunda profiles.email_verified = true yapar
+
+CREATE OR REPLACE FUNCTION public.sync_email_verified()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.email_confirmed_at IS NOT NULL AND OLD.email_confirmed_at IS NULL THEN
+    UPDATE public.profiles SET email_verified = TRUE WHERE id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS sync_email_verified ON auth.users;
+CREATE TRIGGER sync_email_verified
+  AFTER UPDATE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.sync_email_verified();
+
+-- ─── 11. UPDATED_AT OTOMATİK GÜNCELLEMESİ ───────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$

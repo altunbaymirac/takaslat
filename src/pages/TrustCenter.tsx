@@ -2,11 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import {
-  confirmEmailVerification,
-  confirmPhoneVerification,
   disableTwoFactor,
   requestEmailVerification,
-  requestPhoneVerification,
   setupTwoFactor,
   verifyTwoFactor,
 } from '../services/api';
@@ -32,11 +29,8 @@ export default function TrustCenter() {
 
   const { currentUser, updateProfile, initAuth } = useAppStore();
   const [phone, setPhone] = useState(currentUser?.phone ?? '');
-  const [emailCode, setEmailCode] = useState('');
-  const [phoneCode, setPhoneCode] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [emailDevCode, setEmailDevCode] = useState<string | null>(null);
-  const [phoneDevCode, setPhoneDevCode] = useState<string | null>(null);
   const [twoFactorDevCode, setTwoFactorDevCode] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -102,48 +96,36 @@ export default function TrustCenter() {
         <section className={itemClass}>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">E-posta doğrulama</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{currentUser.email}</p>
-          {emailDevCode && (
-            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-              Demo kod: {emailDevCode}
+          {currentUser.emailVerified ? (
+            <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+              E-posta adresiniz doğrulandı.
             </p>
-          )}
-          <div className="mt-4 space-y-2">
-            <button
-              disabled={currentUser.emailVerified || loading === 'email-request'}
-              onClick={() => run('email-request', async () => {
-                const res = await requestEmailVerification();
-                setEmailDevCode(res.devCode ?? null);
-                showToast(res.message, 'success');
-              })}
-              className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              Kod Gönder
-            </button>
-            <div className="flex gap-2">
-              <input
-                value={emailCode}
-                onChange={(e) => setEmailCode(e.target.value)}
-                maxLength={6}
-                placeholder="6 haneli kod"
-                className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
+          ) : emailSent ? (
+            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+              Doğrulama bağlantısı <strong>{currentUser.email}</strong> adresine gönderildi. E-postanızdaki bağlantıya tıklayın.
+            </p>
+          ) : (
+            <div className="mt-4">
               <button
-                disabled={currentUser.emailVerified || emailCode.length !== 6 || loading === 'email-confirm'}
-                onClick={() => run('email-confirm', async () => {
-                  await confirmEmailVerification(emailCode);
-                  await initAuth();
-                  showToast('E-posta doğrulandı', 'success');
+                disabled={loading === 'email-request'}
+                onClick={() => run('email-request', async () => {
+                  const res = await requestEmailVerification();
+                  setEmailSent(true);
+                  showToast(res.message, 'success');
                 })}
-                className="rounded-xl border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                Onayla
+                {loading === 'email-request' ? 'Gönderiliyor…' : 'Doğrulama Linki Gönder'}
               </button>
             </div>
-          </div>
+          )}
         </section>
 
         <section className={itemClass}>
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Telefon doğrulama</h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Telefon numarası</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Numara kaydedilir; SMS doğrulama yakında aktif olacak.
+          </p>
           <div className="mt-3 flex gap-2">
             <input
               value={phone}
@@ -157,49 +139,15 @@ export default function TrustCenter() {
                 await initAuth();
                 showToast('Telefon kaydedildi', 'success');
               })}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+              disabled={loading === 'phone-save'}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
             >
               Kaydet
             </button>
           </div>
-          {phoneDevCode && (
-            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-              Demo kod: {phoneDevCode}
-            </p>
-          )}
-          <div className="mt-4 space-y-2">
-            <button
-              disabled={currentUser.phoneVerified || loading === 'phone-request'}
-              onClick={() => run('phone-request', async () => {
-                const res = await requestPhoneVerification();
-                setPhoneDevCode(res.devCode ?? null);
-                showToast(res.message, 'success');
-              })}
-              className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              SMS Demo Kodu Gönder
-            </button>
-            <div className="flex gap-2">
-              <input
-                value={phoneCode}
-                onChange={(e) => setPhoneCode(e.target.value)}
-                maxLength={6}
-                placeholder="6 haneli kod"
-                className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-              <button
-                disabled={currentUser.phoneVerified || phoneCode.length !== 6 || loading === 'phone-confirm'}
-                onClick={() => run('phone-confirm', async () => {
-                  await confirmPhoneVerification(phoneCode);
-                  await initAuth();
-                  showToast('Telefon doğrulandı', 'success');
-                })}
-                className="rounded-xl border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-              >
-                Onayla
-              </button>
-            </div>
-          </div>
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+            SMS doğrulama yakında · Telefon numaranız şimdi kaydedilebilir.
+          </p>
         </section>
 
         <section className={itemClass}>
