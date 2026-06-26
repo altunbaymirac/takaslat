@@ -54,10 +54,9 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-          <div className="bg-[#1B4FD8] rounded-xl px-3 py-1.5 flex items-center justify-center shadow-sm">
-            <span className="font-black text-amber-400 text-[15px] leading-none tracking-tight">takaslat</span>
+          <div className="bg-[#1B4FD8] rounded-[10px] h-8 px-2.5 flex items-center justify-center shadow-sm flex-shrink-0">
+            <span className="font-black text-amber-400 text-[14px] leading-none tracking-tight">takaslat</span>
           </div>
-          <span className="hidden sm:inline text-[10px] font-medium text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 rounded-full px-2 py-0.5">Araç Takas</span>
         </Link>
 
         {/* Desktop nav */}
