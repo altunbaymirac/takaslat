@@ -23,8 +23,8 @@ const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 
 export default function Home() {
   useSEO({
-    title: 'Araç Takasının En Akıllı Adresi',
-    description: 'Araç ilanlarına bak, teklif ver, kolayca takas yap. Türkiye\'nin en güvenilir araç takas platformu.',
+    title: 'Araç Takasının En Akıllı Adresi | Takaslat',
+    description: 'Arabanı takas et. İlan ver, teklif al, güvenle buluş. Türkiye\'nin en akıllı araç takas platformu.',
   });
 
   const navigate = useNavigate();
@@ -202,19 +202,19 @@ export default function Home() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-5">
-            Ne var ne yok,<br />
-            <span className="text-amber-400">takaslat.</span>
+            Arabanı sat değil,<br />
+            <span className="text-amber-400">takas et.</span>
           </h1>
 
           <p className="text-blue-200 text-base sm:text-lg max-w-lg mx-auto mb-10 leading-relaxed">
-            Aracını, elektroniğini, gayrimenkulünü takas et.
-            Türkiye'nin akıllı takas platformu.
+            Araç takasının en akıllı adresi. İlan ver, teklif al,
+            güvenle buluş. Türkiye genelinde binlerce araç seni bekliyor.
           </p>
 
           <div className="flex flex-wrap justify-center gap-3">
             <a href="#listings"
               className="bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm px-7 py-3 rounded-2xl transition-colors shadow-lg shadow-blue-900/20">
-              İlanları İncele
+              Araçları İncele
             </a>
             <button
               onClick={() => openAIPanel()}
@@ -224,7 +224,7 @@ export default function Home() {
             </button>
             <Link to="/create"
               className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-semibold text-sm px-7 py-3 rounded-2xl transition-colors border border-white/20">
-              İlan Ver
+              Aracımı Takas Et
             </Link>
           </div>
         </div>

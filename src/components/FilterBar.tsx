@@ -9,7 +9,7 @@ import { fetchListingByCode } from '../services/api';
 
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 
-const CATS: (Category | 'Tümü')[] = ['Tümü', 'Araç', 'Elektronik', 'Gayrimenkul', 'Diğer'];
+const CATS: (Category | 'Tümü')[] = ['Tümü', 'Araç'];
 const CITIES = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Kayseri', 'Antalya'];
 
 export default function FilterBar({ onFilterChange }: { onFilterChange?: () => void } = {}) {
@@ -106,7 +106,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
         </svg>
         <input
           type="text"
-          placeholder="Marka, model veya TKS-XXXXXXX ilan kodu..."
+          placeholder="Marka, model, yıl veya TKS-XXXXXXX ilan kodu..."
           value={filters.searchQuery}
           onChange={e => { setFilters({ searchQuery: e.target.value }); setAcOpen(true); }}
           onFocus={() => setAcOpen(true)}

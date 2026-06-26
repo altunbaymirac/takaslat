@@ -60,6 +60,7 @@ export default function Navbar() {
             </svg>
           </div>
           <span className="font-bold text-[15px] text-slate-900 dark:text-slate-100 tracking-tight">Takaslat</span>
+          <span className="hidden sm:inline text-[10px] font-medium text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 rounded-full px-2 py-0.5">Araç Takas</span>
         </Link>
 
         {/* Desktop nav */}

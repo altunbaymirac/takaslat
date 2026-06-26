@@ -660,24 +660,12 @@ export default function CreateListing() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Kategori</label>
-              <div className="grid grid-cols-4 gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => update('category', cat)}
-                    className={`py-3 rounded-xl text-sm font-medium border-2 transition-colors ${
-                      form.category === cat
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'
-                    }`}
-                  >
-                    {cat === 'Araç' ? '🚗' : cat === 'Elektronik' ? '📱' : cat === 'Gayrimenkul' ? '🏠' : '📦'}
-                    <br />
-                    <span className="text-xs">{cat}</span>
-                  </button>
-                ))}
+              <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
+                <span className="text-2xl">🚗</span>
+                <div>
+                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Araç İlanı</p>
+                  <p className="text-xs text-blue-500 dark:text-blue-400">Takaslat şu an yalnızca araç takasına odaklanıyor.</p>
+                </div>
               </div>
             </div>
 
