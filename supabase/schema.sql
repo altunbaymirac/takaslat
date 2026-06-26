@@ -236,7 +236,26 @@ CREATE POLICY "Sahip görseli silebilir"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'images' AND auth.uid()::text = (storage.foldername(name))[1]);
 
--- ─── 9. UPDATED_AT OTOMATİK GÜNCELLEMESİ ────────────────────────────────────
+-- ─── 9. ROL YÜKSELTME KORUMASI ───────────────────────────────────────────────
+-- Kullanıcı kendi profilini güncelleyebilir AMA role alanını değiştiremez.
+-- Sadece service_role (sunucu tarafı admin) role değiştirebilir.
+
+CREATE OR REPLACE FUNCTION public.prevent_role_escalation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role AND auth.uid() IS NOT NULL THEN
+    RAISE EXCEPTION 'Rol değiştirme yetkisi yok';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS prevent_role_escalation ON public.profiles;
+CREATE TRIGGER prevent_role_escalation
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_role_escalation();
+
+-- ─── 10. UPDATED_AT OTOMATİK GÜNCELLEMESİ ───────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
@@ -261,7 +280,7 @@ CREATE TRIGGER set_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- ─── 10. ADMIN KULLANICI ATAMA ───────────────────────────────────────────────
+-- ─── 11. ADMIN KULLANICI ATAMA ───────────────────────────────────────────────
 -- Kayıt olduktan sonra bir kullanıcıyı admin yapmak için:
 -- (email adresini değiştir)
 --
@@ -272,7 +291,7 @@ CREATE TRIGGER set_profiles_updated_at
 -- Ya da kullanıcı ID ile:
 -- UPDATE public.profiles SET role = 'admin' WHERE id = 'USER_UUID_HERE';
 
--- ─── 11. DEMO HESAP (opsiyonel) ───────────────────────────────────────────────
+-- ─── 12. DEMO HESAP (opsiyonel) ───────────────────────────────────────────────
 -- Supabase Dashboard → Authentication → Users → Invite user:
 --   Email: demo@takaslat.com
 --   Password: demo1234
