@@ -54,12 +54,10 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
+          <div className="w-8 h-8 bg-[#1B4FD8] rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="font-black text-amber-400 text-[15px] leading-none tracking-tighter">t</span>
           </div>
-          <span className="font-bold text-[15px] text-slate-900 dark:text-slate-100 tracking-tight">Takaslat</span>
+          <span className="font-black text-[15px] text-slate-900 dark:text-slate-100 tracking-tight">takaslat</span>
           <span className="hidden sm:inline text-[10px] font-medium text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 rounded-full px-2 py-0.5">Araç Takas</span>
         </Link>
 

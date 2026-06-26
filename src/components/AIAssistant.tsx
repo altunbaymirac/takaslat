@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { AIMessage, AISuggestion } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -71,19 +71,39 @@ function SuggestionCard({ s, fallbackListing }: {
 
 // ─── Message renderer ─────────────────────────────────────────────────────────
 
-/** Basit markdown: **bold** ve *italic* / *"tırnak"* destekler */
+/** Basit markdown: **bold** destekler, satır başı `-` veya `1.` liste işaretleri temizlenir */
 function renderLine(line: string, lineKey: number) {
-  // Önce **bold** sonra *italic* tokenize et
-  const tokens = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  const parts: React.ReactNode[] = [];
+  let remaining = line;
+  let keyIdx = 0;
+
+  while (remaining.length > 0) {
+    const boldStart = remaining.indexOf('**');
+    if (boldStart === -1) {
+      parts.push(<span key={keyIdx++}>{remaining}</span>);
+      break;
+    }
+    // text before **
+    if (boldStart > 0) {
+      parts.push(<span key={keyIdx++}>{remaining.slice(0, boldStart)}</span>);
+    }
+    const boldEnd = remaining.indexOf('**', boldStart + 2);
+    if (boldEnd === -1) {
+      // unclosed **, render literally
+      parts.push(<span key={keyIdx++}>{remaining.slice(boldStart)}</span>);
+      break;
+    }
+    parts.push(
+      <strong key={keyIdx++} className="font-semibold">
+        {remaining.slice(boldStart + 2, boldEnd)}
+      </strong>
+    );
+    remaining = remaining.slice(boldEnd + 2);
+  }
+
   return (
-    <p key={lineKey} className={lineKey > 0 ? 'mt-1.5' : ''}>
-      {tokens.map((tok, j) => {
-        if (tok.startsWith('**') && tok.endsWith('**'))
-          return <strong key={j} className="font-semibold">{tok.slice(2, -2)}</strong>;
-        if (tok.startsWith('*') && tok.endsWith('*'))
-          return <span key={j} className="font-medium text-slate-800">{tok.slice(1, -1)}</span>;
-        return <span key={j}>{tok}</span>;
-      })}
+    <p key={lineKey} className={lineKey > 0 ? 'mt-1' : ''}>
+      {parts}
     </p>
   );
 }
