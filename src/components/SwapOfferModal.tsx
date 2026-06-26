@@ -24,6 +24,9 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
   const selected = myListings.find((l) => l.id === selectedListing);
   const localTone = getOfferTone(message);
 
+  const effectiveOfferedValue = Number(offeredValue) || selected?.estimatedValue || 0;
+  const priceDiff = effectiveOfferedValue > 0 ? effectiveOfferedValue - listing.estimatedValue : null;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sendOffer({
@@ -171,6 +174,31 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
                 className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {priceDiff !== null && (
+              <div className={`rounded-xl px-4 py-3 flex items-center justify-between gap-2 border ${
+                priceDiff > 0
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40'
+                  : priceDiff < 0
+                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/40'
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+              }`}>
+                <span className={`text-sm font-medium ${
+                  priceDiff > 0 ? 'text-emerald-700 dark:text-emerald-400'
+                  : priceDiff < 0 ? 'text-red-600 dark:text-red-400'
+                  : 'text-slate-600 dark:text-slate-400'
+                }`}>
+                  {priceDiff > 0 ? '✅ Fazla teklif' : priceDiff < 0 ? '⚠️ Eksik teklif' : '⚖️ Değer eşit'}
+                </span>
+                <span className={`text-base font-bold ${
+                  priceDiff > 0 ? 'text-emerald-700 dark:text-emerald-400'
+                  : priceDiff < 0 ? 'text-red-600 dark:text-red-400'
+                  : 'text-slate-500 dark:text-slate-400'
+                }`}>
+                  {priceDiff === 0 ? '—' : `${priceDiff > 0 ? '+' : ''}${formatPrice(priceDiff)}`}
+                </span>
+              </div>
+            )}
 
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-2">

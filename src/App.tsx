@@ -46,9 +46,11 @@ import { useAppStore } from './store/useAppStore';
 import { setSoundEnabled } from './lib/sound';
 import { subscribeNotificationStream } from './services/api';
 import { Link } from 'react-router-dom';
+import { usePriceDropAlerts } from './hooks/usePriceDropAlerts';
 
 function AppInner() {
   const { initAuth, loadListings, loadNotifications, pushNotification, currentUser, darkMode, soundEnabled, accentColor } = useAppStore();
+  usePriceDropAlerts();
 
   useEffect(() => {
     initAuth();

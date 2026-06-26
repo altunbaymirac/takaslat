@@ -154,13 +154,14 @@ export default function ListingCard({ listing }: { listing: Listing }) {
           <button
             onClick={() => toggleCompare(listing.id)}
             title={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştırmaya ekle'}
-            className={`flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-xl transition-colors border ${
+            className={`flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl transition-colors border ${
               isCompare
                 ? 'bg-blue-600 text-white border-blue-600'
-                : 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                : 'text-slate-500 dark:text-slate-300 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300'
             }`}
           >
             <span className="text-sm leading-none">⚖️</span>
+            <span>{isCompare ? 'Çıkar' : 'Karşılaştır'}</span>
           </button>
           <button
             onClick={() => toggleBundleItem(listing.id)}
