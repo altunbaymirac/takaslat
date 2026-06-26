@@ -124,9 +124,9 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
   const topScore = top.compatibilityScore;
 
   if (source) {
-    const intro = topScore >= 80
+    const intro = topScore >= 75
       ? `**${source.title}** için güçlü eşleşmeler buldum. En iyi sonuç **%${topScore}** uyumlulukla aşağıda.`
-      : topScore >= 60
+      : topScore >= 50
       ? `**${source.title}** için ${results.length} seçenek buldum. Fiyat farklarına bir göz at.`
       : `**${source.title}** için çok güçlü bir eşleşme yok ama ${results.length} ilan var, bakabilirsin.`;
 
@@ -162,7 +162,8 @@ function score(source: Listing, target: Listing) {
   const veh = scoreVehicle(target);
 
   const total = price.pts + pref.pts + loc.pts + veh.pts;
-  const normalized = Math.min(Math.max(Math.round(total * 1.1), 10), 97);
+  // Max mümkün puan ~123 (40+35+18+30) → 100'e çevir, max 95
+  const normalized = Math.min(Math.max(Math.round(total / 1.23), 5), 95);
 
   const reasons = [
     price.reason,
