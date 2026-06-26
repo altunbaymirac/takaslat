@@ -79,7 +79,7 @@ export default function TrustCenter() {
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-300">Takaslat Güven Merkezi</p>
           <h1 className="mt-2 text-2xl font-black">Hesap, ilan ve takas güvenliği</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
-            Hesabınız SQLite veritabanında tutulur. Şifreler bcrypt ile hashlenir, oturumlar JWT ile yönetilir, yazma işlemleri kimlik doğrulama ister.
+            Hesabınız Supabase altyapısında güvenli şekilde saklanır. Şifreler hash'lenerek korunur, oturumlar JWT ile yönetilir, tüm yazma işlemleri kimlik doğrulama gerektirir.
           </p>
         </div>
         <div className="min-w-[180px] rounded-2xl bg-white/10 p-4">
@@ -266,10 +266,10 @@ export default function TrustCenter() {
         <div className={itemClass}>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Veri ve saklama</h2>
           <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <p>Veritabanı: <strong>server/prisma/dev.db</strong> SQLite dosyası.</p>
-            <p>Şifreler: bcrypt hash, düz metin şifre saklanmaz.</p>
-            <p>Oturum: 7 gün süreli JWT token, frontend localStorage içinde tutulur.</p>
-            <p>Dosyalar: lokal upload klasörü; production için S3 uyumlu depolamaya taşınabilir.</p>
+            <p>Veritabanı: <strong>Supabase</strong> (PostgreSQL) — Row Level Security ile korunur.</p>
+            <p>Şifreler: Hash'lenerek saklanır, düz metin şifre tutulmaz.</p>
+            <p>Oturum: JWT tabanlı, Supabase Auth tarafından yönetilir.</p>
+            <p>Dosyalar: Supabase Storage'da güvenli şekilde depolanır.</p>
           </div>
         </div>
         <div className={itemClass}>
