@@ -679,8 +679,18 @@ export function subscribeNotificationStream(
 // USE_MOCK ise çağıran fonksiyon kendi fallback'ini döndürür (helper çağrılmaz).
 async function invokeAI<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.functions.invoke('ai', { body: { action, payload } })
-  if (error || !data || (data as { error?: string }).error) {
-    throw new Error((data as { error?: string })?.error ?? error?.message ?? 'AI servisi yanıt vermedi')
+  if (error) {
+    // FunctionsHttpError: gerçek hata gövdesi error.context (Response) içinde — onu oku
+    let detail = error.message
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx = (error as any).context
+    if (ctx && typeof ctx.json === 'function') {
+      try { const body = await ctx.json(); if (body?.error) detail = body.error } catch { /* */ }
+    }
+    throw new Error(detail)
+  }
+  if (!data || (data as { error?: string }).error) {
+    throw new Error((data as { error?: string })?.error ?? 'AI servisi yanıt vermedi')
   }
   return data as T
 }
@@ -691,8 +701,8 @@ export async function aiDescribe(p: { brand: string; model: string; year: number
   if (USE_MOCK) {
     return { description: `${p.year} model ${p.brand} ${p.model} — bakimli, takasa acik. Detaylar icin iletisime gecin.`, basedOnSimilar: 0 }
   }
-  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'describe', payload: p } })
-  if (error || !data?.description) throw new Error(data?.error ?? error?.message ?? 'AI açıklama üretemedi')
+  const data = await invokeAI<{ description?: string; basedOnSimilar?: number }>('describe', p)
+  if (!data.description) throw new Error('AI açıklama üretemedi (boş yanıt)')
   return { description: data.description, basedOnSimilar: data.basedOnSimilar ?? 0 }
 }
 
@@ -721,8 +731,7 @@ export async function aiEstimateValue(p: { brand: string; model?: string; year?:
   if (USE_MOCK) {
     return { estimated: null, low: null, high: null, basedOn: 0, message: 'Mock modda deger hesaplanamaz.' }
   }
-  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'estimate', payload: p } })
-  if (error || !data) throw new Error(data?.error ?? error?.message ?? 'Değer hesaplanamadı')
+  const data = await invokeAI<{ estimated?: number | null; low?: number | null; high?: number | null; basedOn?: number; message?: string }>('estimate', p)
   return { estimated: data.estimated ?? null, low: data.low ?? null, high: data.high ?? null, basedOn: data.basedOn ?? 0, message: data.message ?? '' }
 }
 
@@ -772,8 +781,7 @@ export async function aiRisk(p: { listingId: string }): Promise<{ riskScore: num
 
 export async function aiListingQuality(p: { listingId?: string; draft?: Record<string, unknown> }): Promise<{ score: number; grade: string; fixes: string[]; improvedDescription: string }> {
   if (USE_MOCK) return { score: 75, grade: 'B', fixes: [], improvedDescription: '' }
-  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'quality', payload: p } })
-  if (error || !data) throw new Error(data?.error ?? error?.message ?? 'Kalite kontrol yapılamadı')
+  const data = await invokeAI<{ score?: number; grade?: string; fixes?: string[]; improvedDescription?: string }>('quality', p)
   return { score: data.score ?? 60, grade: data.grade ?? 'B', fixes: data.fixes ?? [], improvedDescription: data.improvedDescription ?? '' }
 }
 

@@ -227,8 +227,8 @@ export default function CreateListing() {
       showToast(res.basedOnSimilar > 0
         ? `${res.basedOnSimilar} benzer ilana göre yazıldı`
         : 'Açıklama oluşturuldu', 'success');
-    } catch {
-      showToast('AI açıklama üretemedi', 'error');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'AI açıklama üretemedi', 'error');
     } finally {
       setAiLoading(false);
     }
@@ -255,8 +255,8 @@ export default function CreateListing() {
       } else {
         showToast(res.message, 'info');
       }
-    } catch {
-      showToast('Değer hesaplanamadı', 'error');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Değer hesaplanamadı', 'error');
     } finally {
       setAiLoading(false);
     }
@@ -323,8 +323,8 @@ export default function CreateListing() {
       });
       setQualityHint(res);
       showToast(`AI kalite puanı: ${res.score}/100`, res.score >= 70 ? 'success' : 'info');
-    } catch {
-      showToast('Kalite kontrol için backend bağlantısı gerekli', 'error');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Kalite kontrol yapılamadı', 'error');
     } finally {
       setAiLoading(false);
     }
