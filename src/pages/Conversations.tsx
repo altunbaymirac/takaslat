@@ -6,7 +6,7 @@ import type { SwapOffer, OfferStatus } from '../types';
 import RatingModal from '../components/RatingModal';
 import NegotiationSimulator from '../components/NegotiationSimulator';
 import MeetingScheduler from '../components/MeetingScheduler';
-import { aiConversationCoach, confirmOfferComplete, subscribeNotificationStream, type RawMessageEvent, type OfferStatusEvent } from '../services/api';
+import { aiConversationCoach, aiErrorMessage, confirmOfferComplete, subscribeNotificationStream, type RawMessageEvent, type OfferStatusEvent } from '../services/api';
 import { showToast } from '../components/Toast';
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -225,8 +225,8 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
       setCoachReplies(res.replies);
       setCoachNote(`${res.intent} · ${res.nextBestAction}`);
       showToast('AI cevap önerileri hazır', 'success');
-    } catch {
-      showToast('AI görüşme koçu için backend bağlantısı gerekli', 'error');
+    } catch (err) {
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setCoachLoading(false);
     }

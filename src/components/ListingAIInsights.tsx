@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Listing } from '../types';
-import { aiRisk, aiSwapScore } from '../services/api';
+import { aiRisk, aiSwapScore, aiErrorMessage } from '../services/api';
 import { showToast } from './Toast';
 
 type RiskResult = Awaited<ReturnType<typeof aiRisk>>;
@@ -31,8 +31,8 @@ export default function ListingAIInsights({ listing }: { listing: Listing }) {
       setRisk(riskRes);
       setScore(scoreRes);
       showToast('AI ilan analizi güncellendi', 'success');
-    } catch {
-      showToast('AI analizi için backend bağlantısı gerekli', 'error');
+    } catch (err) {
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setLoading(false);
     }
