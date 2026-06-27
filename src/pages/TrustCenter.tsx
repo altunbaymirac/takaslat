@@ -2,10 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import {
-  disableTwoFactor,
   requestEmailVerification,
-  setupTwoFactor,
-  verifyTwoFactor,
 } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
@@ -30,8 +27,6 @@ export default function TrustCenter() {
   const { currentUser, updateProfile, initAuth } = useAppStore();
   const [phone, setPhone] = useState(currentUser?.phone ?? '');
   const [emailSent, setEmailSent] = useState(false);
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [twoFactorDevCode, setTwoFactorDevCode] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
   const score = useMemo(() => {
@@ -41,7 +36,7 @@ export default function TrustCenter() {
     if (currentUser.phoneVerified) value += 20;
     if (currentUser.twoFactorEnabled) value += 15;
     if ((currentUser.totalSwaps ?? 0) > 0) value += 5;
-    if ((currentUser.rating ?? 5) >= 4.7) value += 5;
+    if (currentUser.rating != null && currentUser.rating >= 4.7) value += 5;
     return Math.min(100, value);
   }, [currentUser]);
 
@@ -153,60 +148,11 @@ export default function TrustCenter() {
         <section className={itemClass}>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">İki adımlı doğrulama</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Girişte e-posta kodu isteyerek hesap ele geçirilme riskini azaltır.
+            Giriş sırasında doğrulayıcı uygulama (TOTP) kodu isteyerek hesabınızı korur.
           </p>
-          {twoFactorDevCode && (
-            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-              Demo kod: {twoFactorDevCode}
-            </p>
-          )}
-          <div className="mt-4 space-y-2">
-            {!currentUser.twoFactorEnabled ? (
-              <>
-                <button
-                  onClick={() => run('2fa-setup', async () => {
-                    const res = await setupTwoFactor();
-                    setTwoFactorDevCode(res.devCode ?? null);
-                    showToast(res.message, 'success');
-                  })}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                >
-                  2FA Kod Oluştur
-                </button>
-                <div className="flex gap-2">
-                  <input
-                    value={twoFactorCode}
-                    onChange={(e) => setTwoFactorCode(e.target.value)}
-                    maxLength={6}
-                    placeholder="6 haneli kod"
-                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  />
-                  <button
-                    disabled={twoFactorCode.length !== 6}
-                    onClick={() => run('2fa-verify', async () => {
-                      await verifyTwoFactor(twoFactorCode);
-                      await initAuth();
-                      showToast('2FA aktif edildi', 'success');
-                    })}
-                    className="rounded-xl border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                  >
-                    Aktif Et
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                onClick={() => run('2fa-disable', async () => {
-                  await disableTwoFactor();
-                  await initAuth();
-                  showToast('2FA kapatıldı', 'success');
-                })}
-                className="w-full rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50"
-              >
-                2FA Kapat
-              </button>
-            )}
-          </div>
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+            2FA yakında · Google Authenticator ve benzeri uygulamalar desteklenecek.
+          </p>
         </section>
       </div>
 
