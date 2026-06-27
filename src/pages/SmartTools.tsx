@@ -15,6 +15,7 @@ import {
   aiScenarios,
   aiSwapAdvice,
   aiSwapScore,
+  aiErrorMessage,
   fetchDeals,
   type BudgetResult,
   type Deal,
@@ -196,7 +197,7 @@ export default function SmartTools() {
     try {
       setResult({ title, data: await fn() });
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'AI aracı çalışmadı', 'error');
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setAiLoading(false);
     }
@@ -213,8 +214,8 @@ export default function SmartTools() {
         city: budgetCity || undefined,
       });
       setBudgetResult(res);
-    } catch {
-      showToast('Bütçe analizi yapılamadı', 'error');
+    } catch (err) {
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setBudgetLoading(false);
     }

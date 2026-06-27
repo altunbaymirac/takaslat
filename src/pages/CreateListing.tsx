@@ -9,7 +9,7 @@ import type {
   PropertyType, PropertyDetails, HeatingType, TitleDeed,
   ListingAttachment,
 } from '../types';
-import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, uploadFile, uploadImages } from '../services/api';
+import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, aiErrorMessage, uploadFile, uploadImages } from '../services/api';
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
 import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
@@ -228,7 +228,7 @@ export default function CreateListing() {
         ? `${res.basedOnSimilar} benzer ilana göre yazıldı`
         : 'Açıklama oluşturuldu', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'AI açıklama üretemedi', 'error');
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setAiLoading(false);
     }
@@ -256,7 +256,7 @@ export default function CreateListing() {
         showToast(res.message, 'info');
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Değer hesaplanamadı', 'error');
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setAiLoading(false);
     }
@@ -324,7 +324,7 @@ export default function CreateListing() {
       setQualityHint(res);
       showToast(`AI kalite puanı: ${res.score}/100`, res.score >= 70 ? 'success' : 'info');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Kalite kontrol yapılamadı', 'error');
+      showToast(aiErrorMessage(err), 'error');
     } finally {
       setAiLoading(false);
     }

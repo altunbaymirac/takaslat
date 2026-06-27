@@ -695,6 +695,24 @@ async function invokeAI<T>(action: string, payload: Record<string, unknown> = {}
   return data as T
 }
 
+// AI hatasını kullanıcı dostu Türkçe mesaja çevirir; ham detayı konsola yazar (debug).
+export function aiErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  // Kota mesajı zaten kullanıcı dostu (edge function'dan), olduğu gibi göster
+  if (/limit doldu/i.test(raw)) return raw
+  // Anahtar / bakiye / DeepSeek tarafı — teknik detayı gizle
+  if (/DEEPSEEK_API_KEY|DeepSeek hata|401|402|403|insufficient|balance|invalid api/i.test(raw)) {
+    console.error('[AI] servis hatası:', raw)
+    return 'AI servisi şu an yanıt veremiyor. Lütfen biraz sonra tekrar dene.'
+  }
+  // Bağlantı / fonksiyon erişimi
+  if (/non-2xx|Failed to fetch|NetworkError|Functions|fetch|timeout/i.test(raw)) {
+    console.error('[AI] bağlantı hatası:', raw)
+    return 'AI servisine ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.'
+  }
+  return raw || 'AI işlemi tamamlanamadı, tekrar dene.'
+}
+
 export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { return {} }
 
 export async function aiDescribe(p: { brand: string; model: string; year: number; km?: number; fuel?: string; transmission?: string; color?: string; bodyType?: string; hasAccidentRecord?: boolean; condition?: string; city?: string }): Promise<{ description: string; basedOnSimilar: number }> {
