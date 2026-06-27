@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { forgotPassword, signInWithGoogle } from '../services/api';
 import { showToast } from '../components/Toast';
@@ -12,6 +12,8 @@ export default function Login() {
   useSEO({ title: 'Giriş Yap', description: 'Takaslat hesabına giriş yap ve araç takas ilanlarını keşfet.' });
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
   const loginUser = useAppStore((s) => s.loginUser);
 
   const [mode,          setMode]         = useState<Mode>('login');
@@ -33,7 +35,7 @@ export default function Login() {
         checkRateLimit('login', email);
         await loginUser(email, password, twoFactorCode || undefined);
         resetRateLimit('login', email);
-        navigate('/');
+        navigate(redirectTo);
       } else if (mode === 'forgot') {
         checkRateLimit('forgotPassword', email);
         await forgotPassword(email);
@@ -179,7 +181,7 @@ export default function Login() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Hesabın yok mu?{' '}
-            <Link to="/register" className="text-blue-600 font-medium hover:underline">Kayıt ol</Link>
+            <Link to={redirectTo !== '/' ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'} className="text-blue-600 font-medium hover:underline">Kayıt ol</Link>
           </p>
         </div>
       </div>

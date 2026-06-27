@@ -27,6 +27,7 @@ export default function Register() {
   const remaining = getRemainingAttempts('register', 'global');
   const [searchParams] = useSearchParams();
   const refId = searchParams.get('ref');
+  const redirectTo = searchParams.get('redirect') || '/';
 
   useEffect(() => {
     if (refId) {
@@ -46,7 +47,7 @@ export default function Register() {
       await registerUser(name, email, password, city || undefined);
       acceptTerms();
       resetRateLimit('register', 'global');
-      navigate('/');
+      navigate(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kayıt başarısız');
     } finally {
@@ -227,7 +228,7 @@ export default function Register() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Zaten hesabın var mı?{' '}
-            <Link to="/login" className="text-blue-600 font-medium hover:underline">
+            <Link to={redirectTo !== '/' ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'} className="text-blue-600 font-medium hover:underline">
               Giriş yap
             </Link>
           </p>

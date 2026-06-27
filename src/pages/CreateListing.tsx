@@ -90,24 +90,6 @@ export default function CreateListing() {
 
   const navigate = useNavigate();
   const { addListing, currentUser } = useAppStore();
-
-  if (!currentUser) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-6">
-        <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
-          <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">İlan vermek için giriş yap</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-6">Takaslat'ta ilan verebilmek için hesabına giriş yapman gerekiyor.</p>
-        <div className="flex gap-3">
-          <a href="/login" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">Giriş Yap</a>
-          <a href="/register" className="px-5 py-2.5 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl transition-colors">Kayıt Ol</a>
-        </div>
-      </div>
-    );
-  }
   const [vehicleGroup, setVehicleGroup] = useState('');
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -129,13 +111,26 @@ export default function CreateListing() {
       const raw = localStorage.getItem('takaslat-draft');
       if (raw) {
         const draft = JSON.parse(raw);
+        // Login'den döndüyse (resume flag) ve giriş yapılmışsa: otomatik geri yükle
+        const resuming = localStorage.getItem('takaslat-resume-after-login');
+        if (resuming && currentUser) {
+          localStorage.removeItem('takaslat-resume-after-login');
+          setForm(draft);
+          if (draft.bodyType) {
+            const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(draft.bodyType))?.[0];
+            if (grp) setVehicleGroup(grp);
+          }
+          setStep(3);
+          showToast('Bilgilerin geri yüklendi — şimdi yayınlayabilirsin', 'success');
+          return;
+        }
         // En az bir anlamlı içerik varsa göster
         if (draft.title || draft.description || draft.brand || draft.elecBrand || draft.netSqm) {
           setHasDraft(true);
         }
       }
     } catch { /* */ }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function restoreDraft() {
     try {
@@ -468,6 +463,17 @@ export default function CreateListing() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Giriş yoksa: taslağı kaydet, login'e gönder, dönüşte kaldığı yerden devam etsin
+    if (!currentUser) {
+      try {
+        localStorage.setItem('takaslat-draft', JSON.stringify(form));
+        localStorage.setItem('takaslat-resume-after-login', '1');
+      } catch { /* */ }
+      showToast('Son adım! İlanını yayınlamak için giriş yap — bilgilerin kayıtlı', 'info');
+      navigate('/login?redirect=/create');
+      return;
+    }
 
     // Otomatik başlık
     let autoTitle = form.title;
