@@ -8,4 +8,4 @@ Disallow: /settings
 Disallow: /conversations
 Disallow: /my-offers
 
-Sitemap: https://takaslat.vercel.app/sitemap.xml
+Sitemap: https://www.takaslat.com/sitemap.xml
