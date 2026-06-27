@@ -659,15 +659,18 @@ export function subscribeNotificationStream(
   _onOfferStatusEvent?: (event: OfferStatusEvent) => void,
 ): () => void {
   if (USE_MOCK) return () => undefined
+  // Benzersiz kanal adı: aynı topic'e iki kez abone olup
+  // "cannot add postgres_changes after subscribe()" hatasını önler
+  const channelName = `notifications-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const channel = supabase
-    .channel('notifications')
+    .channel(channelName)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const n = payload.new as any
       onNotification({ id: n.id, type: n.type, title: n.title, body: n.body, href: n.href, createdAt: n.created_at, read: false })
     })
     .subscribe()
-  return () => { supabase.removeChannel(channel) }
+  return () => { void supabase.removeChannel(channel) }
 }
 
 // ─── AI (mock / local hesaplamalar) ──────────────────────────────────────────
