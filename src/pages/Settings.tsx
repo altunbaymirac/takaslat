@@ -332,18 +332,10 @@ export default function Settings() {
           </button>
         </section>
 
-        {/* Hakkında */}
-        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-5">
-          <h2 className="text-sm font-bold text-blue-900 dark:text-blue-200 mb-2 flex items-center gap-2">
-            <span>ℹ️</span> Hakkında
-          </h2>
-          <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-            <strong>Takaslat</strong> — Akıllı Takas Platformu
-          </p>
-          <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-            v1.0.0 · Gerçek zamanlı AI · React + Supabase
-          </p>
-        </section>
+        {/* Versiyon */}
+        <p className="text-center text-xs text-slate-400 dark:text-slate-600 pb-2">
+          Takaslat v1.0.0 · © {new Date().getFullYear()} Tüm hakları saklıdır.
+        </p>
       </div>
     </div>
   );

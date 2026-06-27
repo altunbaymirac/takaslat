@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import AIAssistant from './components/AIAssistant';
 import Toast from './components/Toast';
 import CompareBar from './components/CompareBar';
@@ -139,6 +140,7 @@ function AppInner() {
                 </Suspense>
                 </ErrorBoundary>
               </main>
+              <Footer />
               <AIAssistant />
               <CompareBar />
               <BundleBar />

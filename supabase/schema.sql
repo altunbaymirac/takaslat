@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   phone           TEXT,
   city            TEXT,
   avatar          TEXT,
-  rating          NUMERIC(3,2) DEFAULT 5.0,
+  rating          NUMERIC(3,2),
   total_swaps     INTEGER     DEFAULT 0,
   two_factor_enabled BOOLEAN  DEFAULT FALSE,
   role            TEXT        DEFAULT 'user',   -- 'user' | 'admin' | 'moderator'
