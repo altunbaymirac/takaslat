@@ -42,17 +42,24 @@ async function callDeepSeek(
   const key = Deno.env.get('DEEPSEEK_API_KEY');
   if (!key) throw new Error('DEEPSEEK_API_KEY tanımlı değil (Edge Functions → Secrets)');
 
-  const res = await fetch(DEEPSEEK_URL, {
+  const doCall = (useJsonMode: boolean) => fetch(DEEPSEEK_URL, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODEL,
       messages,
-      temperature: jsonMode ? 0.3 : 0.7,
+      temperature: useJsonMode ? 0.3 : 0.7,
       max_tokens: 900,
-      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+      ...(useJsonMode ? { response_format: { type: 'json_object' } } : {}),
     }),
   });
+
+  let res = await doCall(jsonMode);
+  // Bazı DeepSeek sürümleri response_format'ı reddedebilir → JSON mode'suz tekrar dene
+  if (!res.ok && jsonMode) {
+    console.error(`response_format reddedildi (${res.status}), JSON mode'suz tekrar deneniyor`);
+    res = await doCall(false);
+  }
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`DeepSeek hata ${res.status}: ${txt.slice(0, 200)}`);
@@ -78,20 +85,28 @@ async function checkAndLog(supabase: any, identifier: string, authed: boolean, a
   const hourAgo = new Date(Date.now() - 3600_000).toISOString();
   const dayAgo = new Date(Date.now() - 86400_000).toISOString();
 
-  const { count: hourCount } = await supabase
-    .from('ai_usage').select('*', { count: 'exact', head: true })
-    .eq('identifier', identifier).gte('created_at', hourAgo);
-  if ((hourCount ?? 0) >= lim.hour) {
-    return { ok: false, message: `Saatlik AI limiti doldu (${lim.hour}). Biraz sonra tekrar dene.` };
+  try {
+    const { count: hourCount, error: e1 } = await supabase
+      .from('ai_usage').select('id', { count: 'exact', head: true })
+      .eq('identifier', identifier).gte('created_at', hourAgo);
+    if (e1) throw e1;
+    if ((hourCount ?? 0) >= lim.hour) {
+      return { ok: false, message: `Saatlik AI limiti doldu (${lim.hour}). Biraz sonra tekrar dene.` };
+    }
+    const { count: dayCount, error: e2 } = await supabase
+      .from('ai_usage').select('id', { count: 'exact', head: true })
+      .eq('identifier', identifier).gte('created_at', dayAgo);
+    if (e2) throw e2;
+    if ((dayCount ?? 0) >= lim.day) {
+      return { ok: false, message: `Günlük AI limiti doldu (${lim.day}). Yarın tekrar dene.` };
+    }
+    // Kotayı say: pahalı DeepSeek çağrısından önce kaydet
+    await supabase.from('ai_usage').insert({ identifier, action });
+  } catch (err) {
+    // ai_usage tablosu yoksa/erişilemezse AI'ı bloklama (fail-open), ama logla.
+    // SQL editöründe ai_rate_limit.sql çalıştırılınca limit otomatik devreye girer.
+    console.error('checkAndLog atlandı (ai_usage erişilemedi):', err instanceof Error ? err.message : String(err));
   }
-  const { count: dayCount } = await supabase
-    .from('ai_usage').select('*', { count: 'exact', head: true })
-    .eq('identifier', identifier).gte('created_at', dayAgo);
-  if ((dayCount ?? 0) >= lim.day) {
-    return { ok: false, message: `Günlük AI limiti doldu (${lim.day}). Yarın tekrar dene.` };
-  }
-  // Kotayı say: pahalı DeepSeek çağrısından önce kaydet
-  await supabase.from('ai_usage').insert({ identifier, action });
   return { ok: true, message: '' };
 }
 
@@ -382,7 +397,15 @@ Deno.serve(async (req) => {
     const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
     const identifier = userId ?? `ip:${ip}`;
 
-    const { action, payload } = await req.json();
+    let action: string; let payload: unknown;
+    try {
+      const body = await req.json();
+      action = body.action;
+      payload = body.payload;
+    } catch {
+      return json({ error: 'Geçersiz veya boş istek gövdesi (JSON bekleniyor)' }, 400);
+    }
+    if (!action) return json({ error: 'action alanı zorunlu' }, 400);
     const p = (payload ?? {}) as Record<string, unknown>;
 
     // Rate limit kontrolü (visualDescription LLM kullanmaz, muaf)
