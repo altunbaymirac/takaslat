@@ -675,7 +675,12 @@ export function subscribeNotificationStream(
 export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { return {} }
 
 export async function aiDescribe(p: { brand: string; model: string; year: number; km?: number; fuel?: string; transmission?: string; color?: string; bodyType?: string; hasAccidentRecord?: boolean; condition?: string; city?: string }): Promise<{ description: string; basedOnSimilar: number }> {
-  return { description: `${p.year} model ${p.brand} ${p.model} — bakimli, takasa acik. Detaylar icin iletisime gecin.`, basedOnSimilar: 0 }
+  if (USE_MOCK) {
+    return { description: `${p.year} model ${p.brand} ${p.model} — bakimli, takasa acik. Detaylar icin iletisime gecin.`, basedOnSimilar: 0 }
+  }
+  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'describe', payload: p } })
+  if (error || !data?.description) throw new Error(data?.error ?? error?.message ?? 'AI açıklama üretemedi')
+  return { description: data.description, basedOnSimilar: data.basedOnSimilar ?? 0 }
 }
 
 export interface ValueForecast { listingId: string; title: string; currentValue: number; months: { month: number; value: number; label: string }[]; summary: { after6m: number; after12m: number; totalChange6m: number; totalChange12m: number; monthlyDepreciation: number; inflationAdjust: number }; factors: string[]; recommendation: string }
@@ -692,8 +697,13 @@ export async function aiNegotiate(_p: { myMessage: string; listingId?: string; o
   return { analysis: { tone: 'dengeli', toneReason: 'Mock', length: { score: 80, note: 'OK' }, positives: [], negatives: [], overallScore: 80 }, possibilities: [], tips: ['Mock mod'] }
 }
 
-export async function aiEstimateValue(_p: { brand: string; model?: string; year?: number; km?: number; hasAccidentRecord?: boolean }): Promise<{ estimated: number | null; low: number | null; high: number | null; basedOn: number; message: string }> {
-  return { estimated: null, low: null, high: null, basedOn: 0, message: 'Mock modda deger hesaplanamaz.' }
+export async function aiEstimateValue(p: { brand: string; model?: string; year?: number; km?: number; hasAccidentRecord?: boolean }): Promise<{ estimated: number | null; low: number | null; high: number | null; basedOn: number; message: string }> {
+  if (USE_MOCK) {
+    return { estimated: null, low: null, high: null, basedOn: 0, message: 'Mock modda deger hesaplanamaz.' }
+  }
+  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'estimate', payload: p } })
+  if (error || !data) throw new Error(data?.error ?? error?.message ?? 'Değer hesaplanamadı')
+  return { estimated: data.estimated ?? null, low: data.low ?? null, high: data.high ?? null, basedOn: data.basedOn ?? 0, message: data.message ?? '' }
 }
 
 export interface SwapAdvice { message: string; candidates: { listingId: string; title: string; city: string; value: number; score: number }[]; tips: string[]; suggestedMessage: string }
@@ -720,7 +730,12 @@ export async function aiConversationCoach(_p: { lastMessage: string; listingId?:
 
 export async function aiRisk(_p: { listingId: string }): Promise<{ riskScore: number; level: string; risks: string[]; positives: string[]; checklist: string[] }> { return { riskScore: 20, level: 'Dusuk', risks: [], positives: [], checklist: [] } }
 
-export async function aiListingQuality(_p: { listingId?: string; draft?: Record<string, unknown> }): Promise<{ score: number; grade: string; fixes: string[]; improvedDescription: string }> { return { score: 75, grade: 'B', fixes: [], improvedDescription: '' } }
+export async function aiListingQuality(p: { listingId?: string; draft?: Record<string, unknown> }): Promise<{ score: number; grade: string; fixes: string[]; improvedDescription: string }> {
+  if (USE_MOCK) return { score: 75, grade: 'B', fixes: [], improvedDescription: '' }
+  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'quality', payload: p } })
+  if (error || !data) throw new Error(data?.error ?? error?.message ?? 'Kalite kontrol yapılamadı')
+  return { score: data.score ?? 60, grade: data.grade ?? 'B', fixes: data.fixes ?? [], improvedDescription: data.improvedDescription ?? '' }
+}
 
 export async function aiMarketInsights(): Promise<{ hotBrands: { brand: string; count: number; avgValue: number; demandScore: number }[]; cityPremiums: { city: string; count: number; avgValue: number }[]; insight: string }> { return { hotBrands: [], cityPremiums: [], insight: 'Mock mod' } }
 
