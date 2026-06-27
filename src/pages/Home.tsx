@@ -199,21 +199,19 @@ export default function Home() {
         <div className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full bg-blue-400/20 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-[480px] h-[480px] rounded-full bg-indigo-500/20 blur-3xl" />
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-9 pb-7 text-center">
           {/* eyebrow */}
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white/90 text-xs font-semibold px-4 py-1.5 rounded-full mb-6 border border-white/20">
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white/90 text-xs font-semibold px-4 py-1.5 rounded-full mb-4 border border-white/20">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             {listings.length} aktif ilan • Türkiye geneli
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-5">
-            Ne var ne yok,<br />
-            <span className="text-amber-400">takaslat.</span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white leading-[1.1] tracking-tight mb-3">
+            Ne var ne yok, <span className="text-amber-400">takaslat.</span>
           </h1>
 
-          <p className="text-blue-200 text-base sm:text-lg max-w-lg mx-auto mb-10 leading-relaxed">
-            Araç takasının en akıllı adresi. İlan ver, teklif al,
-            güvenle buluş. Türkiye genelinde binlerce araç seni bekliyor.
+          <p className="text-blue-200 text-sm sm:text-base max-w-lg mx-auto mb-6 leading-relaxed">
+            Araç takasının en akıllı adresi. İlan ver, teklif al, güvenle buluş.
           </p>
 
           <div className="flex flex-wrap justify-center gap-3">
@@ -252,11 +250,11 @@ export default function Home() {
       </section>
 
       {/* ════════════════════════════════ MAIN ════════════════════════════════ */}
-      <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col">
 
-        {/* Sana özel öneriler (kullanıcı verisi varsa) */}
+        {/* Sana özel öneriler — ilanlardan sonra (order-last) */}
         {hasPersonalSignals && personalized.length > 0 && (
-          <section className="mb-6">
+          <section className="mb-6 order-last">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <span>🎯</span> Sana Özel
@@ -273,9 +271,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* Son görüntülenen ilanlar (varsa) */}
+        {/* Son görüntülenen ilanlar — ilanlardan sonra (order-last) */}
         {recentlyViewedListings.length > 0 && (
-          <section className="mb-6">
+          <section className="mb-6 order-last">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <span>🕐</span> Son Baktıkların
@@ -308,7 +306,7 @@ export default function Home() {
         )}
 
         {(trustedListings.length > 0 || dealListings.length > 0) && (
-          <section className="mb-6 grid gap-4 lg:grid-cols-2">
+          <section className="mb-6 grid gap-4 lg:grid-cols-2 order-last">
             {trustedListings.length > 0 && (
               <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="mb-3 flex items-center justify-between gap-3">

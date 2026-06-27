@@ -13,6 +13,7 @@ import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, aiE
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
 import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
+import { getModelsForBrand, VEHICLE_COLORS } from '../data/vehicleModels';
 import { VEHICLE_BRANDS, ELECTRONIC_BRANDS } from '../data/brands';
 import BrandPicker from '../components/BrandPicker';
 
@@ -91,6 +92,7 @@ export default function CreateListing() {
   const navigate = useNavigate();
   const { addListing, currentUser } = useAppStore();
   const [vehicleGroup, setVehicleGroup] = useState('');
+  const [customModel, setCustomModel] = useState(false); // marka model listesinde 'Diğer' seçilince elle yazma
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [aiLoading,  setAiLoading]  = useState(false);
@@ -141,6 +143,9 @@ export default function CreateListing() {
         if (draft.bodyType) {
           const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(draft.bodyType))?.[0];
           if (grp) setVehicleGroup(grp);
+        }
+        if (draft.brand && draft.model && getModelsForBrand(draft.brand).length > 0 && !getModelsForBrand(draft.brand).includes(draft.model)) {
+          setCustomModel(true);
         }
       }
       setHasDraft(false);
@@ -196,6 +201,10 @@ export default function CreateListing() {
       if (src.vehicleDetails?.bodyType) {
         const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(src.vehicleDetails!.bodyType!))?.[0];
         if (grp) setVehicleGroup(grp);
+      }
+      const dupBrand = src.vehicleDetails?.brand, dupModel = src.vehicleDetails?.model;
+      if (dupBrand && dupModel && getModelsForBrand(dupBrand).length > 0 && !getModelsForBrand(dupBrand).includes(dupModel)) {
+        setCustomModel(true);
       }
       localStorage.removeItem('takaslat-duplicate');
       showToast('Önceki ilan kopyalandı, alanları gözden geçir', 'info');
@@ -711,21 +720,49 @@ export default function CreateListing() {
                         <BrandPicker
                           required
                           value={form.brand}
-                          onChange={(b) => update('brand', b)}
+                          onChange={(b) => { update('brand', b); update('model', ''); setCustomModel(false); }}
                           brands={VEHICLE_BRANDS}
                           placeholder="Toyota, BMW..."
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Model *</label>
-                        <input
-                          required
-                          type="text"
-                          placeholder="Corolla, 320i..."
-                          value={form.model}
-                          onChange={(e) => update('model', e.target.value)}
-                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        {getModelsForBrand(form.brand).length > 0 && !customModel ? (
+                          <select
+                            required
+                            value={form.model}
+                            onChange={(e) => {
+                              if (e.target.value === '__other__') { setCustomModel(true); update('model', ''); }
+                              else update('model', e.target.value);
+                            }}
+                            className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Model seçin…</option>
+                            {getModelsForBrand(form.brand).map((m) => <option key={m} value={m}>{m}</option>)}
+                            <option value="__other__">Diğer (elle yaz)…</option>
+                          </select>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              required
+                              type="text"
+                              placeholder={getModelsForBrand(form.brand).length > 0 ? 'Model yaz…' : 'Corolla, 320i...'}
+                              value={form.model}
+                              onChange={(e) => update('model', e.target.value)}
+                              className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            {getModelsForBrand(form.brand).length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => { setCustomModel(false); update('model', ''); }}
+                                title="Model listesine dön"
+                                className="shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 px-3 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+                              >
+                                ↺
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -756,13 +793,14 @@ export default function CreateListing() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Renk</label>
-                        <input
-                          type="text"
-                          placeholder="Beyaz, Siyah..."
+                        <select
                           value={form.color}
                           onChange={(e) => update('color', e.target.value)}
-                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Renk seçin…</option>
+                          {VEHICLE_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
                       </div>
                     </div>
 
