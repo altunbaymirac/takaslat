@@ -9,7 +9,6 @@ import BundleBar from './components/BundleBar';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import OnboardingTour from './components/OnboardingTour';
 import FloatingActionButton from './components/FloatingActionButton';
-import TermsModal from './components/TermsModal';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // ── Eager (critical path) ────────────────────────────────────────────────────
@@ -89,7 +88,6 @@ function AppInner() {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors">
-      <TermsModal />
       <Routes>
         <Route path="/login"          element={<Login />} />
         <Route path="/register"       element={<Register />} />

@@ -14,12 +14,15 @@ export default function Register() {
   const navigate = useNavigate();
   const registerUser = useAppStore((s) => s.registerUser);
 
-  const [name,     setName]     = useState('');
-  const [email,    setEmail]    = useState('');
-  const [password, setPassword] = useState('');
-  const [city,     setCity]     = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const { acceptTerms } = useAppStore();
+  const [name,         setName]         = useState('');
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [city,         setCity]         = useState('');
+  const [error,        setError]        = useState('');
+  const [loading,      setLoading]      = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [termsOpen,    setTermsOpen]    = useState(false);
   const pwScore = checkPasswordStrength(password);
   const remaining = getRemainingAttempts('register', 'global');
   const [searchParams] = useSearchParams();
@@ -41,6 +44,7 @@ export default function Register() {
     try {
       checkRateLimit('register', 'global');
       await registerUser(name, email, password, city || undefined);
+      acceptTerms();
       resetRateLimit('register', 'global');
       navigate('/');
     } catch (err) {
@@ -149,9 +153,47 @@ export default function Register() {
               </select>
             </div>
 
+            {/* Kullanım koşulları */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={termsChecked}
+                  onChange={e => setTermsChecked(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded accent-blue-600 flex-shrink-0"
+                />
+                <span className="text-xs text-slate-600 leading-relaxed">
+                  <button
+                    type="button"
+                    onClick={() => setTermsOpen(v => !v)}
+                    className="font-semibold text-blue-600 hover:underline"
+                  >Kullanım Koşulları</button>
+                  {' '}ve{' '}
+                  <button
+                    type="button"
+                    onClick={() => setTermsOpen(v => !v)}
+                    className="font-semibold text-blue-600 hover:underline"
+                  >Gizlilik Politikası</button>
+                  'nı okudum, takas işlemlerimin yasal yükümlülüklerinden şahsen sorumlu olduğumu kabul ediyorum.
+                </span>
+              </label>
+
+              {termsOpen && (
+                <div className="mt-2 space-y-2 text-xs text-slate-600 border-t border-slate-200 pt-2">
+                  <p><strong>Platform:</strong> Takaslat bir aracı platformdur; takas işlemlerinin tarafı değildir.</p>
+                  <p className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800">
+                    <strong>⚠️ Vergi Uyarısı:</strong> Takas işlemleri Türk vergi mevzuatı kapsamında gelir vergisi veya KDV'ye konu olabilir. Takaslat bu yükümlülüklerden sorumlu tutulamaz.
+                  </p>
+                  <p><strong>Güvenli takas:</strong> Araç devri noterden yapılmalı, kapora öncesi aracı yerinde görün.</p>
+                  <p><strong>Yasak:</strong> Sahte ilan, dolandırıcılık ve yasadışı ürün listeleme hesap kapatma sebebidir.</p>
+                  <p><strong>Gizlilik:</strong> Verileriniz KVKK kapsamında korunur, üçüncü şahıslarla satılmaz.</p>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
-              disabled={loading || remaining === 0}
+              disabled={loading || remaining === 0 || !termsChecked}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
             >
               {loading ? 'Hesap oluşturuluyor…' : 'Kayıt Ol'}
