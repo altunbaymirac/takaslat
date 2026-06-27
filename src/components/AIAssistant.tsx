@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { AIMessage, AISuggestion } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { runSwapAI } from '../lib/swapAI';
+import { aiChat } from '../services/api';
 
 // ─── Suggestion card ──────────────────────────────────────────────────────────
 
@@ -209,9 +210,21 @@ export default function AIAssistant() {
     setLoading(true);
 
     try {
-      // ── Yerel skorlama motoru: store'daki gerçek ilanlar üzerinde çalışır ──
-      // (Backend yok; tüm AI mantığı tarayıcıda runSwapAI ile hesaplanır)
-      await new Promise(r => setTimeout(r, 500));
+      // ── Önce gerçek LLM (DeepSeek) — gerçek ilan kataloğuyla ──
+      const res = await aiChat({
+        query: text,
+        currentListing: currentListing
+          ? { id: currentListing.id, title: currentListing.title, value: currentListing.estimatedValue, category: currentListing.category }
+          : null,
+        listings: listings.slice(0, 40).map(l => ({
+          id: l.id, title: l.title, value: l.estimatedValue, city: l.city, category: l.category,
+          brand: l.vehicleDetails?.brand, model: l.vehicleDetails?.model,
+          year: l.vehicleDetails?.year, km: l.vehicleDetails?.km, fuel: l.vehicleDetails?.fuel,
+        })),
+      });
+      addAIMessage({ role: 'assistant', content: res.message, suggestions: res.suggestions });
+    } catch {
+      // ── LLM yoksa/kota/hata → yerel skorlama motoruna düş (sohbet hep çalışır) ──
       const result = runSwapAI({
         currentListing: currentListing ?? null,
         allListings:    listings,
@@ -222,8 +235,6 @@ export default function AIAssistant() {
         content:     result.message,
         suggestions: result.suggestions,
       });
-    } catch {
-      addAIMessage({ role: 'assistant', content: 'Bir hata oluştu, lütfen tekrar deneyin.' });
     } finally {
       setLoading(false);
     }

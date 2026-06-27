@@ -715,6 +715,21 @@ export function aiErrorMessage(err: unknown): string {
 
 export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { return {} }
 
+// TakaslAI sohbet — LLM yanıtı + gerçek ilan önerileri.
+// USE_MOCK veya hata durumunda fırlatır; çağıran (AIAssistant) yerel motora düşer.
+export interface AIChatResult {
+  message: string;
+  suggestions: { listingId: string; compatibilityScore: number; reasons: string[]; priceDiff: number; negotiationTip: string }[];
+}
+export async function aiChat(p: {
+  query: string;
+  currentListing?: { id: string; title: string; value: number; category: string } | null;
+  listings: { id: string; title: string; value: number; city: string; category: string; brand?: string; model?: string; year?: number; km?: number; fuel?: string }[];
+}): Promise<AIChatResult> {
+  if (USE_MOCK) throw new Error('mock')
+  return invokeAI<AIChatResult>('chat', p as unknown as Record<string, unknown>)
+}
+
 export async function aiDescribe(p: { brand: string; model: string; year: number; km?: number; fuel?: string; transmission?: string; color?: string; bodyType?: string; hasAccidentRecord?: boolean; condition?: string; city?: string }): Promise<{ description: string; basedOnSimilar: number }> {
   if (USE_MOCK) {
     return { description: `${p.year} model ${p.brand} ${p.model} — bakimli, takasa acik. Detaylar icin iletisime gecin.`, basedOnSimilar: 0 }

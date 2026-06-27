@@ -376,6 +376,50 @@ async function personalFeed() {
   return { items: [], profileSignals: [] };
 }
 
+// TakaslAI sohbet — gerçek ilan kataloğuyla LLM yanıtı + ilan önerileri
+async function chat(p: Record<string, unknown>) {
+  const query = String(p.query ?? '');
+  const current = p.currentListing as { id?: string; title?: string; value?: number; category?: string } | null;
+  const listings = (p.listings ?? []) as { id: string; title: string; value: number; city: string; category: string; brand?: string; model?: string; year?: number; km?: number; fuel?: string }[];
+
+  const catalog = listings.slice(0, 40).map((l) =>
+    `${l.id} | ${l.title} | ${l.value} TL | ${l.city} | ${l.category}${l.brand ? ` | ${l.brand} ${l.model ?? ''}` : ''}${l.year ? ` | ${l.year}` : ''}${l.km ? ` | ${l.km}km` : ''}${l.fuel ? ` | ${l.fuel}` : ''}`,
+  ).join('\n');
+
+  const sys =
+    'Sen TakaslAI, bir Türk takas platformunun akıllı asistanısın. Kullanıcıya takas konusunda yardım et: ' +
+    'uygun ilanları öner, fiyat ve pazarlık tavsiyesi ver, takas sürecini açıkla. Samimi, kısa ve net Türkçe konuş. ' +
+    'İlan önerirken SADECE aşağıdaki katalogdaki gerçek id\'leri kullan, uydurma. ' +
+    'SADECE şu JSON ile yanıt ver: {"message":"...","suggestions":[{"listingId":"<katalog id>","compatibilityScore":0-100,"reasons":["..."],"negotiationTip":"..."}]}. ' +
+    'suggestions en fazla 4, sadece gerçekten uygun olanlar; öneri yoksa boş dizi. message her zaman dolu olsun.';
+
+  const userContent =
+    `${current?.title ? `Kullanıcının ilanı: ${current.title} (${current.value} TL, ${current.category}). ` : ''}` +
+    `Soru: "${query}"\n\nKatalog (id | başlık | değer | şehir | kategori | marka model | yıl | km | yakıt):\n${catalog || '(uygun ilan yok)'}`;
+
+  const raw = await callDeepSeek([
+    { role: 'system', content: sys },
+    { role: 'user', content: userContent },
+  ], true);
+
+  const r = safeJson(raw, { message: '', suggestions: [] as Array<Record<string, unknown>> });
+  const byId = new Map(listings.map((l) => [l.id, l]));
+  const suggestions = (r.suggestions ?? []).slice(0, 4).map((s) => {
+    const l = byId.get(s.listingId as string);
+    if (!l) return null;
+    const priceDiff = current?.value ? (l.value - current.value) : 0;
+    return {
+      listingId: l.id,
+      compatibilityScore: Math.max(0, Math.min(100, Number(s.compatibilityScore) || 50)),
+      reasons: Array.isArray(s.reasons) ? (s.reasons as string[]).slice(0, 4) : [],
+      priceDiff,
+      negotiationTip: (s.negotiationTip as string) ?? '',
+    };
+  }).filter(Boolean);
+
+  return { message: r.message || 'Sana nasıl yardımcı olabilirim? İlan arıyorsan marka/bütçe yazabilirsin.', suggestions };
+}
+
 // ════════════════════════════════════════════════════════════
 // ROUTER
 // ════════════════════════════════════════════════════════════
@@ -433,6 +477,7 @@ Deno.serve(async (req) => {
       case 'budget':             result = await budget(p, supabase); break;
       case 'forecast':           result = await forecast(p, supabase); break;
       case 'personalFeed':       result = await personalFeed(); break;
+      case 'chat':               result = await chat(p); break;
       default: return json({ error: 'Bilinmeyen action: ' + action }, 400);
     }
     return json(result);
