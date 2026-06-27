@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { playDing } from '../lib/sound';
-import { disableTwoFactor, setupTwoFactor, verifyTwoFactor, requestEmailVerification, confirmEmailVerification } from '../services/api';
+import { requestEmailVerification } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
 
@@ -18,81 +18,19 @@ export default function Settings() {
   useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.' });
 
   const { darkMode, toggleDarkMode, soundEnabled, toggleSound, accentColor, setAccentColor, resetOnboarding, currentUser } = useAppStore();
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [devCode, setDevCode] = useState<string | null>(null);
-  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
 
-  // E-posta doğrulama
-  const [emailCode, setEmailCode]         = useState('');
-  const [emailDevCode, setEmailDevCode]   = useState<string | null>(null);
-  const [emailLoading, setEmailLoading]   = useState<'request' | 'confirm' | null>(null);
-
-  async function startTwoFactor() {
-    setTwoFactorLoading(true);
-    try {
-      const res = await setupTwoFactor();
-      setDevCode(res.devCode ?? null);
-      showToast('2FA kodu oluşturuldu', 'success');
-    } catch {
-      showToast('2FA başlatılamadı', 'error');
-    } finally {
-      setTwoFactorLoading(false);
-    }
-  }
-
-  async function confirmTwoFactor() {
-    setTwoFactorLoading(true);
-    try {
-      await verifyTwoFactor(twoFactorCode);
-      useAppStore.setState((s) => ({ currentUser: s.currentUser ? { ...s.currentUser, twoFactorEnabled: true } : s.currentUser }));
-      setTwoFactorCode('');
-      setDevCode(null);
-      showToast('2FA aktif edildi', 'success');
-    } catch {
-      showToast('Kod hatalı veya süresi doldu', 'error');
-    } finally {
-      setTwoFactorLoading(false);
-    }
-  }
-
-  async function startEmailVerification() {
-    setEmailLoading('request');
+  async function sendVerificationLink() {
+    setEmailLoading(true);
     try {
       const res = await requestEmailVerification();
-      setEmailDevCode((res as { devCode?: string }).devCode ?? null);
-      showToast('Doğrulama kodu oluşturuldu', 'success');
+      setEmailSent(true);
+      showToast(res.message, 'success');
     } catch {
-      showToast('Kod gönderilemedi, tekrar dene', 'error');
+      showToast('Bağlantı gönderilemedi, tekrar dene', 'error');
     } finally {
-      setEmailLoading(null);
-    }
-  }
-
-  async function confirmEmailCode() {
-    setEmailLoading('confirm');
-    try {
-      await confirmEmailVerification(emailCode);
-      useAppStore.setState((s) => ({ currentUser: s.currentUser ? { ...s.currentUser, emailVerified: true } : s.currentUser }));
-      setEmailCode('');
-      setEmailDevCode(null);
-      showToast('E-posta doğrulandı ✓', 'success');
-    } catch {
-      showToast('Kod hatalı veya süresi doldu', 'error');
-    } finally {
-      setEmailLoading(null);
-    }
-  }
-
-  async function turnOffTwoFactor() {
-    setTwoFactorLoading(true);
-    try {
-      await disableTwoFactor();
-      useAppStore.setState((s) => ({ currentUser: s.currentUser ? { ...s.currentUser, twoFactorEnabled: false } : s.currentUser }));
-      showToast('2FA kapatıldı', 'success');
-    } catch {
-      showToast('2FA kapatılamadı', 'error');
-    } finally {
-      setTwoFactorLoading(false);
+      setEmailLoading(false);
     }
   }
 
@@ -229,94 +167,30 @@ export default function Settings() {
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{currentUser.email}</p>
                 </div>
-                {!currentUser.emailVerified && (
+                {!currentUser.emailVerified && !emailSent && (
                   <button
-                    onClick={startEmailVerification}
-                    disabled={emailLoading === 'request'}
+                    onClick={sendVerificationLink}
+                    disabled={emailLoading}
                     className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 whitespace-nowrap"
                   >
-                    {emailLoading === 'request' ? 'Gönderiliyor…' : 'Kod Gönder'}
+                    {emailLoading ? 'Gönderiliyor…' : 'Link Gönder'}
                   </button>
                 )}
               </div>
-
-              {emailDevCode && !currentUser.emailVerified && (
-                <div className="mt-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20 p-3">
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                    Geliştirme kodu: <strong>{emailDevCode}</strong>
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      value={emailCode}
-                      onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      maxLength={6}
-                      placeholder="6 haneli kod"
-                      className="min-w-0 flex-1 rounded-lg border border-blue-200 dark:border-blue-900 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-800 dark:text-slate-100"
-                    />
-                    <button
-                      onClick={confirmEmailCode}
-                      disabled={emailCode.length !== 6 || emailLoading === 'confirm'}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                      {emailLoading === 'confirm' ? '…' : 'Onayla'}
-                    </button>
-                  </div>
-                </div>
+              {emailSent && !currentUser.emailVerified && (
+                <p className="mt-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+                  Doğrulama bağlantısı <strong>{currentUser.email}</strong> adresine gönderildi. E-postanızdaki bağlantıya tıklayın.
+                </p>
               )}
             </div>
           )}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">2 Aşamalı Doğrulama</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Girişte e-posta kodu ister. Geliştirme modunda kod server loguna da yazılır.
-              </p>
-            </div>
-            {currentUser?.twoFactorEnabled ? (
-              <button
-                onClick={turnOffTwoFactor}
-                disabled={twoFactorLoading}
-                className="rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm font-semibold text-red-700 dark:text-red-300 disabled:opacity-50"
-              >
-                Kapat
-              </button>
-            ) : (
-              <button
-                onClick={startTwoFactor}
-                disabled={twoFactorLoading || !currentUser}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                2FA Başlat
-              </button>
-            )}
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">2 Aşamalı Doğrulama</p>
+            <p className="rounded-xl bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+              2FA yakında · Google Authenticator ve benzeri uygulamalar desteklenecek.
+            </p>
           </div>
-
-          {!currentUser && (
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">2FA için giriş yapmalısın.</p>
-          )}
-
-          {devCode && (
-            <div className="mt-4 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20 p-3">
-              <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">Geliştirme kodu: <strong>{devCode}</strong></p>
-              <div className="flex gap-2">
-                <input
-                  value={twoFactorCode}
-                  onChange={(e) => setTwoFactorCode(e.target.value)}
-                  maxLength={6}
-                  placeholder="6 haneli kod"
-                  className="min-w-0 flex-1 rounded-lg border border-blue-200 dark:border-blue-900 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-800 dark:text-slate-100"
-                />
-                <button
-                  onClick={confirmTwoFactor}
-                  disabled={twoFactorCode.length !== 6 || twoFactorLoading}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Onayla
-                </button>
-              </div>
-            </div>
-          )}
         </section>
 
         {/* Onboarding */}
