@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import type { Category } from '../types';
 import AdvancedFilters from './AdvancedFilters';
 import SavedSearchesPanel from './SavedSearchesPanel';
 import VoiceSearch from './VoiceSearch';
 import { fetchListingByCode } from '../services/api';
+import { CITIES_81 } from '../data/cities';
+import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
 
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 
-const CATS: (Category | 'Tümü')[] = ['Tümü', 'Araç'];
-const CITIES = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Kayseri', 'Antalya'];
+const VEHICLE_GROUP_KEYS = Object.keys(VEHICLE_GROUPS);
 
 export default function FilterBar({ onFilterChange }: { onFilterChange?: () => void } = {}) {
   const { filters, setFilters: _setFilters, resetFilters: _resetFilters, listings, recordSearch, searchHistory } = useAppStore();
@@ -59,7 +59,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
   }, [filters.searchQuery, recordSearch]);
 
   const active =
-    filters.category !== 'Tümü' ||
+    filters.vehicleGroup !== '' ||
     filters.city !== '' ||
     filters.minValue > 0 ||
     filters.maxValue < 5_000_000 ||
@@ -182,27 +182,35 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
         )}
       </div>
 
+      {/* ── Araç grubu chip'leri ── */}
+      <div className="flex gap-1.5 flex-wrap">
+        <button
+          onClick={() => setFilters({ vehicleGroup: '' })}
+          className={`text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
+            !filters.vehicleGroup
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+          }`}
+        >
+          Tümü
+        </button>
+        {VEHICLE_GROUP_KEYS.map(group => (
+          <button
+            key={group}
+            onClick={() => setFilters({ vehicleGroup: filters.vehicleGroup === group ? '' : group })}
+            className={`text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
+              filters.vehicleGroup === group
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+            }`}
+          >
+            {VEHICLE_GROUP_ICONS[group]} {group}
+          </button>
+        ))}
+      </div>
+
       {/* ── Filter row ── */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Category pills */}
-        <div className="flex gap-1.5 flex-wrap">
-          {CATS.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilters({ category: cat })}
-              className={`text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
-                filters.category === cat
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-800 dark:hover:text-slate-100'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* divider */}
-        <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-700" />
 
         {/* City */}
         <div className="relative">
@@ -212,7 +220,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
             className="appearance-none text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-full pl-3 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:border-slate-300 transition-colors"
           >
             <option value="">Tüm Şehirler</option>
-            {CITIES.map(c => <option key={c}>{c}</option>)}
+            {CITIES_81.map(c => <option key={c}>{c}</option>)}
           </select>
           <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none"
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -230,7 +238,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
             onChange={e => setFilters({ minValue: Number(e.target.value) || 0 })}
             className="w-16 text-xs bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 placeholder-slate-400"
           />
-          <span className="text-slate-300 text-xs select-none">—</span>
+          <span className="text-slate-300 text-xs select-none">-</span>
           <input
             type="number"
             placeholder="Max"

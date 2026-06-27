@@ -247,13 +247,14 @@ export interface FilterState {
   minValue: number;
   maxValue: number;
   searchQuery: string;
-  brands:        string[];   // çoklu marka seçimi
+  brands:        string[];
   minYear:       number;
   maxYear:       number;
   minKm:         number;
   maxKm:         number;
-  fuels:         string[];   // çoklu yakıt
+  fuels:         string[];
   noAccidentOnly: boolean;
+  vehicleGroup:  string;
 }
 
 export interface Notification {

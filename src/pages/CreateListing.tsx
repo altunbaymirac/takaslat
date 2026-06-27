@@ -11,14 +11,14 @@ import type {
 } from '../types';
 import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, uploadFile, uploadImages } from '../services/api';
 import { showToast } from '../components/Toast';
-import { LISTING_TEMPLATES, type ListingTemplate } from '../data/listingTemplates';
+import { CITIES_81 } from '../data/cities';
+import { ALL_BODY_TYPES } from '../data/vehicleTypes';
 import { VEHICLE_BRANDS, ELECTRONIC_BRANDS } from '../data/brands';
 import BrandPicker from '../components/BrandPicker';
 
 const fuels: FuelType[] = ['Benzin', 'Dizel', 'LPG', 'Hibrit', 'Elektrik'];
 const transmissions: TransmissionType[] = ['Manuel', 'Otomatik', 'Yarı Otomatik'];
 const conditions: Condition[] = ['Mükemmel', 'İyi', 'Orta', 'Yıpranmış'];
-const cities = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Kayseri', 'Antalya', 'Adana', 'Konya', 'Trabzon', 'Diyarbakır'];
 
 const electronicTypes: ElectronicType[] = ['Telefon', 'Laptop', 'Tablet', 'Televizyon', 'Kulaklık', 'Konsol', 'Kamera', 'Akıllı Saat', 'Diğer'];
 const warranties:      WarrantyStatus[] = ['Devam ediyor', 'Bitti', 'Yok'];
@@ -108,7 +108,6 @@ export default function CreateListing() {
   const [submitted, setSubmitted] = useState(false);
   const [aiLoading,  setAiLoading]  = useState(false);
   const [valueHint,  setValueHint]  = useState<{ low: number; high: number; estimated: number; basedOn: number } | null>(null);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [visualNote, setVisualNote] = useState<string | null>(null);
@@ -188,35 +187,6 @@ export default function CreateListing() {
     } catch { /* malformed */ }
   }, []);
 
-  function applyTemplate(t: ListingTemplate) {
-    setForm((f) => ({
-      ...f,
-      category: t.category,
-      condition:    t.condition    ?? f.condition,
-      // Araç
-      brand:        t.brand        ?? f.brand,
-      model:        t.model        ?? f.model,
-      year:         t.year ? t.year.toString() : f.year,
-      fuel:         t.fuel         ?? f.fuel,
-      transmission: t.transmission ?? f.transmission,
-      bodyType:     t.bodyType     ?? f.bodyType,
-      // Elektronik
-      elecType:     (t.elecType as typeof f.elecType) ?? f.elecType,
-      elecBrand:    t.elecBrand    ?? f.elecBrand,
-      elecModel:    t.elecModel    ?? f.elecModel,
-      storage:      t.storage      ?? f.storage,
-      ram:          t.ram          ?? f.ram,
-      warranty:     (t.warranty as typeof f.warranty) ?? f.warranty,
-      // Property
-      propType:     (t.propType as typeof f.propType) ?? f.propType,
-      rooms:        t.rooms        ?? f.rooms,
-      // İçerik
-      description:  t.descriptionTemplate ?? f.description,
-      wantedFor:    t.wantedForTemplate   ?? f.wantedFor,
-    }));
-    showToast(`"${t.name}" şablonu uygulandı`, 'success');
-    setShowTemplates(false);
-  }
 
   async function handleAiDescribe() {
     if (!form.brand || !form.model || !form.year) {
@@ -643,45 +613,12 @@ export default function CreateListing() {
       <form onSubmit={handleSubmit}>
         {step === 1 && (
           <div className="space-y-5">
-            {/* Şablon seçici */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm font-bold text-blue-900 dark:text-blue-200">📑 Şablonlardan başla</p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 opacity-80">Sık kullanılan ilan tipleri — alanları otomatik doldurur</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowTemplates((v) => !v)}
-                  className="text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 px-3 py-1.5 rounded-full"
-                >
-                  {showTemplates ? 'Gizle' : 'Şablonlar'}
-                </button>
-              </div>
-              {showTemplates && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
-                  {LISTING_TEMPLATES.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => applyTemplate(t)}
-                      className="bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-blue-100 dark:border-blue-900/40 rounded-xl p-3 text-left transition-colors group"
-                    >
-                      <div className="text-2xl mb-1">{t.icon}</div>
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-300">{t.name}</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">{t.description}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div>
               <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
                 <span className="text-2xl">🚗</span>
                 <div>
-                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Araç İlanı</p>
-                  <p className="text-xs text-blue-500 dark:text-blue-400">Takaslat şu an yalnızca araç takasına odaklanıyor.</p>
+                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Taşıt İlanı</p>
+                  <p className="text-xs text-blue-500 dark:text-blue-400">Araç, motosiklet, kamyon, karavan, bisiklet ve tekerleği olan her şey.</p>
                 </div>
               </div>
             </div>
@@ -746,6 +683,18 @@ export default function CreateListing() {
                       className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Taşıt Tipi *</label>
+                  <select
+                    required
+                    value={form.bodyType}
+                    onChange={(e) => update('bodyType', e.target.value)}
+                    className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {ALL_BODY_TYPES.map((t) => <option key={t}>{t}</option>)}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1046,7 +995,7 @@ export default function CreateListing() {
                   onChange={(e) => update('city', e.target.value)}
                   className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {cities.map((c) => <option key={c}>{c}</option>)}
+                  {CITIES_81.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
             </div>

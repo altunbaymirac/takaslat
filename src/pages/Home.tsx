@@ -6,6 +6,7 @@ import FilterBar from '../components/FilterBar';
 import { personalize } from '../lib/personalize';
 import { getListingHealth } from '../lib/listingHealth';
 import { useSEO } from '../hooks/useSEO';
+import { VEHICLE_GROUPS } from '../data/vehicleTypes';
 
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'popular';
 
@@ -151,6 +152,10 @@ export default function Home() {
         if (v.km < filters.minKm || v.km > filters.maxKm) return false;
       }
       if (filters.noAccidentOnly && v?.hasAccidentRecord) return false;
+      if (filters.vehicleGroup && VEHICLE_GROUPS[filters.vehicleGroup]) {
+        const allowed = VEHICLE_GROUPS[filters.vehicleGroup];
+        if (!v?.bodyType || !allowed.includes(v.bodyType)) return false;
+      }
       return true;
     });
 

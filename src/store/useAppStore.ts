@@ -190,6 +190,7 @@ const defaultFilters: FilterState = {
   maxKm:          500_000,
   fuels:          [],
   noAccidentOnly: false,
+  vehicleGroup:   '',
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────

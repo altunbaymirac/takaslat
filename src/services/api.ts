@@ -268,6 +268,8 @@ export interface ListingFilters {
   minKm?: number
   maxKm?: number
   noAccidentOnly?: boolean
+  vehicleGroup?: string
+  bodyTypes?: string[]
 }
 
 export interface ListingPage {
@@ -322,6 +324,7 @@ export async function fetchListings(filters: ListingFilters = {}): Promise<Listi
   if (filters.minKm)     q = q.gte('km', filters.minKm)
   if (filters.maxKm)     q = q.lte('km', filters.maxKm)
   if (filters.noAccidentOnly) q = q.eq('has_accident_record', false)
+  if (filters.bodyTypes?.length) q = q.in('body_type', filters.bodyTypes)
 
   if (filters.sort === 'price_asc')  q = q.order('estimated_value', { ascending: true })
   else if (filters.sort === 'price_desc') q = q.order('estimated_value', { ascending: false })

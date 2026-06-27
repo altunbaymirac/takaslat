@@ -6,11 +6,7 @@ import { checkRateLimit, resetRateLimit, getRemainingAttempts } from '../lib/rat
 import { checkPasswordStrength } from '../lib/sanitize';
 import { signInWithGoogle } from '../services/api';
 import { showToast } from '../components/Toast';
-
-const CITIES = [
-  'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana',
-  'Konya', 'Gaziantep', 'Kayseri', 'Mersin', 'Eskişehir', 'Diyarbakır',
-];
+import { CITIES_81 } from '../data/cities';
 
 export default function Register() {
   useSEO({ title: 'Kayıt Ol', description: 'Takaslat\'a ücretsiz kayıt ol ve araç takasına hemen başla.' });
@@ -147,7 +143,7 @@ export default function Register() {
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white"
               >
                 <option value="">Seçin…</option>
-                {CITIES.map((c) => (
+                {CITIES_81.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

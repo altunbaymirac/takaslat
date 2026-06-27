@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { showToast } from './Toast';
+import { CITIES_81 } from '../data/cities';
 
 interface Props {
   onClose: () => void;
@@ -116,13 +117,14 @@ export default function ProfileEditModal({ onClose }: Props) {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Şehir</label>
-            <input
-              type="text"
+            <select
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="İstanbul, Ankara…"
               className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">Seçin...</option>
+              {CITIES_81.map((c) => <option key={c}>{c}</option>)}
+            </select>
           </div>
 
           <div>
