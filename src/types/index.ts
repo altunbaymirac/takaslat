@@ -15,6 +15,10 @@ export interface VehicleDetails {
   hasAccidentRecord: boolean;
   bodyType?: string;
   engineCC?: number;
+  hasExpertise?: boolean;
+  expertiseFirm?: string;
+  expertiseDate?: string;
+  expertiseNote?: string;
 }
 
 // ─── Elektronik ───────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ import type {
 import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, uploadFile, uploadImages } from '../services/api';
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
-import { ALL_BODY_TYPES } from '../data/vehicleTypes';
+import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
 import { VEHICLE_BRANDS, ELECTRONIC_BRANDS } from '../data/brands';
 import BrandPicker from '../components/BrandPicker';
 
@@ -47,6 +47,10 @@ interface FormData {
   color: string;
   hasAccidentRecord: boolean;
   bodyType: string;
+  hasExpertise: boolean;
+  expertiseFirm: string;
+  expertiseDate: string;
+  expertiseNote: string;
 
   // Elektronik
   elecType:     ElectronicType;
@@ -104,6 +108,7 @@ export default function CreateListing() {
       </div>
     );
   }
+  const [vehicleGroup, setVehicleGroup] = useState('');
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [aiLoading,  setAiLoading]  = useState(false);
@@ -135,7 +140,14 @@ export default function CreateListing() {
   function restoreDraft() {
     try {
       const raw = localStorage.getItem('takaslat-draft');
-      if (raw) setForm(JSON.parse(raw));
+      if (raw) {
+        const draft = JSON.parse(raw);
+        setForm(draft);
+        if (draft.bodyType) {
+          const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(draft.bodyType))?.[0];
+          if (grp) setVehicleGroup(grp);
+        }
+      }
       setHasDraft(false);
       showToast('Taslak geri yüklendi', 'success');
     } catch { /* */ }
@@ -170,6 +182,10 @@ export default function CreateListing() {
         color:        src.vehicleDetails?.color        ?? f.color,
         bodyType:     src.vehicleDetails?.bodyType     ?? f.bodyType,
         hasAccidentRecord: src.vehicleDetails?.hasAccidentRecord ?? f.hasAccidentRecord,
+        hasExpertise:  src.vehicleDetails?.hasExpertise  ?? f.hasExpertise,
+        expertiseFirm: src.vehicleDetails?.expertiseFirm ?? f.expertiseFirm,
+        expertiseDate: src.vehicleDetails?.expertiseDate ?? f.expertiseDate,
+        expertiseNote: src.vehicleDetails?.expertiseNote ?? f.expertiseNote,
         // Electronic
         elecType:  (src.electronicDetails?.type as typeof f.elecType) ?? f.elecType,
         elecBrand: src.electronicDetails?.brand   ?? f.elecBrand,
@@ -182,6 +198,10 @@ export default function CreateListing() {
         netSqm:    src.propertyDetails?.netSqm ? src.propertyDetails.netSqm.toString() : f.netSqm,
         rooms:     src.propertyDetails?.rooms ?? f.rooms,
       }));
+      if (src.vehicleDetails?.bodyType) {
+        const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(src.vehicleDetails!.bodyType!))?.[0];
+        if (grp) setVehicleGroup(grp);
+      }
       localStorage.removeItem('takaslat-duplicate');
       showToast('Önceki ilan kopyalandı, alanları gözden geçir', 'info');
     } catch { /* malformed */ }
@@ -333,6 +353,10 @@ export default function CreateListing() {
     color: '',
     hasAccidentRecord: false,
     bodyType: 'Sedan',
+    hasExpertise: false,
+    expertiseFirm: '',
+    expertiseDate: '',
+    expertiseNote: '',
     // Elektronik
     elecType:      'Telefon',
     elecBrand:     '',
@@ -514,6 +538,10 @@ export default function CreateListing() {
         color:             form.color,
         hasAccidentRecord: form.hasAccidentRecord,
         bodyType:          form.bodyType,
+        hasExpertise:      form.hasExpertise || undefined,
+        expertiseFirm:     form.expertiseFirm || undefined,
+        expertiseDate:     form.expertiseDate || undefined,
+        expertiseNote:     form.expertiseNote || undefined,
       } : undefined,
       electronicDetails,
       propertyDetails,
@@ -625,113 +653,202 @@ export default function CreateListing() {
 
             {form.category === 'Araç' && (
               <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Marka *</label>
-                    <BrandPicker
-                      required
-                      value={form.brand}
-                      onChange={(b) => update('brand', b)}
-                      brands={VEHICLE_BRANDS}
-                      placeholder="Toyota, BMW..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Model *</label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="Corolla, 320i..."
-                      value={form.model}
-                      onChange={(e) => update('model', e.target.value)}
-                      className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Yıl *</label>
-                    <input
-                      required
-                      type="number"
-                      min="1990"
-                      max={new Date().getFullYear()}
-                      value={form.year}
-                      onChange={(e) => update('year', e.target.value)}
-                      className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Kilometre *</label>
-                    <input
-                      required
-                      type="number"
-                      placeholder="75000"
-                      value={form.km}
-                      onChange={(e) => update('km', e.target.value)}
-                      className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Renk</label>
-                    <input
-                      type="text"
-                      placeholder="Beyaz, Siyah..."
-                      value={form.color}
-                      onChange={(e) => update('color', e.target.value)}
-                      className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
+                {/* 1. Araç Grubu */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Taşıt Tipi *</label>
-                  <select
-                    required
-                    value={form.bodyType}
-                    onChange={(e) => update('bodyType', e.target.value)}
-                    className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {ALL_BODY_TYPES.map((t) => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Yakıt Tipi</label>
-                    <select
-                      value={form.fuel}
-                      onChange={(e) => update('fuel', e.target.value as FuelType)}
-                      className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {fuels.map((f) => <option key={f}>{f}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Şanzıman</label>
-                    <select
-                      value={form.transmission}
-                      onChange={(e) => update('transmission', e.target.value as TransmissionType)}
-                      className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {transmissions.map((t) => <option key={t}>{t}</option>)}
-                    </select>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Araç Grubu *</label>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {Object.entries(VEHICLE_GROUPS).map(([group, types]) => (
+                      <button
+                        key={group}
+                        type="button"
+                        onClick={() => { setVehicleGroup(group); update('bodyType', types[0]); }}
+                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all ${
+                          vehicleGroup === group
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'
+                        }`}
+                      >
+                        <span className="text-2xl">{VEHICLE_GROUP_ICONS[group]}</span>
+                        <span className="text-xs font-semibold">{group}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                  <input
-                    type="checkbox"
-                    id="accidentRecord"
-                    checked={form.hasAccidentRecord}
-                    onChange={(e) => update('hasAccidentRecord', e.target.checked)}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <label htmlFor="accidentRecord" className="text-sm text-slate-700 dark:text-slate-200">
-                    Hasar kaydı var
-                  </label>
-                </div>
+                {vehicleGroup && (
+                  <>
+                    {/* 2. Kasa / Tür - gruba göre filtrelenmiş */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Kasa / Tür *</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {VEHICLE_GROUPS[vehicleGroup].map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => update('bodyType', t)}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                              form.bodyType === t
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 3. Marka + Model */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Marka *</label>
+                        <BrandPicker
+                          required
+                          value={form.brand}
+                          onChange={(b) => update('brand', b)}
+                          brands={VEHICLE_BRANDS}
+                          placeholder="Toyota, BMW..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Model *</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Corolla, 320i..."
+                          value={form.model}
+                          onChange={(e) => update('model', e.target.value)}
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 4. Yıl + KM + Renk */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Yıl *</label>
+                        <input
+                          required
+                          type="number"
+                          min="1990"
+                          max={new Date().getFullYear()}
+                          value={form.year}
+                          onChange={(e) => update('year', e.target.value)}
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Kilometre *</label>
+                        <input
+                          required
+                          type="number"
+                          placeholder="75000"
+                          value={form.km}
+                          onChange={(e) => update('km', e.target.value)}
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Renk</label>
+                        <input
+                          type="text"
+                          placeholder="Beyaz, Siyah..."
+                          value={form.color}
+                          onChange={(e) => update('color', e.target.value)}
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 5. Yakıt + Şanzıman */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Yakıt Tipi</label>
+                        <select
+                          value={form.fuel}
+                          onChange={(e) => update('fuel', e.target.value as FuelType)}
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {fuels.map((f) => <option key={f}>{f}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Şanzıman</label>
+                        <select
+                          value={form.transmission}
+                          onChange={(e) => update('transmission', e.target.value as TransmissionType)}
+                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {transmissions.map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* 6. Hasar kaydı */}
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                      <input
+                        type="checkbox"
+                        id="accidentRecord"
+                        checked={form.hasAccidentRecord}
+                        onChange={(e) => update('hasAccidentRecord', e.target.checked)}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <label htmlFor="accidentRecord" className="text-sm text-slate-700 dark:text-slate-200">
+                        Hasar kaydı var
+                      </label>
+                    </div>
+
+                    {/* 7. Ekspertiz */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-3">
+                      <label className="flex items-start gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="hasExpertise"
+                          checked={form.hasExpertise}
+                          onChange={(e) => update('hasExpertise', e.target.checked)}
+                          className="mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Ekspertiz yaptırıldı</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Araç bağımsız ekspertiz firmasından geçmiş</p>
+                        </div>
+                      </label>
+                      {form.hasExpertise && (
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Firma / Servis</label>
+                            <input
+                              type="text"
+                              placeholder="Ekspertizim, Otocheck..."
+                              value={form.expertiseFirm}
+                              onChange={(e) => update('expertiseFirm', e.target.value)}
+                              className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Tarih</label>
+                            <input
+                              type="date"
+                              value={form.expertiseDate}
+                              onChange={(e) => update('expertiseDate', e.target.value)}
+                              className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Sonuç / Not</label>
+                            <input
+                              type="text"
+                              placeholder="Hasar yok, ön kaput boyalı vb."
+                              value={form.expertiseNote}
+                              onChange={(e) => update('expertiseNote', e.target.value)}
+                              className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
 
@@ -1004,8 +1121,8 @@ export default function CreateListing() {
               type="button"
               onClick={() => setStep(2)}
               disabled={
-                (form.category === 'Araç'        && (!form.brand     || !form.model     || !form.km)) ||
-                (form.category === 'Elektronik'  && (!form.elecBrand || !form.elecModel))             ||
+                (form.category === 'Araç'        && (!vehicleGroup || !form.brand || !form.model || !form.km)) ||
+                (form.category === 'Elektronik'  && (!form.elecBrand || !form.elecModel))                      ||
                 (form.category === 'Gayrimenkul' && !form.netSqm)
               }
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
