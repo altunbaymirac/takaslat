@@ -8,30 +8,30 @@ Frontend `supabase.functions.invoke('ai', { body: { action, payload } })` ile ç
 API key tarayıcıya **asla** sızmaz — sunucuda gizli kalır. Frontend'den doğrudan
 DeepSeek çağrılsaydı, anahtar herkesin görebileceği şekilde açığa çıkardı.
 
-## Kurulum (tek seferlik)
+## Önce: rate-limit tablosu
+
+`supabase/ai_rate_limit.sql` dosyasını Supabase SQL Editor'da çalıştır
+(kota kontrolü için `ai_usage` tablosunu oluşturur).
+
+## Kurulum — Yol A: Dashboard (CLI gerekmez, önerilen)
 
 1. **DeepSeek API key al** → https://platform.deepseek.com → API Keys (`sk-...`)
+2. **Supabase Dashboard → Edge Functions → "Deploy a new function"**
+   - İsim: `ai`
+   - `index.ts` içeriğini yapıştır → Deploy
+3. **Secret ekle**: Edge Functions → Manage secrets (veya Project Settings →
+   Edge Functions → Secrets) → `DEEPSEEK_API_KEY` = `sk-...`
+4. Bitti. Uygulamada AI butonları gerçek yanıt verir.
 
-2. **Supabase CLI kur** (yoksa):
-   ```bash
-   npm install -g supabase
-   ```
+## Kurulum — Yol B: CLI
 
-3. **Projeye bağlan** (PROJECT_REF Supabase Dashboard → Settings → General'da):
-   ```bash
-   supabase login
-   supabase link --project-ref PROJECT_REF
-   ```
-
-4. **Secret'ı ayarla** (anahtar burada gizli kalır):
-   ```bash
-   supabase secrets set DEEPSEEK_API_KEY=sk-xxxxxxxxxxxx
-   ```
-
-5. **Deploy et**:
-   ```bash
-   supabase functions deploy ai
-   ```
+```bash
+npm install -g supabase
+supabase login
+supabase link --project-ref PROJECT_REF      # Dashboard → Settings → General
+supabase secrets set DEEPSEEK_API_KEY=sk-xxxxxxxxxxxx
+supabase functions deploy ai
+```
 
 ## Test
 

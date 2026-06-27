@@ -673,7 +673,17 @@ export function subscribeNotificationStream(
   return () => { void supabase.removeChannel(channel) }
 }
 
-// ─── AI (mock / local hesaplamalar) ──────────────────────────────────────────
+// ─── AI (DeepSeek edge function) ─────────────────────────────────────────────
+
+// Tüm AI çağrıları için ortak yardımcı: edge function'a action+payload yollar.
+// USE_MOCK ise çağıran fonksiyon kendi fallback'ini döndürür (helper çağrılmaz).
+async function invokeAI<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('ai', { body: { action, payload } })
+  if (error || !data || (data as { error?: string }).error) {
+    throw new Error((data as { error?: string })?.error ?? error?.message ?? 'AI servisi yanıt vermedi')
+  }
+  return data as T
+}
 
 export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { return {} }
 
@@ -687,17 +697,24 @@ export async function aiDescribe(p: { brand: string; model: string; year: number
 }
 
 export interface ValueForecast { listingId: string; title: string; currentValue: number; months: { month: number; value: number; label: string }[]; summary: { after6m: number; after12m: number; totalChange6m: number; totalChange12m: number; monthlyDepreciation: number; inflationAdjust: number }; factors: string[]; recommendation: string }
-export async function aiForecast(_id: string): Promise<ValueForecast> { throw new Error('Backend gerekli') }
+export async function aiForecast(id: string): Promise<ValueForecast> {
+  if (USE_MOCK) throw new Error('Backend gerekli')
+  return invokeAI<ValueForecast>('forecast', { id })
+}
 
 export interface Deal { listingId: string; title: string; city: string; category: string; image: string; price: number; avgPrice: number; saving: number; savingPct: number; ownerName: string }
 export async function fetchDeals(): Promise<{ deals: Deal[]; totalAnalyzed: number }> { return { deals: [], totalAnalyzed: 0 } }
 
 export interface BudgetResult { budget: number; inBudgetCount: number; stretchCount: number; byCategory: { name: string; count: number }[]; inBudget: { listingId: string; title: string; city: string; category: string; image: string; price: number; utilization: number; ownerName: string }[]; stretch: { listingId: string; title: string; city: string; image: string; price: number; overBy: number }[] }
-export async function aiBudget(_p: { budget: number; category?: string; city?: string }): Promise<BudgetResult> { return { budget: 0, inBudgetCount: 0, stretchCount: 0, byCategory: [], inBudget: [], stretch: [] } }
+export async function aiBudget(p: { budget: number; category?: string; city?: string }): Promise<BudgetResult> {
+  if (USE_MOCK) return { budget: 0, inBudgetCount: 0, stretchCount: 0, byCategory: [], inBudget: [], stretch: [] }
+  return invokeAI<BudgetResult>('budget', p)
+}
 
 export interface NegotiationAnalysis { analysis: { tone: 'agresif' | 'pasif' | 'dengeli'; toneReason: string; length: { score: number; note: string }; positives: string[]; negatives: string[]; overallScore: number }; possibilities: { probability: number; type: 'kabul' | 'pazarlik' | 'red'; message: string; reason: string }[]; tips: string[] }
-export async function aiNegotiate(_p: { myMessage: string; listingId?: string; offeredValue?: number }): Promise<NegotiationAnalysis> {
-  return { analysis: { tone: 'dengeli', toneReason: 'Mock', length: { score: 80, note: 'OK' }, positives: [], negatives: [], overallScore: 80 }, possibilities: [], tips: ['Mock mod'] }
+export async function aiNegotiate(p: { myMessage: string; listingId?: string; offeredValue?: number }): Promise<NegotiationAnalysis> {
+  if (USE_MOCK) return { analysis: { tone: 'dengeli', toneReason: 'Mock', length: { score: 80, note: 'OK' }, positives: [], negatives: [], overallScore: 80 }, possibilities: [], tips: ['Mock mod'] }
+  return invokeAI<NegotiationAnalysis>('negotiate', p)
 }
 
 export async function aiEstimateValue(p: { brand: string; model?: string; year?: number; km?: number; hasAccidentRecord?: boolean }): Promise<{ estimated: number | null; low: number | null; high: number | null; basedOn: number; message: string }> {
@@ -710,28 +727,48 @@ export async function aiEstimateValue(p: { brand: string; model?: string; year?:
 }
 
 export interface SwapAdvice { message: string; candidates: { listingId: string; title: string; city: string; value: number; score: number }[]; tips: string[]; suggestedMessage: string }
-export async function aiSwapAdvice(_p: { listingId?: string; userText: string }): Promise<SwapAdvice> {
-  return { message: 'Mock modda yerel oneri uretildi.', candidates: [], tips: ['DB bagliyken gercek ilanlardan aday cikarilir.'], suggestedMessage: 'Merhaba, ilaniyla ilgileniyorum. Takas detaylarini konusabilir miyiz?' }
+export async function aiSwapAdvice(p: { listingId?: string; userText: string }): Promise<SwapAdvice> {
+  if (USE_MOCK) return { message: 'Mock modda yerel oneri uretildi.', candidates: [], tips: ['DB bagliyken gercek ilanlardan aday cikarilir.'], suggestedMessage: 'Merhaba, ilaniyla ilgileniyorum. Takas detaylarini konusabilir miyiz?' }
+  return invokeAI<SwapAdvice>('swapAdvice', p)
 }
 
 export interface SwapScoreResult { source: { id: string; title: string; value: number }; suggestions: { listingId: string; title: string; city: string; value: number; compatibilityScore: number; priceDiff: number; breakdown: Record<string, number>; reasons: string[]; warnings: string[]; negotiationTip: string }[] }
-export async function aiSwapScore(_p: { sourceListingId: string; targetListingId?: string }): Promise<SwapScoreResult> { throw new Error('Backend gerekli') }
-
-export interface PriceGapResult { rawDiff: number; payer: 'sourceUser' | 'targetUser' | 'none'; fairRange: { min: number; max: number }; verdict: string; explanation: string }
-export async function aiPriceGap(_p: { sourceListingId?: string; targetListingId?: string; sourceValue?: number; targetValue?: number }): Promise<PriceGapResult> { throw new Error('Backend gerekli') }
-
-export interface OfferQualityResult { score: number; positives: string[]; issues: string[]; improvedMessage: string }
-export async function aiOfferQuality(_p: { message: string; listingId?: string; offeredListingId?: string; offeredValue?: number }): Promise<OfferQualityResult> { return { score: 70, positives: [], issues: [], improvedMessage: '' } }
-
-export async function aiAutoMessage(_p: { sourceListingId?: string; targetListingId: string; tone?: 'samimi' | 'profesyonel' | 'kisa' }): Promise<{ message: string; diff: number | null }> {
-  return { message: 'Merhaba, ilaniyla ilgileniyorum. Takas detaylarini konusabilir miyiz?', diff: null }
+export async function aiSwapScore(p: { sourceListingId: string; targetListingId?: string }): Promise<SwapScoreResult> {
+  if (USE_MOCK) throw new Error('Backend gerekli')
+  return invokeAI<SwapScoreResult>('swapScore', p)
 }
 
-export async function aiPersonalFeed(_p: { favoriteIds: string[]; searchHistory: string[]; wishlistTerms: string[] }): Promise<{ items: { listingId: string; title: string; city: string; value: number; score: number; reasons: string[] }[]; profileSignals: string[] }> { return { items: [], profileSignals: [] } }
+export interface PriceGapResult { rawDiff: number; payer: 'sourceUser' | 'targetUser' | 'none'; fairRange: { min: number; max: number }; verdict: string; explanation: string }
+export async function aiPriceGap(p: { sourceListingId?: string; targetListingId?: string; sourceValue?: number; targetValue?: number }): Promise<PriceGapResult> {
+  if (USE_MOCK) throw new Error('Backend gerekli')
+  return invokeAI<PriceGapResult>('priceGap', p)
+}
 
-export async function aiConversationCoach(_p: { lastMessage: string; listingId?: string }): Promise<{ intent: string; caution: string; replies: string[]; nextBestAction: string }> { return { intent: 'ilgi', caution: '', replies: [], nextBestAction: 'Bekle' } }
+export interface OfferQualityResult { score: number; positives: string[]; issues: string[]; improvedMessage: string }
+export async function aiOfferQuality(p: { message: string; listingId?: string; offeredListingId?: string; offeredValue?: number }): Promise<OfferQualityResult> {
+  if (USE_MOCK) return { score: 70, positives: [], issues: [], improvedMessage: '' }
+  return invokeAI<OfferQualityResult>('offerQuality', p)
+}
 
-export async function aiRisk(_p: { listingId: string }): Promise<{ riskScore: number; level: string; risks: string[]; positives: string[]; checklist: string[] }> { return { riskScore: 20, level: 'Dusuk', risks: [], positives: [], checklist: [] } }
+export async function aiAutoMessage(p: { sourceListingId?: string; targetListingId: string; tone?: 'samimi' | 'profesyonel' | 'kisa' }): Promise<{ message: string; diff: number | null }> {
+  if (USE_MOCK) return { message: 'Merhaba, ilaniyla ilgileniyorum. Takas detaylarini konusabilir miyiz?', diff: null }
+  return invokeAI<{ message: string; diff: number | null }>('autoMessage', p)
+}
+
+export async function aiPersonalFeed(p: { favoriteIds: string[]; searchHistory: string[]; wishlistTerms: string[] }): Promise<{ items: { listingId: string; title: string; city: string; value: number; score: number; reasons: string[] }[]; profileSignals: string[] }> {
+  if (USE_MOCK) return { items: [], profileSignals: [] }
+  return invokeAI('personalFeed', p)
+}
+
+export async function aiConversationCoach(p: { lastMessage: string; listingId?: string }): Promise<{ intent: string; caution: string; replies: string[]; nextBestAction: string }> {
+  if (USE_MOCK) return { intent: 'ilgi', caution: '', replies: [], nextBestAction: 'Bekle' }
+  return invokeAI('conversationCoach', p)
+}
+
+export async function aiRisk(p: { listingId: string }): Promise<{ riskScore: number; level: string; risks: string[]; positives: string[]; checklist: string[] }> {
+  if (USE_MOCK) return { riskScore: 20, level: 'Dusuk', risks: [], positives: [], checklist: [] }
+  return invokeAI('risk', p)
+}
 
 export async function aiListingQuality(p: { listingId?: string; draft?: Record<string, unknown> }): Promise<{ score: number; grade: string; fixes: string[]; improvedDescription: string }> {
   if (USE_MOCK) return { score: 75, grade: 'B', fixes: [], improvedDescription: '' }
@@ -740,12 +777,19 @@ export async function aiListingQuality(p: { listingId?: string; draft?: Record<s
   return { score: data.score ?? 60, grade: data.grade ?? 'B', fixes: data.fixes ?? [], improvedDescription: data.improvedDescription ?? '' }
 }
 
-export async function aiMarketInsights(): Promise<{ hotBrands: { brand: string; count: number; avgValue: number; demandScore: number }[]; cityPremiums: { city: string; count: number; avgValue: number }[]; insight: string }> { return { hotBrands: [], cityPremiums: [], insight: 'Mock mod' } }
+export async function aiMarketInsights(): Promise<{ hotBrands: { brand: string; count: number; avgValue: number; demandScore: number }[]; cityPremiums: { city: string; count: number; avgValue: number }[]; insight: string }> {
+  if (USE_MOCK) return { hotBrands: [], cityPremiums: [], insight: 'Mock mod' }
+  return invokeAI('marketInsights')
+}
 
-export async function aiScenarios(_p: { sourceListingId?: string; targetText: string; maxCashDiff?: number }): Promise<{ summary: string; scenarios: { name: string; difficulty: string; plan: string; bestFor: string }[] }> { return { summary: '', scenarios: [] } }
+export async function aiScenarios(p: { sourceListingId?: string; targetText: string; maxCashDiff?: number }): Promise<{ summary: string; scenarios: { name: string; difficulty: string; plan: string; bestFor: string }[] }> {
+  if (USE_MOCK) return { summary: '', scenarios: [] }
+  return invokeAI('scenarios', p)
+}
 
-export async function aiVisualDescription(_p: { fileName: string; mimeType: string; size: number }): Promise<{ summary: string; checks: string[]; risks: string[] }> {
-  return { summary: 'Mock analiz: gorsel/ekspertiz dosyasi ilana guven sinyali olarak eklendi.', checks: ['Panel araliklar', 'Lastik durumu', 'Far ve tampon uyumu'], risks: [] }
+export async function aiVisualDescription(p: { fileName: string; mimeType: string; size: number }): Promise<{ summary: string; checks: string[]; risks: string[] }> {
+  if (USE_MOCK) return { summary: 'Mock analiz: gorsel/ekspertiz dosyasi ilana guven sinyali olarak eklendi.', checks: ['Panel araliklar', 'Lastik durumu', 'Far ve tampon uyumu'], risks: [] }
+  return invokeAI('visualDescription', p as unknown as Record<string, unknown>)
 }
 
 // ─── Trends ───────────────────────────────────────────────────────────────────
