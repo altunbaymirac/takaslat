@@ -113,6 +113,8 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
   const [confirmLoading, setConfirmLoading] = useState(false);
   // Optimistic: track if current user already clicked confirm this session
   const [localConfirmed, setLocalConfirmed] = useState(false);
+  // Sekme: Sohbet (mesajlaşma) | Teklif (özet, yol haritası, aksiyonlar)
+  const [chatTab, setChatTab] = useState<'sohbet' | 'teklif'>('sohbet');
 
   // Server-side "already rated" flags take priority, fall back to optimistic local check
   const alreadyRated = isIncoming ? !!offer.toRated : !!offer.fromRated;
@@ -276,8 +278,32 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
         </div>
       </div>
 
-      {/* ── Related listing card ── */}
-      {relatedListing && (
+      {/* ── Sekmeler: Sohbet | Teklif ── */}
+      <div className="flex border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0">
+        {([['sohbet', 'Sohbet'], ['teklif', 'Teklif']] as const).map(([key, label]) => {
+          const needsAttention = key === 'teklif' && (
+            (offer.status === 'Beklemede' && isIncoming) ||
+            offer.status === 'Görüşülüyor' ||
+            (offer.status === 'Onaylandı' && !localConfirmed)
+          );
+          return (
+            <button
+              key={key}
+              onClick={() => setChatTab(key)}
+              className={`relative flex-1 py-2.5 text-sm font-semibold transition-colors ${
+                chatTab === key ? 'text-blue-600' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              {label}
+              {needsAttention && <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-amber-400 align-middle" />}
+              {chatTab === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Related listing card (Teklif sekmesi) ── */}
+      {chatTab === 'teklif' && relatedListing && (
         <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200">
           <Link to={`/listing/${relatedListing.id}`} className="flex items-center gap-3 group">
             <img src={relatedListing.images?.[0] ?? 'https://picsum.photos/seed/listing/100/100'} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
@@ -294,7 +320,8 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
         </div>
       )}
 
-      <div className="border-b border-slate-200 bg-white px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
+      {chatTab === 'teklif' && (
+      <div className="flex-1 overflow-y-auto border-b border-slate-200 bg-white px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Teklif Özeti</p>
@@ -365,8 +392,10 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
           </div>
         </details>
       </div>
+      )}
 
-      {/* ── Messages ── */}
+      {/* ── Messages (Sohbet sekmesi) ── */}
+      {chatTab === 'sohbet' && (
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-slate-50 dark:bg-slate-900">
         {thread.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center px-6">
@@ -394,9 +423,10 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
         })}
         <div ref={bottomRef} />
       </div>
+      )}
 
-      {/* ── Status actions ── */}
-      {offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
+      {/* ── Status actions (Teklif sekmesi) ── */}
+      {chatTab === 'teklif' && offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
 
           {/* Beklemede — yalnızca ilan sahibi (isIncoming) yanıtlar */}
@@ -499,8 +529,8 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
         </div>
       )}
 
-      {/* ── Hızlı yanıt şablonları ── */}
-      {offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
+      {/* ── Hızlı yanıt şablonları (Sohbet sekmesi) ── */}
+      {chatTab === 'sohbet' && offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
         <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex gap-1.5 overflow-x-auto">
           {[
             { icon: '👋', text: 'Merhaba, ilanınızla ilgileniyorum.' },
@@ -525,7 +555,7 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
         </div>
       )}
 
-      {offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && coachReplies.length > 0 && (
+      {chatTab === 'sohbet' && offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && coachReplies.length > 0 && (
         <div className="border-t border-blue-100 dark:border-blue-900/40 bg-blue-50/80 dark:bg-blue-900/10 px-4 py-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs font-bold text-blue-900 dark:text-blue-200">AI cevap koçu</p>
@@ -547,8 +577,8 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
         </div>
       )}
 
-      {/* ── Input ── */}
-      {offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' ? (
+      {/* ── Input (Sohbet sekmesi) ── */}
+      {chatTab === 'sohbet' && (offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' ? (
         <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex gap-2">
           <input
             type="text"
@@ -604,7 +634,7 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
             <p className="mt-1.5 text-center text-xs text-emerald-600">✓ Değerlendirme kaydedildi</p>
           )}
         </div>
-      )}
+      ))}
 
       {revisionOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setRevisionOpen(false)}>
