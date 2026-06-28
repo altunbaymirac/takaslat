@@ -746,7 +746,35 @@ export async function aiForecast(id: string): Promise<ValueForecast> {
 }
 
 export interface Deal { listingId: string; title: string; city: string; category: string; image: string; price: number; avgPrice: number; saving: number; savingPct: number; ownerName: string }
-export async function fetchDeals(): Promise<{ deals: Deal[]; totalAnalyzed: number }> { return { deals: [], totalAnalyzed: 0 } }
+export async function fetchDeals(): Promise<{ deals: Deal[]; totalAnalyzed: number }> {
+  if (USE_MOCK) return { deals: [], totalAnalyzed: 0 }
+  const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('is_active', true)
+  const all = (data ?? []).map(dbToListing)
+  // Benzer ilanları grupla (kategori|marka|model), ortalamanın altındakileri fırsat say
+  const groups = new Map<string, Listing[]>()
+  for (const l of all) {
+    const v = l.vehicleDetails
+    const key = `${l.category}|${v?.brand ?? ''}|${v?.model ?? ''}`
+    groups.set(key, [...(groups.get(key) ?? []), l])
+  }
+  const deals: Deal[] = []
+  for (const l of all) {
+    const v = l.vehicleDetails
+    const peers = groups.get(`${l.category}|${v?.brand ?? ''}|${v?.model ?? ''}`) ?? [l]
+    if (peers.length < 2) continue
+    const avg = peers.reduce((s, p) => s + p.estimatedValue, 0) / peers.length
+    const savingPct = Math.round((1 - l.estimatedValue / avg) * 100)
+    if (savingPct >= 8) {
+      deals.push({
+        listingId: l.id, title: l.title, city: l.city, category: l.category,
+        image: l.images[0] ?? '', price: l.estimatedValue, avgPrice: Math.round(avg),
+        saving: Math.round(avg - l.estimatedValue), savingPct, ownerName: l.ownerName,
+      })
+    }
+  }
+  deals.sort((a, b) => b.savingPct - a.savingPct)
+  return { deals: deals.slice(0, 20), totalAnalyzed: all.length }
+}
 
 export interface BudgetResult { budget: number; inBudgetCount: number; stretchCount: number; byCategory: { name: string; count: number }[]; inBudget: { listingId: string; title: string; city: string; category: string; image: string; price: number; utilization: number; ownerName: string }[]; stretch: { listingId: string; title: string; city: string; image: string; price: number; overBy: number }[] }
 export async function aiBudget(p: { budget: number; category?: string; city?: string }): Promise<BudgetResult> {
@@ -799,7 +827,34 @@ export async function aiAutoMessage(p: { sourceListingId?: string; targetListing
 
 export async function aiPersonalFeed(p: { favoriteIds: string[]; searchHistory: string[]; wishlistTerms: string[] }): Promise<{ items: { listingId: string; title: string; city: string; value: number; score: number; reasons: string[] }[]; profileSignals: string[] }> {
   if (USE_MOCK) return { items: [], profileSignals: [] }
-  return invokeAI('personalFeed', p)
+  const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('is_active', true)
+  const all = (data ?? []).map(dbToListing)
+  const favs = all.filter((l) => p.favoriteIds.includes(l.id))
+  const favBrands = new Set(favs.map((l) => l.vehicleDetails?.brand).filter(Boolean) as string[])
+  const favCats = new Set(favs.map((l) => l.category))
+  const terms = [...p.searchHistory, ...p.wishlistTerms].join(' ').toLowerCase().split(/\s+/).filter((t) => t.length > 2)
+
+  const signals: string[] = []
+  if (favBrands.size) signals.push(`Sevdiğin markalar: ${[...favBrands].join(', ')}`)
+  if (favCats.size)   signals.push(`İlgi alanın: ${[...favCats].join(', ')}`)
+  if (terms.length)   signals.push(`Aramaların: ${terms.slice(0, 5).join(', ')}`)
+
+  const items = all
+    .filter((l) => !p.favoriteIds.includes(l.id))
+    .map((l) => {
+      const v = l.vehicleDetails
+      let score = 0; const reasons: string[] = []
+      if (v?.brand && favBrands.has(v.brand)) { score += 40; reasons.push(`${v.brand} ilgini çekiyor`) }
+      if (favCats.has(l.category))            { score += 20; reasons.push(`${l.category} kategorisi`) }
+      const hay = `${l.title} ${v?.brand ?? ''} ${v?.model ?? ''} ${l.city}`.toLowerCase()
+      if (terms.some((t) => hay.includes(t)))  { score += 25; reasons.push('Aramalarına uygun') }
+      return { listingId: l.id, title: l.title, city: l.city, value: l.estimatedValue, score, reasons }
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+
+  return { items, profileSignals: signals }
 }
 
 export async function aiConversationCoach(p: { lastMessage: string; listingId?: string }): Promise<{ intent: string; caution: string; replies: string[]; nextBestAction: string }> {
@@ -885,6 +940,41 @@ export async function moderateListing(id: string, status: 'pending' | 'approved'
 }
 
 export interface AdminUser { id: string; name: string; email: string; role: string; emailVerified: boolean; phoneVerified: boolean; rating: number; totalSwaps: number; createdAt: string; _count: { listings: number; sentOffers: number } }
-export async function fetchAdminUsers(_search?: string): Promise<AdminUser[]> { return [] }
-export async function setUserRole(_userId: string, _role: 'USER' | 'ADMIN' | 'MODERATOR') { return {} }
-export async function banUser(_userId: string) { return {} }
+export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
+  if (USE_MOCK) return []
+  let q = supabase.from('profiles')
+    .select('id, name, email, role, email_verified, phone_verified, rating, total_swaps, created_at')
+    .order('created_at', { ascending: false }).limit(100)
+  if (search) q = q.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+  const { data: profiles } = await q
+  // İlan ve teklif sayıları (gruplanmış)
+  const [{ data: listingRows }, { data: offerRows }] = await Promise.all([
+    supabase.from('listings').select('owner_id'),
+    supabase.from('offers').select('from_user_id'),
+  ])
+  const lc = new Map<string, number>(); for (const r of listingRows ?? []) lc.set(r.owner_id, (lc.get(r.owner_id) ?? 0) + 1)
+  const oc = new Map<string, number>(); for (const r of offerRows ?? []) oc.set(r.from_user_id, (oc.get(r.from_user_id) ?? 0) + 1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (profiles ?? []).map((p: any) => ({
+    id: p.id, name: p.name ?? '', email: p.email ?? '',
+    role: (p.role ?? 'user').toUpperCase(),
+    emailVerified: !!p.email_verified, phoneVerified: !!p.phone_verified,
+    rating: p.rating ?? 0, totalSwaps: p.total_swaps ?? 0, createdAt: p.created_at,
+    _count: { listings: lc.get(p.id) ?? 0, sentOffers: oc.get(p.id) ?? 0 },
+  }))
+}
+
+export async function setUserRole(userId: string, role: 'USER' | 'ADMIN' | 'MODERATOR') {
+  if (USE_MOCK) return {}
+  const { error } = await supabase.from('profiles').update({ role: role.toLowerCase() }).eq('id', userId)
+  if (error) throw new Error(error.message)
+  return { success: true }
+}
+
+export async function banUser(userId: string) {
+  if (USE_MOCK) return {}
+  // Şemada ban kolonu yok — kullanıcının tüm ilanları pasif yapılır
+  const { error } = await supabase.from('listings').update({ is_active: false }).eq('owner_id', userId)
+  if (error) throw new Error(error.message)
+  return { success: true }
+}
