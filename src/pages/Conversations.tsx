@@ -203,6 +203,7 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
     { id: 'initial', fromUserId: offer.fromUserId, text: offer.message, createdAt: offer.createdAt },
     ...(offer.messages ?? []),
   ];
+  const otherUserId = offer.fromUserId === currentUserId ? offer.toUserId : offer.fromUserId;
   const revisionMessages = thread.filter((msg) => msg.text.toLocaleLowerCase('tr-TR').includes('teklif revize edildi'));
   const cashDiff = relatedListing && offer.offeredValue
     ? offer.offeredValue - relatedListing.estimatedValue
@@ -215,8 +216,15 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
   ];
 
   async function askCoach() {
-    const lastMessage = text.trim() || thread[thread.length - 1]?.text || offer.message;
-    if (!lastMessage) return;
+    // Karşı tarafın SON mesajı — benim taslağım/kendi mesajım değil
+    const lastFromOther = [...thread].reverse().find((m) => m.fromUserId === otherUserId);
+    const lastMessage = lastFromOther?.text;
+    if (!lastMessage) {
+      setCoachReplies([]);
+      setCoachNote(null);
+      showToast('Karşı taraftan henüz mesaj yok — koç için önce yanıt bekle', 'info');
+      return;
+    }
 
     setCoachLoading(true);
     try {
