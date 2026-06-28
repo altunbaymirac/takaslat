@@ -154,43 +154,23 @@ export default function Register() {
               </select>
             </div>
 
-            {/* Kullanım koşulları */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={termsChecked}
-                  onChange={e => setTermsChecked(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded accent-blue-600 flex-shrink-0"
-                />
-                <span className="text-xs text-slate-600 leading-relaxed">
-                  <button
-                    type="button"
-                    onClick={() => setTermsOpen(v => !v)}
-                    className="font-semibold text-blue-600 hover:underline"
-                  >Kullanım Koşulları</button>
-                  {' '}ve{' '}
-                  <button
-                    type="button"
-                    onClick={() => setTermsOpen(v => !v)}
-                    className="font-semibold text-blue-600 hover:underline"
-                  >Gizlilik Politikası</button>
-                  'nı okudum, takas işlemlerimin yasal yükümlülüklerinden şahsen sorumlu olduğumu kabul ediyorum.
-                </span>
-              </label>
-
-              {termsOpen && (
-                <div className="mt-2 space-y-2 text-xs text-slate-600 border-t border-slate-200 pt-2">
-                  <p><strong>Platform:</strong> Takaslat bir aracı platformdur; takas işlemlerinin tarafı değildir.</p>
-                  <p className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800">
-                    <strong>⚠️ Vergi Uyarısı:</strong> Takas işlemleri Türk vergi mevzuatı kapsamında gelir vergisi veya KDV'ye konu olabilir. Takaslat bu yükümlülüklerden sorumlu tutulamaz.
-                  </p>
-                  <p><strong>Güvenli takas:</strong> Araç devri noterden yapılmalı, kapora öncesi aracı yerinde görün.</p>
-                  <p><strong>Yasak:</strong> Sahte ilan, dolandırıcılık ve yasadışı ürün listeleme hesap kapatma sebebidir.</p>
-                  <p><strong>Gizlilik:</strong> Verileriniz KVKK kapsamında korunur, üçüncü şahıslarla satılmaz.</p>
-                </div>
-              )}
-            </div>
+            {/* Kullanım koşulları — tek satır, detay modalda */}
+            <label className="flex items-start gap-2.5 cursor-pointer px-0.5">
+              <input
+                type="checkbox"
+                checked={termsChecked}
+                onChange={e => setTermsChecked(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded accent-blue-600 flex-shrink-0"
+              />
+              <span className="text-xs text-slate-500 leading-relaxed">
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setTermsOpen(true); }}
+                  className="font-semibold text-blue-600 hover:underline"
+                >Kullanım Koşulları &amp; Gizlilik</button>
+                'nı okudum, kabul ediyorum.
+              </span>
+            </label>
 
             <button
               type="submit"
@@ -234,6 +214,34 @@ export default function Register() {
           </p>
         </div>
       </div>
+
+      {/* Kullanım Koşulları & Gizlilik — modal */}
+      {termsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setTermsOpen(false)}>
+          <div className="w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Kullanım Koşulları &amp; Gizlilik</h3>
+              <button type="button" onClick={() => setTermsOpen(false)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100" aria-label="Kapat">✕</button>
+            </div>
+            <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
+              <p><strong>Platform:</strong> Takaslat bir aracı platformdur; takas işlemlerinin tarafı değildir.</p>
+              <p className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800">
+                <strong>⚠️ Vergi Uyarısı:</strong> Takas işlemleri Türk vergi mevzuatı kapsamında gelir vergisi veya KDV'ye konu olabilir. Takaslat bu yükümlülüklerden sorumlu tutulamaz.
+              </p>
+              <p><strong>Güvenli takas:</strong> Araç devri noterden yapılmalı, kapora öncesi aracı yerinde görün.</p>
+              <p><strong>Yasak:</strong> Sahte ilan, dolandırıcılık ve yasadışı ürün listeleme hesap kapatma sebebidir.</p>
+              <p><strong>Gizlilik:</strong> Verileriniz KVKK kapsamında korunur, üçüncü şahıslarla satılmaz.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setTermsChecked(true); setTermsOpen(false); }}
+              className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+            >
+              Okudum, kabul ediyorum
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
