@@ -377,6 +377,138 @@ async function personalFeed() {
 }
 
 // TakaslAI sohbet — gerçek ilan kataloğuyla LLM yanıtı + ilan önerileri
+type HomeMatchRow = {
+  id: string;
+  title: string;
+  category: string;
+  estimated_value: number;
+  city: string;
+  brand?: string | null;
+  model?: string | null;
+  year?: number | null;
+  km?: number | null;
+  fuel?: string | null;
+  transmission?: string | null;
+  body_type?: string | null;
+  has_accident_record?: boolean | null;
+  owner_id?: string | null;
+};
+
+// Home page AI matcher. It reads real listings on the backend.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function homeMatch(p: Record<string, unknown>, supabase: any, userId: string | null) {
+  const query = String(p.query ?? '').trim();
+  if (query.length < 3) throw new Error('Aradigin araci biraz daha detayli yaz.');
+
+  const sourceListingId = typeof p.sourceListingId === 'string' && p.sourceListingId ? p.sourceListingId : null;
+  const cashDirection = p.cashDirection === 'receive' ? 'receive' : p.cashDirection === 'pay' ? 'pay' : 'any';
+  const cashAmount = Math.max(0, Number(p.cashAmount) || 0);
+
+  let source: HomeMatchRow | null = null;
+  if (sourceListingId && userId) {
+    const { data } = await supabase
+      .from('listings')
+      .select('id,title,category,estimated_value,city,brand,model,year,km,fuel,transmission,body_type,has_accident_record,owner_id')
+      .eq('id', sourceListingId)
+      .eq('owner_id', userId)
+      .eq('is_active', true)
+      .single();
+    source = data ?? null;
+  }
+
+  const { data } = await supabase
+    .from('listings')
+    .select('id,title,category,estimated_value,city,brand,model,year,km,fuel,transmission,body_type,has_accident_record,owner_id')
+    .eq('is_active', true)
+    .eq('moderation_status', 'approved')
+    .order('updated_at', { ascending: false })
+    .limit(120);
+
+  let rows = ((data ?? []) as HomeMatchRow[])
+    .filter((l) => !source || l.id !== source.id)
+    .filter((l) => !userId || l.owner_id !== userId);
+
+  if (source && cashAmount > 0 && cashDirection !== 'any') {
+    rows = rows.filter((l) => {
+      const diff = l.estimated_value - source!.estimated_value;
+      if (cashDirection === 'pay') return diff >= 0 && diff <= cashAmount * 1.15;
+      return diff <= 0 && Math.abs(diff) <= cashAmount * 1.15;
+    });
+  }
+
+  rows = rows.slice(0, 70);
+  if (!rows.length) {
+    return {
+      message: 'Bu kriterlerle uygun aktif ilan bulamadim. Fark tutarini genisletmeyi veya kriterleri yumusatmayi deneyebilirsin.',
+      interpreted: { query, sourceListingId: source?.id ?? null, cashDirection, cashAmount },
+      source: source ? { id: source.id, title: source.title, value: source.estimated_value } : null,
+      suggestions: [],
+    };
+  }
+
+  const catalog = rows.map((l) =>
+    `${l.id} | ${l.title} | ${l.estimated_value} TL | ${l.city} | ${l.category}` +
+    `${l.brand ? ` | ${l.brand} ${l.model ?? ''}` : ''}` +
+    `${l.year ? ` | ${l.year}` : ''}` +
+    `${l.km ? ` | ${l.km} km` : ''}` +
+    `${l.fuel ? ` | ${l.fuel}` : ''}` +
+    `${l.transmission ? ` | ${l.transmission}` : ''}` +
+    `${l.body_type ? ` | ${l.body_type}` : ''}` +
+    `${l.has_accident_record ? ' | hasar kaydi var' : ' | hasar kaydi yok'}`,
+  ).join('\n');
+
+  const sourceText = source
+    ? `Kullanicinin kendi ilani: ${source.title}, ${source.estimated_value} TL, ${source.city}, ${source.brand ?? ''} ${source.model ?? ''} ${source.year ?? ''}.`
+    : 'Kullanici kendi ilanini secmedi; arama niyetine gore aday oner.';
+  const diffText = cashAmount > 0
+    ? `Nakit fark tercihi: kullanici ${cashDirection === 'pay' ? 'en fazla odemek' : cashDirection === 'receive' ? 'en fazla almak' : 'esnek kalmak'} istiyor, tutar ${cashAmount} TL.`
+    : 'Nakit fark belirtilmedi; fiyat uyumunu makul tut.';
+
+  const raw = await callDeepSeek([
+    {
+      role: 'system',
+      content:
+        'Takaslat ana ekran AI eslestirme motorusun. Kullanicinin dogal dil arac istegini yorumla ve SADECE katalogdaki gercek idlerden oneri sec. ' +
+        'Sedan, SUV, 2020 ve ustu, otomatik, hasarsiz gibi kriterleri dikkatle uygula. ' +
+        'Kendi ilani ve nakit fark bilgisi varsa fiyat farkini buna gore yorumla. ' +
+        'SADECE JSON don: {"message":"...","interpreted":{"bodyType":"...","minYear":2020,"budgetNote":"..."},"suggestions":[{"listingId":"...","compatibilityScore":0-100,"reasons":["..."],"cashNote":"...","negotiationTip":"..."}]}. En fazla 6 oneri.',
+    },
+    {
+      role: 'user',
+      content: `${sourceText}\n${diffText}\nKullanici istegi: "${query}"\n\nKatalog:\n${catalog}`,
+    },
+  ], true);
+
+  const parsed = safeJson(raw, {
+    message: '',
+    interpreted: {} as Record<string, unknown>,
+    suggestions: [] as Array<Record<string, unknown>>,
+  });
+  const byId = new Map(rows.map((l) => [l.id, l]));
+  const suggestions = (parsed.suggestions ?? []).slice(0, 6).map((s) => {
+    const l = byId.get(String(s.listingId));
+    if (!l) return null;
+    return {
+      listingId: l.id,
+      title: l.title,
+      city: l.city,
+      value: l.estimated_value,
+      compatibilityScore: Math.max(0, Math.min(100, Number(s.compatibilityScore) || 50)),
+      priceDiff: source ? l.estimated_value - source.estimated_value : null,
+      reasons: Array.isArray(s.reasons) ? (s.reasons as string[]).slice(0, 4) : [],
+      cashNote: String(s.cashNote ?? ''),
+      negotiationTip: String(s.negotiationTip ?? ''),
+    };
+  }).filter(Boolean);
+
+  return {
+    message: parsed.message || `${suggestions.length} uygun ilan buldum.`,
+    interpreted: parsed.interpreted ?? {},
+    source: source ? { id: source.id, title: source.title, value: source.estimated_value } : null,
+    suggestions,
+  };
+}
+
 async function chat(p: Record<string, unknown>) {
   const query = String(p.query ?? '');
   const current = p.currentListing as { id?: string; title?: string; value?: number; category?: string } | null;
@@ -477,6 +609,7 @@ Deno.serve(async (req) => {
       case 'budget':             result = await budget(p, supabase); break;
       case 'forecast':           result = await forecast(p, supabase); break;
       case 'personalFeed':       result = await personalFeed(); break;
+      case 'homeMatch':          result = await homeMatch(p, supabase, userId); break;
       case 'chat':               result = await chat(p); break;
       default: return json({ error: 'Bilinmeyen action: ' + action }, 400);
     }

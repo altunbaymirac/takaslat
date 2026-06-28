@@ -74,6 +74,10 @@ function dbToListing(row: any): Listing {
       hasAccidentRecord: row.has_accident_record ?? false,
       bodyType: row.body_type ?? undefined,
       engineCC: row.engine_cc ?? undefined,
+      hasExpertise: row.extra_details?.vehicleDetails?.hasExpertise ?? undefined,
+      expertiseFirm: row.extra_details?.vehicleDetails?.expertiseFirm ?? undefined,
+      expertiseDate: row.extra_details?.vehicleDetails?.expertiseDate ?? undefined,
+      expertiseNote: row.extra_details?.vehicleDetails?.expertiseNote ?? undefined,
     } : undefined,
     // extra_details iki biçimde olabilir: iç içe { electronicDetails: {...} }
     // (app) veya düz { type, brand, ... } (seed). İkisini de destekle.
@@ -435,7 +439,13 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
     body_type:          data.vehicleDetails?.bodyType ?? null,
     engine_cc:          data.vehicleDetails?.engineCC ?? null,
     // Elektronik/Gayrimenkul detayları JSON olarak — dbToListing bunları okur
-    extra_details: (data.electronicDetails || data.propertyDetails) ? {
+    extra_details: (data.vehicleDetails || data.electronicDetails || data.propertyDetails) ? {
+      vehicleDetails: data.vehicleDetails ? {
+        hasExpertise: data.vehicleDetails.hasExpertise ?? null,
+        expertiseFirm: data.vehicleDetails.expertiseFirm ?? null,
+        expertiseDate: data.vehicleDetails.expertiseDate ?? null,
+        expertiseNote: data.vehicleDetails.expertiseNote ?? null,
+      } : null,
       electronicDetails: data.electronicDetails ?? null,
       propertyDetails:   data.propertyDetails ?? null,
     } : null,
@@ -473,8 +483,14 @@ export async function updateListingApi(id: string, patch: Partial<Listing>): Pro
     row.body_type           = patch.vehicleDetails.bodyType
     row.engine_cc           = patch.vehicleDetails.engineCC
   }
-  if (patch.electronicDetails || patch.propertyDetails) {
+  if (patch.vehicleDetails || patch.electronicDetails || patch.propertyDetails) {
     row.extra_details = {
+      vehicleDetails: patch.vehicleDetails ? {
+        hasExpertise: patch.vehicleDetails.hasExpertise ?? null,
+        expertiseFirm: patch.vehicleDetails.expertiseFirm ?? null,
+        expertiseDate: patch.vehicleDetails.expertiseDate ?? null,
+        expertiseNote: patch.vehicleDetails.expertiseNote ?? null,
+      } : null,
       electronicDetails: patch.electronicDetails ?? null,
       propertyDetails:   patch.propertyDetails ?? null,
     }
@@ -795,6 +811,32 @@ export interface BudgetResult { budget: number; inBudgetCount: number; stretchCo
 export async function aiBudget(p: { budget: number; category?: string; city?: string }): Promise<BudgetResult> {
   if (USE_MOCK) return { budget: 0, inBudgetCount: 0, stretchCount: 0, byCategory: [], inBudget: [], stretch: [] }
   return invokeAI<BudgetResult>('budget', p)
+}
+
+export interface HomeMatchResult {
+  message: string;
+  interpreted: Record<string, unknown>;
+  source?: { id: string; title: string; value: number } | null;
+  suggestions: {
+    listingId: string;
+    title: string;
+    city: string;
+    value: number;
+    compatibilityScore: number;
+    priceDiff: number | null;
+    reasons: string[];
+    cashNote: string;
+    negotiationTip: string;
+  }[];
+}
+export async function aiHomeMatch(p: {
+  query: string;
+  sourceListingId?: string;
+  cashDirection?: 'any' | 'pay' | 'receive';
+  cashAmount?: number;
+}): Promise<HomeMatchResult> {
+  if (USE_MOCK) throw new Error('Backend gerekli')
+  return invokeAI<HomeMatchResult>('homeMatch', p as unknown as Record<string, unknown>)
 }
 
 export interface NegotiationAnalysis { analysis: { tone: 'agresif' | 'pasif' | 'dengeli'; toneReason: string; length: { score: number; note: string }; positives: string[]; negatives: string[]; overallScore: number }; possibilities: { probability: number; type: 'kabul' | 'pazarlik' | 'red'; message: string; reason: string }[]; tips: string[] }

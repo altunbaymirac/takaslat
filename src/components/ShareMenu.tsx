@@ -55,11 +55,6 @@ export default function ShareMenu({ url, title }: Props) {
       action: () => { setQrOpen(true); setOpen(false); },
     },
     {
-      label: 'WhatsApp',
-      icon:  '💬',
-      href:  `https://wa.me/?text=${shareText}%20${encUrl}`,
-    },
-    {
       label: 'X (Twitter)',
       icon:  '🐦',
       href:  `https://twitter.com/intent/tweet?text=${shareText}&url=${encUrl}`,

@@ -5,6 +5,7 @@ import ListingCard from '../components/ListingCard';
 import FilterBar from '../components/FilterBar';
 import { useSEO } from '../hooks/useSEO';
 import { VEHICLE_GROUPS } from '../data/vehicleTypes';
+import { aiErrorMessage, aiHomeMatch, type HomeMatchResult } from '../services/api';
 
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'popular';
 
@@ -20,6 +21,9 @@ const PAGE_SIZE = 12;
 
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 
+const formatPrice = (value: number) =>
+  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value);
+
 export default function Home() {
   useSEO({
     title: 'Araç Takasının En Akıllı Adresi | Takaslat',
@@ -31,12 +35,19 @@ export default function Home() {
   const {
     listings, filters, openAIPanel,
     recentlyViewed, clearRecentlyViewed,
-    boostedListings, setFilters,
+    boostedListings, setFilters, currentUserId,
   } = useAppStore();
 
   const [sortBy, setSortBy]     = useState<SortOption>('newest');
   const [sortOpen, setSortOpen] = useState(false);
   const [page, setPage]         = useState(1);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiSourceListingId, setAiSourceListingId] = useState('');
+  const [aiCashDirection, setAiCashDirection] = useState<'any' | 'pay' | 'receive'>('any');
+  const [aiCashAmount, setAiCashAmount] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<HomeMatchResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // ── İlan kodu doğrudan yönlendirme ──────────────────────────────────────────
   useEffect(() => {
@@ -59,6 +70,45 @@ export default function Home() {
       .filter((l): l is NonNullable<typeof l> => Boolean(l)),
     [recentlyViewed, listings]
   );
+
+  const myListings = useMemo(
+    () => listings.filter((l) => l.ownerId === currentUserId),
+    [listings, currentUserId]
+  );
+
+  const aiMatchedListings = useMemo(() => {
+    if (!aiResult) return [];
+    return aiResult.suggestions
+      .map((s) => {
+        const listing = listings.find((l) => l.id === s.listingId);
+        return listing ? { listing, suggestion: s } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  }, [aiResult, listings]);
+
+  async function runHomeAI() {
+    if (aiQuery.trim().length < 3) {
+      setAiError('Aradığın aracı biraz daha detaylı yaz.');
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const result = await aiHomeMatch({
+        query: aiQuery.trim(),
+        sourceListingId: aiSourceListingId || undefined,
+        cashDirection: aiCashDirection,
+        cashAmount: Number(aiCashAmount) || undefined,
+      });
+      setAiResult(result);
+      setPage(1);
+    } catch (err) {
+      setAiResult(null);
+      setAiError(aiErrorMessage(err));
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   // ── Gerçek istatistikler (ilan verisinden hesaplanır) ──────────────────────
   const heroStats = useMemo(() => {
@@ -165,6 +215,67 @@ export default function Home() {
             Araç takasının en akıllı adresi. İlan ver, teklif al, güvenle buluş.
           </p>
 
+          <div className="mx-auto mb-5 max-w-4xl rounded-2xl border border-white/20 bg-white p-3 text-left shadow-2xl shadow-blue-950/20 dark:bg-slate-900">
+            <div className="grid gap-2 lg:grid-cols-[1fr_190px_150px_140px_auto]">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">AI araç isteği</label>
+                <input
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && runHomeAI()}
+                  placeholder="Örn: sedan, 2020 ve üstü, otomatik, hasarsız"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Kendi ilanım</label>
+                <select
+                  value={aiSourceListingId}
+                  onChange={(e) => setAiSourceListingId(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value="">Seçmeden ara</option>
+                  {myListings.map((listing) => (
+                    <option key={listing.id} value={listing.id}>{listing.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Fark</label>
+                <select
+                  value={aiCashDirection}
+                  onChange={(e) => setAiCashDirection(e.target.value as 'any' | 'pay' | 'receive')}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value="any">Esnek</option>
+                  <option value="pay">Üste öderim</option>
+                  <option value="receive">Fark alırım</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tutar</label>
+                <input
+                  type="number"
+                  value={aiCashAmount}
+                  onChange={(e) => setAiCashAmount(e.target.value)}
+                  placeholder="100000"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={runHomeAI}
+                disabled={aiLoading}
+                className="mt-5 h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60 lg:mt-5"
+              >
+                {aiLoading ? 'Arıyor...' : 'AI Bul'}
+              </button>
+            </div>
+            {aiError && (
+              <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{aiError}</p>
+            )}
+          </div>
+
           <div className="flex flex-wrap justify-center gap-3">
             <a href="#listings"
               className="bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm px-7 py-3 rounded-2xl transition-colors shadow-lg shadow-blue-900/20">
@@ -202,6 +313,69 @@ export default function Home() {
 
       {/* ════════════════════════════════ MAIN ════════════════════════════════ */}
       <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {aiResult && (
+          <section className="mb-8 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-blue-900/40 dark:bg-slate-800">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-blue-500">AI eşleştirme</p>
+                <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{aiResult.message}</h2>
+                {aiResult.source && (
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Kaynak ilan: <span className="font-semibold text-slate-700 dark:text-slate-200">{aiResult.source.title}</span>
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiResult(null)}
+                className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
+              >
+                Sonuçları kapat
+              </button>
+            </div>
+
+            {aiMatchedListings.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {aiMatchedListings.map(({ listing, suggestion }) => (
+                  <div key={listing.id} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+                    <Link to={`/listing/${listing.id}`} className="flex gap-3 p-3 transition hover:bg-white dark:hover:bg-slate-800">
+                      <img src={listing.images[0]} alt="" className="h-24 w-32 rounded-xl object-cover" />
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-black text-white">%{suggestion.compatibilityScore}</span>
+                          <span className="truncate text-xs text-slate-400">{listing.city}</span>
+                        </div>
+                        <h3 className="line-clamp-2 text-sm font-bold text-slate-900 dark:text-slate-100">{listing.title}</h3>
+                        <p className="mt-1 text-sm font-black text-blue-600">{formatPrice(listing.estimatedValue)}</p>
+                        {suggestion.priceDiff !== null && (
+                          <p className={`mt-1 text-xs font-semibold ${suggestion.priceDiff > 0 ? 'text-amber-600' : suggestion.priceDiff < 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                            {suggestion.priceDiff === 0
+                              ? 'Değerler denk'
+                              : suggestion.priceDiff > 0
+                              ? `${formatPrice(suggestion.priceDiff)} üste gerekebilir`
+                              : `${formatPrice(Math.abs(suggestion.priceDiff))} fark alınabilir`}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                    <div className="border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-700">
+                      {suggestion.reasons.length > 0 && (
+                        <p className="text-slate-600 dark:text-slate-300">{suggestion.reasons.join(' · ')}</p>
+                      )}
+                      {suggestion.cashNote && <p className="mt-1 font-semibold text-blue-700 dark:text-blue-300">{suggestion.cashNote}</p>}
+                      {suggestion.negotiationTip && <p className="mt-1 text-slate-500 dark:text-slate-400">{suggestion.negotiationTip}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                AI bu kriterlerle uygun ilan bulamadı.
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Son görüntülenen ilanlar — hero altında ince şerit */}
         {recentlyViewedListings.length > 0 && (

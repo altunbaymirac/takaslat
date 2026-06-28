@@ -58,6 +58,124 @@ function HighlightBadge({ icon, text, color }: { icon: string; text: string; col
   );
 }
 
+type PartStatus = 'original' | 'painted' | 'changed' | 'unknown';
+
+const BODY_PARTS: { key: string; label: string; aliases: string[] }[] = [
+  { key: 'frontBumper', label: 'Ön tampon', aliases: ['on tampon', 'ön tampon'] },
+  { key: 'hood', label: 'Kaput', aliases: ['kaput', 'on kaput', 'ön kaput'] },
+  { key: 'roof', label: 'Tavan', aliases: ['tavan'] },
+  { key: 'trunk', label: 'Bagaj', aliases: ['bagaj', 'arka kaput'] },
+  { key: 'rearBumper', label: 'Arka tampon', aliases: ['arka tampon'] },
+  { key: 'leftFrontFender', label: 'Sol ön çamurluk', aliases: ['sol on camurluk', 'sol ön çamurluk'] },
+  { key: 'leftFrontDoor', label: 'Sol ön kapı', aliases: ['sol on kapi', 'sol ön kapı'] },
+  { key: 'leftRearDoor', label: 'Sol arka kapı', aliases: ['sol arka kapi', 'sol arka kapı'] },
+  { key: 'leftRearFender', label: 'Sol arka çamurluk', aliases: ['sol arka camurluk', 'sol arka çamurluk'] },
+  { key: 'rightFrontFender', label: 'Sağ ön çamurluk', aliases: ['sag on camurluk', 'sağ ön çamurluk'] },
+  { key: 'rightFrontDoor', label: 'Sağ ön kapı', aliases: ['sag on kapi', 'sağ ön kapı'] },
+  { key: 'rightRearDoor', label: 'Sağ arka kapı', aliases: ['sag arka kapi', 'sağ arka kapı'] },
+  { key: 'rightRearFender', label: 'Sağ arka çamurluk', aliases: ['sag arka camurluk', 'sağ arka çamurluk'] },
+];
+
+function normalizeDamageText(text: string) {
+  return text
+    .toLocaleLowerCase('tr-TR')
+    .replaceAll('ı', 'i')
+    .replaceAll('ğ', 'g')
+    .replaceAll('ü', 'u')
+    .replaceAll('ş', 's')
+    .replaceAll('ö', 'o')
+    .replaceAll('ç', 'c');
+}
+
+function getPartStatuses(vehicle: NonNullable<Listing['vehicleDetails']>) {
+  const note = normalizeDamageText(vehicle.expertiseNote ?? '');
+  const statuses = new Map<string, PartStatus>();
+  for (const part of BODY_PARTS) {
+    const mentioned = part.aliases.some((alias) => note.includes(normalizeDamageText(alias)));
+    if (!mentioned) {
+      statuses.set(part.key, vehicle.hasAccidentRecord ? 'unknown' : 'original');
+      continue;
+    }
+    const windows = part.aliases
+      .map((alias) => {
+        const normalizedAlias = normalizeDamageText(alias);
+        const idx = note.indexOf(normalizedAlias);
+        return idx >= 0 ? note.slice(Math.max(0, idx - 28), idx + normalizedAlias.length + 34) : '';
+      })
+      .join(' ');
+    if (/(degisen|degismis|degisti|değişen|değişmiş)/i.test(windows)) statuses.set(part.key, 'changed');
+    else if (/(boya|boyali|boyalı|lokal)/i.test(windows)) statuses.set(part.key, 'painted');
+    else statuses.set(part.key, 'unknown');
+  }
+  return statuses;
+}
+
+function VehicleDamageSchema({ vehicle }: { vehicle: NonNullable<Listing['vehicleDetails']> }) {
+  const statuses = getPartStatuses(vehicle);
+  const tone: Record<PartStatus, string> = {
+    original: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    painted: 'border-amber-200 bg-amber-50 text-amber-700',
+    changed: 'border-red-200 bg-red-50 text-red-700',
+    unknown: 'border-slate-200 bg-slate-50 text-slate-500',
+  };
+  const text: Record<PartStatus, string> = {
+    original: 'Orijinal',
+    painted: 'Boyalı',
+    changed: 'Değişen',
+    unknown: 'Belirsiz',
+  };
+  const rows = [
+    ['frontBumper'],
+    ['hood'],
+    ['roof'],
+    ['trunk'],
+    ['rearBumper'],
+    ['leftFrontFender', 'rightFrontFender'],
+    ['leftFrontDoor', 'rightFrontDoor'],
+    ['leftRearDoor', 'rightRearDoor'],
+    ['leftRearFender', 'rightRearFender'],
+  ];
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Boya / Değişen Şeması</h2>
+          <p className="mt-1 text-xs text-slate-400">Ekspertiz notundan ve hasar kaydı bilgisinden okunur.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">Orijinal</span>
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Boyalı</span>
+          <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-red-700">Değişen</span>
+        </div>
+      </div>
+      <div className="mx-auto max-w-sm rounded-[2rem] border-2 border-slate-200 bg-slate-100 p-3 dark:border-slate-700 dark:bg-slate-900">
+        <div className="space-y-1.5">
+          {rows.map((row, idx) => (
+            <div key={idx} className={`grid gap-1.5 ${row.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {row.map((key) => {
+                const part = BODY_PARTS.find((p) => p.key === key)!;
+                const status = statuses.get(key) ?? 'unknown';
+                return (
+                  <div key={key} className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold ${tone[status]}`}>
+                    <span className="block truncate">{part.label}</span>
+                    <span className="text-[10px] font-medium opacity-80">{text[status]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      {vehicle.expertiseNote && (
+        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+          Ekspertiz notu: {vehicle.expertiseNote}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Sayfa ────────────────────────────────────────────────────────────────────
 
 export default function ListingDetail() {
@@ -398,6 +516,14 @@ export default function ListingDetail() {
               </div>
               <div className="text-right">
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">{fmt(listing.estimatedValue)}</div>
+                {!isOwner && (
+                  <button
+                    onClick={() => setOfferModalOpen(true)}
+                    className="mt-3 inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+                  >
+                    Takas Teklifi Gönder
+                  </button>
+                )}
                 <div className="text-xs text-slate-400 mt-0.5">Tahmini değer</div>
               </div>
             </div>
@@ -483,6 +609,8 @@ export default function ListingDetail() {
           )}
 
           <ListingAIInsights listing={listing} />
+
+          {v && <VehicleDamageSchema vehicle={v} />}
 
           {/* Detaylı Araç Özellikleri */}
           {v && (
@@ -778,17 +906,6 @@ export default function ListingDetail() {
                   <span className="text-base">✦</span>
                   AI ile Eşleştir
                 </button>
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Takaslat ilanı: ${listing.title}\n${window.location.href}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-emerald-200 dark:border-emerald-900/40"
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WhatsApp'ta Paylaş
-                </a>
               </div>
             ) : (
               <div className="space-y-2.5">
