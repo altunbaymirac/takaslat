@@ -14,7 +14,7 @@ function fmt(n: number) {
 }
 
 export default function ListingCard({ listing }: { listing: Listing }) {
-  const { openAIPanel, favorites, toggleFavorite, compareList, toggleCompare, isBoosted } = useAppStore();
+  const { favorites, toggleFavorite, compareList, toggleCompare, isBoosted } = useAppStore();
   const v         = listing.vehicleDetails;
   const isFav     = favorites.includes(listing.id);
   const isCompare = compareList.includes(listing.id);
@@ -145,16 +145,6 @@ export default function ListingCard({ listing }: { listing: Listing }) {
             </svg>
           </button>
 
-          <button
-            onClick={() => openAIPanel(listing.id)}
-            aria-label="AI ile eşleştir"
-            title="AI ile eşleştir"
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
-          </button>
         </div>
       </div>
     </article>
