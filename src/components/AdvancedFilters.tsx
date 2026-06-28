@@ -55,10 +55,10 @@ export default function AdvancedFilters() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`relative text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+        className={`relative flex h-12 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-all ${
           activeCount > 0
-            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+            ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
         }`}
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
