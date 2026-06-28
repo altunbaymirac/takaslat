@@ -870,7 +870,7 @@ export default function Conversations() {
           {/* ── Right panel: chat ── */}
           <div className="flex-1 min-w-0 hidden sm:flex flex-col">
             {activeOffer ? (
-              <ChatPanel offer={activeOffer} isIncoming={isIncoming} />
+              <ChatPanel key={activeOffer.id} offer={activeOffer} isIncoming={isIncoming} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-8">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">

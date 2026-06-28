@@ -75,8 +75,12 @@ function dbToListing(row: any): Listing {
       bodyType: row.body_type ?? undefined,
       engineCC: row.engine_cc ?? undefined,
     } : undefined,
-    electronicDetails: row.extra_details?.electronicDetails,
-    propertyDetails: row.extra_details?.propertyDetails,
+    // extra_details iki biçimde olabilir: iç içe { electronicDetails: {...} }
+    // (app) veya düz { type, brand, ... } (seed). İkisini de destekle.
+    electronicDetails: row.extra_details?.electronicDetails
+      ?? (row.category === 'Elektronik' ? row.extra_details : undefined),
+    propertyDetails: row.extra_details?.propertyDetails
+      ?? (row.category === 'Gayrimenkul' ? row.extra_details : undefined),
   }
 }
 
@@ -430,6 +434,11 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
     has_accident_record: data.vehicleDetails?.hasAccidentRecord ?? false,
     body_type:          data.vehicleDetails?.bodyType ?? null,
     engine_cc:          data.vehicleDetails?.engineCC ?? null,
+    // Elektronik/Gayrimenkul detayları JSON olarak — dbToListing bunları okur
+    extra_details: (data.electronicDetails || data.propertyDetails) ? {
+      electronicDetails: data.electronicDetails ?? null,
+      propertyDetails:   data.propertyDetails ?? null,
+    } : null,
   }
   const { data: inserted, error } = await supabase.from('listings').insert(row).select(LISTING_SELECT).single()
   if (error) throw new Error(error.message)
@@ -463,6 +472,12 @@ export async function updateListingApi(id: string, patch: Partial<Listing>): Pro
     row.has_accident_record = patch.vehicleDetails.hasAccidentRecord
     row.body_type           = patch.vehicleDetails.bodyType
     row.engine_cc           = patch.vehicleDetails.engineCC
+  }
+  if (patch.electronicDetails || patch.propertyDetails) {
+    row.extra_details = {
+      electronicDetails: patch.electronicDetails ?? null,
+      propertyDetails:   patch.propertyDetails ?? null,
+    }
   }
   const { data, error } = await supabase.from('listings').update(row).eq('id', id).select(LISTING_SELECT).single()
   if (error) throw new Error(error.message)
