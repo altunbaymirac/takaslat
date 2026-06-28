@@ -236,7 +236,6 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
                 : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
             }`}
           >
-            <span className="mr-1">{VEHICLE_GROUP_ICONS[group]}</span>
             {group}
           </button>
         ))}

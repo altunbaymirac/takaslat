@@ -46,7 +46,9 @@ export default function SavedSearchesPanel() {
             : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
         }`}
       >
-        <span className="text-sm">🔖</span>
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+        </svg>
         Aramalar
         {savedSearches.length > 0 && (
           <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full px-1.5 leading-tight">
@@ -92,7 +94,9 @@ export default function SavedSearchesPanel() {
           <div className="max-h-80 overflow-y-auto">
             {savedSearches.length === 0 ? (
               <div className="py-8 text-center">
-                <div className="text-3xl mb-2">🔖</div>
+                <svg className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                </svg>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Kayıtlı arama yok</p>
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Sık aradığınız kriterleri kaydedin</p>
               </div>

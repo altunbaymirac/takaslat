@@ -10,11 +10,11 @@ import { aiErrorMessage, aiHomeMatch, type HomeMatchResult } from '../services/a
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'popular';
 
 const SORT_LABELS: Record<SortOption, string> = {
-  newest:     '🕐 En Yeni',
-  oldest:     '🕰️ En Eski',
-  price_asc:  '💰 Fiyat: Düşük → Yüksek',
-  price_desc: '💎 Fiyat: Yüksek → Düşük',
-  popular:    '🔥 En Popüler',
+  newest:     'En yeni',
+  oldest:     'En eski',
+  price_asc:  'Fiyat — düşükten yükseğe',
+  price_desc: 'Fiyat — yüksekten düşüğe',
+  popular:    'En popüler',
 };
 
 const PAGE_SIZE = 12;
@@ -381,8 +381,8 @@ export default function Home() {
         {recentlyViewedListings.length > 0 && (
           <section className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <span>🕐</span> Son Baktıkların
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                Son baktıkların
               </h2>
               <button
                 onClick={clearRecentlyViewed}
@@ -413,7 +413,7 @@ export default function Home() {
 
         {/* ── Toolbar: başlık, sıralama, harita ── */}
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">İlanlar</h2>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">İlanlar</h2>
 
           <div className="flex items-center gap-2">
             {/* Sort dropdown */}
@@ -425,7 +425,7 @@ export default function Home() {
                 <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                 </svg>
-                {SORT_LABELS[sortBy].split(' ').slice(1).join(' ')}
+                {SORT_LABELS[sortBy]}
                 <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
 
@@ -453,7 +453,8 @@ export default function Home() {
               to="/map"
               className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors"
             >
-              <span>🗺️</span> Harita
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" /></svg>
+              Harita
             </Link>
           </div>
         </div>
