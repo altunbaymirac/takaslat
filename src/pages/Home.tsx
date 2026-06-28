@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import ListingCard from '../components/ListingCard';
 import FilterBar from '../components/FilterBar';
-import { personalize } from '../lib/personalize';
-import { getListingHealth } from '../lib/listingHealth';
 import { useSEO } from '../hooks/useSEO';
 import { VEHICLE_GROUPS } from '../data/vehicleTypes';
 
@@ -33,7 +31,6 @@ export default function Home() {
   const {
     listings, filters, openAIPanel,
     recentlyViewed, clearRecentlyViewed,
-    favorites, searchHistory, currentUserId,
     boostedListings, setFilters,
   } = useAppStore();
 
@@ -63,21 +60,6 @@ export default function Home() {
     [recentlyViewed, listings]
   );
 
-  // ── Kişiselleştirilmiş öneriler ───────────────────────────────────────────
-  const personalized = useMemo(
-    () => personalize({
-      listings,
-      recentlyViewed,
-      favorites,
-      searchTerms:    searchHistory,
-      excludeOwnerId: currentUserId,
-      limit:          8,
-    }),
-    [listings, recentlyViewed, favorites, searchHistory, currentUserId]
-  );
-
-  const hasPersonalSignals = recentlyViewed.length > 0 || favorites.length > 0 || searchHistory.length > 0;
-
   // ── Gerçek istatistikler (ilan verisinden hesaplanır) ──────────────────────
   const heroStats = useMemo(() => {
     const count = listings.length;
@@ -90,37 +72,6 @@ export default function Home() {
       : avg >= 1_000   ? `₺${Math.round(avg / 1_000)}K`
       : `₺${avg}`;
     return { count, fmtAvg, cities };
-  }, [listings]);
-
-  const trustedListings = useMemo(() => (
-    listings
-      .filter((l) => l.ownerId !== currentUserId)
-      .map((listing) => ({ listing, health: getListingHealth(listing) }))
-      .filter((item) => item.health.score >= 75)
-      .sort((a, b) => b.health.score - a.health.score)
-      .slice(0, 4)
-  ), [listings, currentUserId]);
-
-  const dealListings = useMemo(() => {
-    const groups = new Map<string, typeof listings>();
-    for (const listing of listings) {
-      const v = listing.vehicleDetails;
-      const key = `${listing.category}|${v?.brand ?? listing.category}|${v?.model ?? ''}`;
-      groups.set(key, [...(groups.get(key) ?? []), listing]);
-    }
-    return listings
-      .map((listing) => {
-        const v = listing.vehicleDetails;
-        const key = `${listing.category}|${v?.brand ?? listing.category}|${v?.model ?? ''}`;
-        const peers = groups.get(key) ?? [];
-        const avg = peers.length > 0
-          ? peers.reduce((sum, item) => sum + item.estimatedValue, 0) / peers.length
-          : listing.estimatedValue;
-        return { listing, savingPct: Math.round((1 - listing.estimatedValue / avg) * 100) };
-      })
-      .filter((item) => item.savingPct >= 8)
-      .sort((a, b) => b.savingPct - a.savingPct)
-      .slice(0, 4);
   }, [listings]);
 
   const filtered = useMemo(() => {
@@ -250,30 +201,11 @@ export default function Home() {
       </section>
 
       {/* ════════════════════════════════ MAIN ════════════════════════════════ */}
-      <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col">
+      <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Sana özel öneriler — ilanlardan sonra (order-last) */}
-        {hasPersonalSignals && personalized.length > 0 && (
-          <section className="mb-6 order-last">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <span>🎯</span> Sana Özel
-                <span className="text-xs font-normal text-slate-400 dark:text-slate-500">
-                  · geçmişine göre
-                </span>
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {personalized.slice(0, 4).map((l) => (
-                <ListingCard key={l.id} listing={l} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Son görüntülenen ilanlar — ilanlardan sonra (order-last) */}
+        {/* Son görüntülenen ilanlar — hero altında ince şerit */}
         {recentlyViewedListings.length > 0 && (
-          <section className="mb-6 order-last">
+          <section className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <span>🕐</span> Son Baktıkların
@@ -302,76 +234,6 @@ export default function Home() {
                 </Link>
               ))}
             </div>
-          </section>
-        )}
-
-        {(trustedListings.length > 0 || dealListings.length > 0) && (
-          <section className="mb-6 grid gap-4 lg:grid-cols-2 order-last">
-            {trustedListings.length > 0 && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Güven Skoru Yüksek İlanlar</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Belge, açıklama ve satıcı sinyallerine göre</p>
-                  </div>
-                  <Link to="/trust" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-300">
-                    Güven merkezi
-                  </Link>
-                </div>
-                <div className="space-y-2">
-                  {trustedListings.map(({ listing }) => (
-                    <Link
-                      key={listing.id}
-                      to={`/listing/${listing.id}`}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-2.5 transition-colors hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-950 dark:hover:bg-blue-900/10"
-                    >
-                      <img src={listing.images[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{listing.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{listing.city} · {listing.ownerName}</p>
-                      </div>
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
-                        ✓ Güvenilir
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {dealListings.length > 0 && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Piyasa Altı Fırsatlar</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Piyasadaki benzer ilanlara göre hesaplandı</p>
-                  </div>
-                  <Link to="/smart-tools" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-300">
-                    Akıllı araçlar
-                  </Link>
-                </div>
-                <div className="space-y-2">
-                  {dealListings.map(({ listing, savingPct }) => (
-                    <Link
-                      key={listing.id}
-                      to={`/listing/${listing.id}`}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-2.5 transition-colors hover:border-amber-200 hover:bg-amber-50 dark:border-slate-700 dark:bg-slate-950 dark:hover:bg-amber-900/10"
-                    >
-                      <img src={listing.images[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{listing.title}</p>
-                        <p className="text-xs font-bold text-blue-600 dark:text-blue-300">
-                          {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(listing.estimatedValue)}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                        %{savingPct} avantaj
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </section>
         )}
 
