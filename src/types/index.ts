@@ -15,6 +15,11 @@ export interface VehicleDetails {
   hasAccidentRecord: boolean;
   bodyType?: string;
   engineCC?: number;
+  power?: number;           // HP / beygir gücü
+  driveType?: string;       // FWD | RWD | AWD | 4WD
+  numberOfDoors?: number;   // 2 | 3 | 4 | 5
+  paintedParts?: string[];  // Boyalı parçalar
+  changedParts?: string[];  // Değişen (değiştirilen) parçalar
   hasExpertise?: boolean;
   expertiseFirm?: string;
   expertiseDate?: string;
