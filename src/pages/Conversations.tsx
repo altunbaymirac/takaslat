@@ -179,6 +179,8 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
   const send = () => {
     if (!text.trim()) return;
     addOfferMessage(offer.id, text.trim(), currentUserId);
+    setCoachReplies([]);
+    setCoachNote(null);
     setText('');
   };
 
@@ -203,7 +205,7 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
     { id: 'initial', fromUserId: offer.fromUserId, text: offer.message, createdAt: offer.createdAt },
     ...(offer.messages ?? []),
   ];
-  const otherUserId = offer.fromUserId === currentUserId ? offer.toUserId : offer.fromUserId;
+  const otherUserId = isIncoming ? offer.fromUserId : offer.toUserId;
   const revisionMessages = thread.filter((msg) => msg.text.toLocaleLowerCase('tr-TR').includes('teklif revize edildi'));
   const cashDiff = relatedListing && offer.offeredValue
     ? offer.offeredValue - relatedListing.estimatedValue
