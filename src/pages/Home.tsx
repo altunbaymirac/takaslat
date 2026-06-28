@@ -18,9 +18,7 @@ const SORT_LABELS: Record<SortOption, string> = {
 };
 
 const PAGE_SIZE = 12;
-
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
-
 const formatPrice = (value: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value);
 
@@ -31,56 +29,52 @@ export default function Home() {
   });
 
   const navigate = useNavigate();
-
   const {
-    listings, filters, openAIPanel,
+    listings, filters,
     recentlyViewed, clearRecentlyViewed,
     boostedListings, setFilters, currentUserId,
   } = useAppStore();
 
-  const [sortBy, setSortBy]     = useState<SortOption>('newest');
-  const [sortOpen, setSortOpen] = useState(false);
-  const [page, setPage]         = useState(1);
-  const [aiQuery, setAiQuery] = useState('');
-  const [aiSourceListingId, setAiSourceListingId] = useState('');
-  const [aiCashDirection, setAiCashDirection] = useState<'any' | 'pay' | 'receive'>('any');
-  const [aiCashAmount, setAiCashAmount] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<HomeMatchResult | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [sortBy, setSortBy]       = useState<SortOption>('newest');
+  const [sortOpen, setSortOpen]   = useState(false);
+  const [page, setPage]           = useState(1);
+  const [activeTab, setActiveTab] = useState<'search' | 'ai'>('search');
 
-  // ── İlan kodu doğrudan yönlendirme ──────────────────────────────────────────
+  const [aiQuery, setAiQuery]               = useState('');
+  const [aiSourceListingId, setAiSourceListingId] = useState('');
+  const [aiCashDirection, setAiCashDirection]     = useState<'any' | 'pay' | 'receive'>('any');
+  const [aiCashAmount, setAiCashAmount]           = useState('');
+  const [aiLoading, setAiLoading]   = useState(false);
+  const [aiResult, setAiResult]     = useState<HomeMatchResult | null>(null);
+  const [aiError, setAiError]       = useState<string | null>(null);
+
   useEffect(() => {
     const q = filters.searchQuery.trim();
     if (!LISTING_CODE_RE.test(q)) return;
-    const match = listings.find(
-      (l) => l.listingCode?.toUpperCase() === q.toUpperCase()
-    );
+    const match = listings.find(l => l.listingCode?.toUpperCase() === q.toUpperCase());
     if (match) {
       setFilters({ searchQuery: '' });
       navigate(`/listings/${match.id}`);
     }
-    // listingCode store'da yoksa (API'den gelmeyen ilan) backend /code/:code endpointi devreye girer
-    // FilterBar'daki Enter olayında bu da tetiklenecek
   }, [filters.searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recentlyViewedListings = useMemo(
     () => recentlyViewed
-      .map((id) => listings.find((l) => l.id === id))
+      .map(id => listings.find(l => l.id === id))
       .filter((l): l is NonNullable<typeof l> => Boolean(l)),
     [recentlyViewed, listings]
   );
 
   const myListings = useMemo(
-    () => listings.filter((l) => l.ownerId === currentUserId),
+    () => listings.filter(l => l.ownerId === currentUserId),
     [listings, currentUserId]
   );
 
   const aiMatchedListings = useMemo(() => {
     if (!aiResult) return [];
     return aiResult.suggestions
-      .map((s) => {
-        const listing = listings.find((l) => l.id === s.listingId);
+      .map(s => {
+        const listing = listings.find(l => l.id === s.listingId);
         return listing ? { listing, suggestion: s } : null;
       })
       .filter((x): x is NonNullable<typeof x> => Boolean(x));
@@ -110,13 +104,12 @@ export default function Home() {
     }
   }
 
-  // ── Gerçek istatistikler (ilan verisinden hesaplanır) ──────────────────────
   const heroStats = useMemo(() => {
     const count = listings.length;
     const avg = count
       ? Math.round(listings.reduce((sum, l) => sum + (l.estimatedValue || 0), 0) / count)
       : 0;
-    const cities = new Set(listings.map((l) => l.city).filter(Boolean)).size;
+    const cities = new Set(listings.map(l => l.city).filter(Boolean)).size;
     const fmtAvg =
       avg >= 1_000_000 ? `₺${(avg / 1_000_000).toFixed(1)}M`
       : avg >= 1_000   ? `₺${Math.round(avg / 1_000)}K`
@@ -130,19 +123,17 @@ export default function Home() {
       if (filters.city && l.city !== filters.city) return false;
       if (l.estimatedValue < filters.minValue || l.estimatedValue > filters.maxValue) return false;
       if (filters.searchQuery) {
-        // Tam metin arama — birden çok kelimeyi AND ile arar
         const terms = filters.searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
         const haystack = [
-          l.listingCode,
-          l.title, l.description, l.wantedFor, l.city, l.condition,
-          l.vehicleDetails?.brand, l.vehicleDetails?.model, l.vehicleDetails?.fuel, l.vehicleDetails?.transmission, l.vehicleDetails?.color, l.vehicleDetails?.bodyType,
+          l.listingCode, l.title, l.description, l.wantedFor, l.city, l.condition,
+          l.vehicleDetails?.brand, l.vehicleDetails?.model, l.vehicleDetails?.fuel,
+          l.vehicleDetails?.transmission, l.vehicleDetails?.color, l.vehicleDetails?.bodyType,
           l.electronicDetails?.brand, l.electronicDetails?.model, l.electronicDetails?.type, l.electronicDetails?.color,
           l.propertyDetails?.type, l.propertyDetails?.rooms,
           ...(l.tags ?? []),
         ].filter(Boolean).join(' ').toLowerCase();
-        if (!terms.every((t) => haystack.includes(t))) return false;
+        if (!terms.every(t => haystack.includes(t))) return false;
       }
-      // ── Gelişmiş filtreler ─────────────────────────────────────────────────
       const v = l.vehicleDetails;
       if (filters.brands.length > 0 && (!v?.brand || !filters.brands.includes(v.brand))) return false;
       if (filters.fuels.length  > 0 && (!v?.fuel  || !filters.fuels.includes(v.fuel)))   return false;
@@ -160,148 +151,71 @@ export default function Home() {
       return true;
     });
 
-    // ── Sort ──────────────────────────────────────────────────────────────────
     result.sort((a, b) => {
-      // Boost'lu olanlar her zaman üstte
-      const boostA = boostedListings[a.id];
-      const boostB = boostedListings[b.id];
       const validBoost = (ts: string | undefined) =>
         ts ? Date.now() - new Date(ts).getTime() < 7 * 86_400_000 : false;
-      const aBoost = validBoost(boostA);
-      const bBoost = validBoost(boostB);
+      const aBoost = validBoost(boostedListings[a.id]);
+      const bBoost = validBoost(boostedListings[b.id]);
       if (aBoost && !bBoost) return -1;
       if (!aBoost && bBoost) return 1;
-
-      // Sıralama kriteri
       switch (sortBy) {
         case 'price_asc':  return a.estimatedValue - b.estimatedValue;
         case 'price_desc': return b.estimatedValue - a.estimatedValue;
         case 'popular':    return (b.viewCount ?? 0) - (a.viewCount ?? 0);
         case 'oldest':     return a.createdAt.localeCompare(b.createdAt);
-        default:           return b.createdAt.localeCompare(a.createdAt); // newest
+        default:           return b.createdAt.localeCompare(a.createdAt);
       }
     });
 
     return result;
   }, [listings, filters, boostedListings, sortBy]);
 
-  // Sayfalama
   const totalPages  = Math.ceil(filtered.length / PAGE_SIZE);
-  const pagedResult = useMemo(
-    () => filtered.slice(0, page * PAGE_SIZE),
-    [filtered, page]
-  );
+  const pagedResult = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
 
   return (
     <>
-      {/* ════════════════════════════════ HERO ════════════════════════════════ */}
+      {/* ══════════════════════════ HERO ══════════════════════════ */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#0f2d6e] via-[#1B4FD8] to-[#2563eb]">
-        {/* decorative blobs */}
         <div className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full bg-blue-400/20 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-[480px] h-[480px] rounded-full bg-indigo-500/20 blur-3xl" />
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-9 pb-7 text-center">
-          {/* eyebrow */}
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-8 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white/90 text-xs font-semibold px-4 py-1.5 rounded-full mb-4 border border-white/20">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            {listings.length} aktif ilan • Türkiye geneli
+            {heroStats.count} aktif ilan · Türkiye geneli
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white leading-[1.1] tracking-tight mb-3">
             Ne var ne yok, <span className="text-amber-400">takaslat.</span>
           </h1>
 
-          <p className="text-blue-200 text-sm sm:text-base max-w-lg mx-auto mb-6 leading-relaxed">
+          <p className="text-blue-200 text-sm sm:text-base max-w-md mx-auto mb-7 leading-relaxed">
             Araç takasının en akıllı adresi. İlan ver, teklif al, güvenle buluş.
           </p>
 
-          <div className="mx-auto mb-5 max-w-4xl rounded-2xl border border-white/20 bg-white p-3 text-left shadow-2xl shadow-blue-950/20 dark:bg-slate-900">
-            <div className="grid gap-2 lg:grid-cols-[1fr_190px_150px_140px_auto]">
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">AI araç isteği</label>
-                <input
-                  value={aiQuery}
-                  onChange={(e) => setAiQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && runHomeAI()}
-                  placeholder="Örn: sedan, 2020 ve üstü, otomatik, hasarsız"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Kendi ilanım</label>
-                <select
-                  value={aiSourceListingId}
-                  onChange={(e) => setAiSourceListingId(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                >
-                  <option value="">Seçmeden ara</option>
-                  {myListings.map((listing) => (
-                    <option key={listing.id} value={listing.id}>{listing.title}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Fark</label>
-                <select
-                  value={aiCashDirection}
-                  onChange={(e) => setAiCashDirection(e.target.value as 'any' | 'pay' | 'receive')}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                >
-                  <option value="any">Esnek</option>
-                  <option value="pay">Üste öderim</option>
-                  <option value="receive">Fark alırım</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tutar</label>
-                <input
-                  type="number"
-                  value={aiCashAmount}
-                  onChange={(e) => setAiCashAmount(e.target.value)}
-                  placeholder="100000"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={runHomeAI}
-                disabled={aiLoading}
-                className="mt-5 h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60 lg:mt-5"
-              >
-                {aiLoading ? 'Arıyor...' : 'AI Bul'}
-              </button>
-            </div>
-            {aiError && (
-              <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{aiError}</p>
-            )}
-          </div>
-
           <div className="flex flex-wrap justify-center gap-3">
-            <a href="#listings"
-              className="bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm px-7 py-3 rounded-2xl transition-colors shadow-lg shadow-blue-900/20">
-              Araçları İncele
+            <a
+              href="#listings"
+              className="bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm px-7 py-3 rounded-2xl transition-colors shadow-lg shadow-blue-900/20"
+            >
+              İlanları Keşfet
             </a>
-            <button
-              onClick={() => openAIPanel()}
-              className="bg-amber-400 hover:bg-amber-300 text-amber-900 font-semibold text-sm px-7 py-3 rounded-2xl transition-colors shadow-lg shadow-amber-900/10 flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-              </svg>
-              AI ile Eşleştir
-            </button>
-            <Link to="/create"
-              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-semibold text-sm px-7 py-3 rounded-2xl transition-colors border border-white/20">
-              Aracımı Takas Et
+            <Link
+              to="/create"
+              className="bg-amber-400 hover:bg-amber-300 text-amber-900 font-semibold text-sm px-7 py-3 rounded-2xl transition-colors shadow-lg shadow-amber-900/10"
+            >
+              İlan ver
             </Link>
           </div>
         </div>
 
-        {/* ── Stats ── */}
+        {/* Stats bar */}
         <div className="relative border-t border-white/10 bg-white/5 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto px-4 grid grid-cols-3 divide-x divide-white/10">
             {[
               { n: `${heroStats.count}`, label: 'Aktif İlan' },
-              { n: heroStats.fmtAvg, label: 'Ortalama Değer' },
+              { n: heroStats.fmtAvg,     label: 'Ortalama Değer' },
               { n: `${heroStats.cities}`, label: 'İl' },
             ].map(s => (
               <div key={s.label} className="py-4 text-center">
@@ -313,11 +227,131 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════════════════════════════ MAIN ════════════════════════════════ */}
+      {/* ══════════════════════════ MAIN ══════════════════════════ */}
       <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
+        {/* ── Tab switcher ── */}
+        <div className="mb-4 flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+          <button
+            onClick={() => setActiveTab('search')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === 'search'
+                ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            İlan Ara
+          </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === 'ai'
+                ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            AI ile Bul
+          </button>
+        </div>
+
+        {/* ── Tab content ── */}
+        {activeTab === 'search' ? (
+          <FilterBar onFilterChange={() => setPage(1)} />
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <textarea
+              value={aiQuery}
+              onChange={e => setAiQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runHomeAI(); }
+              }}
+              placeholder="Ne arıyorsun? Örn: 2020 ve üstü sedan, otomatik, hasarsız, 500.000 km altı"
+              rows={3}
+              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+
+            <details className="mt-2">
+              <summary className="cursor-pointer select-none text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                Gelişmiş seçenekler (opsiyonel)
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3 rounded-xl bg-slate-50 dark:bg-slate-900 p-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Kendi ilanım</label>
+                  <select
+                    value={aiSourceListingId}
+                    onChange={e => setAiSourceListingId(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    <option value="">Seçmeden ara</option>
+                    {myListings.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Para farkı</label>
+                  <select
+                    value={aiCashDirection}
+                    onChange={e => setAiCashDirection(e.target.value as 'any' | 'pay' | 'receive')}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    <option value="any">Fark önemli değil</option>
+                    <option value="pay">Üste para öderim</option>
+                    <option value="receive">Para farkı alırım</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tutar (₺)</label>
+                  <input
+                    type="number"
+                    value={aiCashAmount}
+                    onChange={e => setAiCashAmount(e.target.value)}
+                    placeholder="Örn: 100000"
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  />
+                </div>
+              </div>
+            </details>
+
+            {aiError && (
+              <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                {aiError}
+              </p>
+            )}
+
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-slate-400">Enter ile ara · Shift+Enter yeni satır</p>
+              <button
+                type="button"
+                onClick={runHomeAI}
+                disabled={aiLoading || aiQuery.trim().length < 3}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <>
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Arıyor...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                    AI ile Ara
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── AI Results ── */}
         {aiResult && (
-          <section className="mb-8 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-blue-900/40 dark:bg-slate-800">
+          <section className="mt-4 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-blue-900/40 dark:bg-slate-800">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-blue-500">AI eşleştirme</p>
@@ -333,7 +367,7 @@ export default function Home() {
                 onClick={() => setAiResult(null)}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
               >
-                Sonuçları kapat
+                Kapat
               </button>
             </div>
 
@@ -379,33 +413,26 @@ export default function Home() {
           </section>
         )}
 
-        {/* Son görüntülenen ilanlar — hero altında ince şerit */}
+        {/* ── Recently Viewed ── */}
         {recentlyViewedListings.length > 0 && (
-          <section className="mb-6">
+          <section className="mt-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-                Son baktıkların
-              </h2>
-              <button
-                onClick={clearRecentlyViewed}
-                className="text-xs text-slate-400 hover:text-red-500 font-medium"
-              >
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Son baktıkların</h2>
+              <button onClick={clearRecentlyViewed} className="text-xs text-slate-400 hover:text-red-500 font-medium">
                 Temizle
               </button>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-              {recentlyViewedListings.slice(0, 8).map((l) => (
+              {recentlyViewedListings.slice(0, 8).map(l => (
                 <Link
                   key={l.id}
                   to={`/listing/${l.id}`}
-                  className="flex-shrink-0 w-44 bg-white dark:bg-slate-800 rounded-2xl overflow-hidden card-shadow hover:shadow-md transition-shadow"
+                  className="flex-shrink-0 w-44 bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
                   <img src={l.images[0]} alt="" className="w-full h-24 object-cover" />
                   <div className="p-2.5">
                     <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">{l.title}</p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-0.5">
-                      {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(l.estimatedValue)}
-                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-0.5">{formatPrice(l.estimatedValue)}</p>
                   </div>
                 </Link>
               ))}
@@ -413,12 +440,10 @@ export default function Home() {
           </section>
         )}
 
-        {/* ── Toolbar: başlık, sıralama, harita ── */}
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        {/* ── Listings toolbar ── */}
+        <div className="flex items-center justify-between mt-6 mb-3 flex-wrap gap-2">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">İlanlar</h2>
-
           <div className="flex items-center gap-2">
-            {/* Sort dropdown */}
             <div className="relative">
               <button
                 onClick={() => setSortOpen(v => !v)}
@@ -428,9 +453,10 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                 </svg>
                 {SORT_LABELS[sortBy]}
-                <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
-
               {sortOpen && (
                 <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 z-20">
                   {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(([key, label]) => (
@@ -455,75 +481,68 @@ export default function Home() {
               to="/map"
               className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" /></svg>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c-.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+              </svg>
               Harita
             </Link>
           </div>
         </div>
-        <FilterBar onFilterChange={() => setPage(1)} />
 
-        <div className="mt-5">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 card-shadow flex items-center justify-center mb-4">
-                <svg className="w-7 h-7 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <p className="text-slate-600 dark:text-slate-300 font-semibold mb-1">Sonuç bulunamadı</p>
-              <p className="text-slate-400 dark:text-slate-500 text-sm">Farklı filtreler deneyin</p>
+        {/* ── Listings grid ── */}
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-4">
+              <svg className="w-7 h-7 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span> ilan
-                  {filtered.length > PAGE_SIZE && (
-                    <span> · <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.min(page * PAGE_SIZE, filtered.length)}</span> gösteriliyor</span>
-                  )}
-                </p>
-                {totalPages > 1 && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    Sayfa {page} / {totalPages}
-                  </span>
+            <p className="text-slate-600 dark:text-slate-300 font-semibold mb-1">Sonuç bulunamadı</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm">Farklı filtreler deneyin</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span> ilan
+                {filtered.length > PAGE_SIZE && (
+                  <span> · <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.min(page * PAGE_SIZE, filtered.length)}</span> gösteriliyor</span>
                 )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {pagedResult.map(l => <ListingCard key={l.id} listing={l} />)}
-              </div>
-
-              {/* Daha Fazla Göster */}
-              {page * PAGE_SIZE < filtered.length && (
-                <div className="mt-8 flex flex-col items-center gap-2">
-                  <button
-                    onClick={() => setPage(p => p + 1)}
-                    className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold text-sm px-8 py-3 rounded-2xl border border-blue-200 dark:border-blue-900/40 shadow-sm hover:shadow-md transition-all"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Daha Fazla Göster
-                    <span className="text-xs text-blue-400 font-normal">
-                      ({filtered.length - page * PAGE_SIZE} ilan daha)
-                    </span>
-                  </button>
-                  {/* Progress bar */}
-                  <div className="w-48 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (page * PAGE_SIZE / filtered.length) * 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    %{Math.round((Math.min(page * PAGE_SIZE, filtered.length) / filtered.length) * 100)} görüntülendi
-                  </p>
-                </div>
+              </p>
+              {totalPages > 1 && (
+                <span className="text-xs text-slate-400 dark:text-slate-500">Sayfa {page} / {totalPages}</span>
               )}
-            </>
-          )}
-        </div>
-      </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {pagedResult.map(l => <ListingCard key={l.id} listing={l} />)}
+            </div>
 
+            {page * PAGE_SIZE < filtered.length && (
+              <div className="mt-8 flex flex-col items-center gap-2">
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold text-sm px-8 py-3 rounded-2xl border border-blue-200 dark:border-blue-900/40 shadow-sm hover:shadow-md transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Daha fazla göster
+                  <span className="text-xs text-blue-400 font-normal">({filtered.length - page * PAGE_SIZE} ilan daha)</span>
+                </button>
+                <div className="w-48 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (page * PAGE_SIZE / filtered.length) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-400">
+                  %{Math.round((Math.min(page * PAGE_SIZE, filtered.length) / filtered.length) * 100)} görüntülendi
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </>
   );
 }
