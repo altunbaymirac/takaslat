@@ -6,7 +6,7 @@ import SavedSearchesPanel from './SavedSearchesPanel';
 import VoiceSearch from './VoiceSearch';
 import { fetchListingByCode } from '../services/api';
 import { CITIES_81 } from '../data/cities';
-import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
+import { VEHICLE_GROUPS } from '../data/vehicleTypes';
 
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 const VEHICLE_GROUP_KEYS = Object.keys(VEHICLE_GROUPS);
