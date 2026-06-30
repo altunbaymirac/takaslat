@@ -351,7 +351,7 @@ export default function Listings() {
       )}
 
       {/* ── Recently Viewed ── */}
-      {recentlyViewedListings.length > 0 && (
+      {activeTab === 'search' && recentlyViewedListings.length > 0 && (
         <section className="mt-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Son baktıkların</h2>
