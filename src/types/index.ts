@@ -14,6 +14,7 @@ export interface VehicleDetails {
   color: string;
   hasAccidentRecord: boolean;
   bodyType?: string;
+  trim?: string;            // Donanım / paket (Comfortline, R-Line...)
   engineCC?: number;
   power?: number;           // HP / beygir gücü
   driveType?: string;       // FWD | RWD | AWD | 4WD

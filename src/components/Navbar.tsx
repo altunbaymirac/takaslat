@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import NotificationBell from './NotificationBell';
 
 const NAV = [
-  { to: '/',              label: 'İlanlar'    },
+  { to: '/listings',      label: 'İlanlar'    },
   { to: '/favorites',     label: 'Favoriler'  },
   { to: '/conversations', label: 'Görüşmeler' },
   { to: '/trends',        label: 'Trendler'   },

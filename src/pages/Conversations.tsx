@@ -88,7 +88,7 @@ function ConvItem({
 
 // ─── Chat panel ───────────────────────────────────────────────────────────────
 
-function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolean }) {
+function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming: boolean; onBack?: () => void }) {
   const {
     updateOfferStatus,
     addOfferMessage,
@@ -248,12 +248,25 @@ function ChatPanel({ offer, isIncoming }: { offer: SwapOffer; isIncoming: boolea
     <div className="flex flex-col h-full">
       {/* ── Header ── */}
       <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-slate-900 dark:text-slate-100 text-base truncate">{offer.listingTitle}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-0.5">
-            {isIncoming ? `Gönderen: ${offer.fromUserName}` : 'Gönderilen teklif'}
-            {offer.offeredValue && <span className="ml-2 font-semibold text-blue-600">{fmt(offer.offeredValue)}</span>}
-          </p>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="sm:hidden flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              aria-label="Geri"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className="min-w-0">
+            <h2 className="font-bold text-slate-900 dark:text-slate-100 text-base truncate">{offer.listingTitle}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              {isIncoming ? `Gönderen: ${offer.fromUserName}` : 'Gönderilen teklif'}
+              {offer.offeredValue && <span className="ml-2 font-semibold text-blue-600">{fmt(offer.offeredValue)}</span>}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -813,8 +826,8 @@ export default function Conversations() {
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 180px)', minHeight: 480 }}>
         <div className="flex h-full">
-          {/* ── Left panel: list ── */}
-          <div className="w-full sm:w-72 md:w-80 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 flex flex-col" style={{ display: activeOffer ? undefined : 'flex' }}>
+          {/* ── Sol panel: liste — mobilde chat açıkken gizle ── */}
+          <div className={`w-full sm:w-72 md:w-80 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 flex flex-col ${activeId ? 'hidden sm:flex' : 'flex'}`}>
             {/* Tabs */}
             <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex-shrink-0">
               {([['all','Tümü'], ['incoming','Gelen'], ['outgoing','Gönderilen']] as const).map(([key, label]) => (
@@ -822,7 +835,7 @@ export default function Conversations() {
                   key={key}
                   onClick={() => setTab(key)}
                   className={`flex-1 py-3 text-xs font-semibold transition-colors relative ${
-                    tab === key ? 'text-blue-600' : 'text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-slate-700'
+                    tab === key ? 'text-blue-600' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                   }`}
                 >
                   {label}
@@ -845,7 +858,7 @@ export default function Conversations() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-slate-600">Henüz görüşme yok</p>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Henüz görüşme yok</p>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Bir ilana teklif göndererek başlayın</p>
                   <Link to="/" className="mt-3 text-xs font-semibold text-blue-600 hover:underline">İlanlara Git</Link>
                 </div>
@@ -865,9 +878,9 @@ export default function Conversations() {
             {/* Stats bar */}
             <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-2.5 flex justify-around flex-shrink-0">
               {[
-                { label: 'Bekleyen', value: incoming.filter(o => o.status === 'Beklemede').length, color: 'text-amber-600' },
-                { label: 'Aktif', value: offers.filter(o => o.status === 'Görüşülüyor').length, color: 'text-blue-600' },
-                { label: 'Tamamlanan', value: offers.filter(o => o.status === 'Tamamlandı').length, color: 'text-emerald-600' },
+                { label: 'Bekleyen',   value: incoming.filter(o => o.status === 'Beklemede').length,  color: 'text-amber-600'   },
+                { label: 'Aktif',      value: offers.filter(o => o.status === 'Görüşülüyor').length,  color: 'text-blue-600'    },
+                { label: 'Tamamlanan', value: offers.filter(o => o.status === 'Tamamlandı').length,   color: 'text-emerald-600' },
               ].map(s => (
                 <div key={s.label} className="text-center">
                   <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
@@ -877,10 +890,15 @@ export default function Conversations() {
             </div>
           </div>
 
-          {/* ── Right panel: chat ── */}
-          <div className="flex-1 min-w-0 hidden sm:flex flex-col">
+          {/* ── Sağ panel: chat — mobilde tam ekran, masaüstünde yan panel ── */}
+          <div className={`flex-1 min-w-0 flex-col ${activeId ? 'flex' : 'hidden sm:flex'}`}>
             {activeOffer ? (
-              <ChatPanel key={activeOffer.id} offer={activeOffer} isIncoming={isIncoming} />
+              <ChatPanel
+                key={activeOffer.id}
+                offer={activeOffer}
+                isIncoming={isIncoming}
+                onBack={() => setActiveId(null)}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-8">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
@@ -888,8 +906,8 @@ export default function Conversations() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
-                <p className="text-slate-600 font-semibold mb-1">Bir görüşme seçin</p>
-                <p className="text-slate-400 dark:text-slate-500 text-sm max-w-xs">Soldaki listeden bir teklif seçerek sohbeti görüntüleyin ve yönetin</p>
+                <p className="text-slate-600 dark:text-slate-300 font-semibold mb-1">Bir görüşme seçin</p>
+                <p className="text-slate-400 dark:text-slate-500 text-sm max-w-xs">Soldaki listeden bir teklif seçerek sohbeti görüntüleyin</p>
               </div>
             )}
           </div>

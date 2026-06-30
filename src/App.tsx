@@ -19,6 +19,7 @@ import Register from './pages/Register';
 import ResetPassword from './pages/ResetPassword';
 
 // ── Lazy (route-level code splitting) ───────────────────────────────────────
+const Listings      = lazy(() => import('./pages/Listings'));
 const CreateListing = lazy(() => import('./pages/CreateListing'));
 const MyOffers      = lazy(() => import('./pages/MyOffers'));
 const Conversations = lazy(() => import('./pages/Conversations'));
@@ -118,6 +119,7 @@ function AppInner() {
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     <Route path="/"              element={<Home />} />
+                    <Route path="/listings"      element={<Listings />} />
                     <Route path="/listing/:id"   element={<ListingDetail />} />
                     <Route path="/create"        element={<CreateListing />} />
                     <Route path="/offers"        element={<MyOffers />} />

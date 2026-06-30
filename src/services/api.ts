@@ -136,7 +136,7 @@ const OFFER_SELECT   = `*, messages(*), listing:listings!listing_id(id, title, e
 export async function register(payload: { name: string; email: string; password: string; city?: string }) {
   if (USE_MOCK) {
     await delay(400)
-    return { user: { id: 'mock-user', name: payload.name, email: payload.email }, token: 'mock-token' }
+    return { user: { id: 'current-user', name: payload.name, email: payload.email }, token: 'mock-token' }
   }
   const { data, error } = await supabase.auth.signUp({
     email: payload.email,
@@ -166,7 +166,7 @@ export async function signInWithGoogle() {
 export async function login(email: string, password: string, _twoFactorCode?: string) {
   if (USE_MOCK) {
     await delay(300)
-    return { user: { id: 'mock-user', name: 'Demo' }, token: 'mock-token' }
+    return { user: { id: 'current-user', name: 'Demo Kullanıcı' }, token: 'mock-token' }
   }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw new Error(error.message)

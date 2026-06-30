@@ -244,12 +244,13 @@ export const useAppStore = create<AppState>()(
 
       // ── Load offers (giriş yapılmışsa)
       loadOffers: async () => {
-        if (!get().token) {
+        const { token, currentUserId } = get();
+        if (!token && !USE_MOCK) {
           set({ offers: [] });
           return;
         }
         try {
-          const offers = (await fetchOffers(get().currentUserId)) as SwapOffer[];
+          const offers = (await fetchOffers(currentUserId)) as SwapOffer[];
           set({ offers });
         } catch {
           set({ offers: [] });
@@ -306,15 +307,18 @@ export const useAppStore = create<AppState>()(
             }
             return;
           }
-          // Mock mod — eski token bazlı akış
+          // Mock mod — token varsa restore, yoksa da offer'ları yükle (currentUserId default 'current-user')
           const stored = getToken();
-          if (!stored) return;
-          const user = await getMe() as AuthUser | null;
-          if (user) {
-            set({ token: stored, currentUser: user, currentUserId: user.id, currentUserName: user.name });
-            await get().loadOffers();
-            await get().loadNotifications();
+          if (stored) {
+            const user = await getMe() as AuthUser | null;
+            if (user) {
+              set({ token: stored, currentUser: user, currentUserId: user.id, currentUserName: user.name });
+            } else {
+              set({ token: stored });
+            }
           }
+          await get().loadOffers();
+          await get().loadNotifications();
         } catch {
           clearToken();
           set({ token: null, currentUser: null });

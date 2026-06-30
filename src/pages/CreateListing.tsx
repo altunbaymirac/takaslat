@@ -14,7 +14,8 @@ import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
 import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
 import { VEHICLE_COLORS } from '../data/vehicleModels';
-import { VEHICLE_BRANDS, ELECTRONIC_BRANDS } from '../data/brands';
+import { VEHICLE_BRANDS, ELECTRONIC_BRANDS, getBrandsForVehicleGroup } from '../data/brands';
+import { getModelsFromDB, getTrimsFromDB } from '../data/vehicleDatabase';
 import BrandPicker from '../components/BrandPicker';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
 
@@ -42,6 +43,7 @@ interface FormData {
   // Araç — temel
   brand: string;
   model: string;
+  trim: string;
   year: string;
   km: string;
   fuel: FuelType;
@@ -305,6 +307,7 @@ export default function CreateListing() {
           vehicleDetails: form.category === 'Araç' ? {
             brand: form.brand,
             model: form.model,
+            trim: form.trim || undefined,
             year: form.year ? Number(form.year) : undefined,
             km: form.km ? Number(form.km) : undefined,
             fuel: form.fuel,
@@ -352,6 +355,7 @@ export default function CreateListing() {
     // Araç — temel
     brand: '',
     model: '',
+    trim: '',
     year: new Date().getFullYear().toString(),
     km: '',
     fuel: 'Benzin',
@@ -557,6 +561,7 @@ export default function CreateListing() {
       vehicleDetails: form.category === 'Araç' ? {
         brand:             form.brand,
         model:             form.model,
+        trim:              form.trim || undefined,
         year:              Number(form.year),
         km:                Number(form.km),
         fuel:              form.fuel,
@@ -693,7 +698,7 @@ export default function CreateListing() {
                       <button
                         key={group}
                         type="button"
-                        onClick={() => { setVehicleGroup(group); update('bodyType', types[0]); }}
+                        onClick={() => { setVehicleGroup(group); update('bodyType', types[0]); update('brand', ''); update('model', ''); update('trim', ''); }}
                         className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all ${
                           vehicleGroup === group
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
@@ -730,30 +735,88 @@ export default function CreateListing() {
                       </div>
                     </div>
 
-                    {/* 3. Marka + Model */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Marka *</label>
-                        <BrandPicker
-                          required
-                          value={form.brand}
-                          onChange={(b) => { update('brand', b); update('model', ''); }}
-                          brands={VEHICLE_BRANDS}
-                          placeholder="Toyota, BMW..."
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Model *</label>
-                        <input
-                          required
-                          type="text"
-                          placeholder="Corolla, 320i, Clio..."
-                          value={form.model}
-                          onChange={(e) => update('model', e.target.value)}
-                          className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
+                    {/* 3. Marka → Seri → Donanım */}
+                    {(() => {
+                      const modelList = form.brand ? getModelsFromDB(vehicleGroup, form.brand) : [];
+                      const trimList  = form.brand && form.model ? getTrimsFromDB(vehicleGroup, form.brand, form.model) : [];
+                      return (
+                        <div className="space-y-4">
+                          {/* Marka */}
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Marka *</label>
+                            <BrandPicker
+                              required
+                              value={form.brand}
+                              onChange={(b) => { update('brand', b); update('model', ''); update('trim', ''); }}
+                              brands={getBrandsForVehicleGroup(vehicleGroup)}
+                              placeholder="Toyota, BMW..."
+                            />
+                          </div>
+
+                          {/* Seri */}
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Seri *</label>
+                            {modelList.length > 0 ? (
+                              <select
+                                required
+                                value={form.model}
+                                onChange={(e) => { update('model', e.target.value); update('trim', ''); }}
+                                className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Seri seçin</option>
+                                {modelList.map(m => <option key={m} value={m}>{m}</option>)}
+                                <option value="Diğer">Diğer (elle gir)</option>
+                              </select>
+                            ) : (
+                              <input
+                                required
+                                type="text"
+                                placeholder="Corolla, 320i, Clio..."
+                                value={form.model}
+                                onChange={(e) => update('model', e.target.value)}
+                                className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            )}
+                            {form.model === 'Diğer' && (
+                              <input
+                                type="text"
+                                placeholder="Seri adını girin..."
+                                className="w-full mt-2 text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onBlur={(e) => { if (e.target.value) update('model', e.target.value); }}
+                              />
+                            )}
+                          </div>
+
+                          {/* Donanım / Paket */}
+                          {(trimList.length > 0 || (form.model && form.model !== 'Diğer')) && (
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
+                                Donanım / Paket <span className="text-slate-400 font-normal">(opsiyonel)</span>
+                              </label>
+                              {trimList.length > 0 ? (
+                                <select
+                                  value={form.trim}
+                                  onChange={(e) => update('trim', e.target.value)}
+                                  className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Donanım seçin</option>
+                                  {trimList.map(t => <option key={t} value={t}>{t}</option>)}
+                                  <option value="Diğer">Diğer</option>
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  placeholder="Comfortline, R-Line, M Sport..."
+                                  value={form.trim}
+                                  onChange={(e) => update('trim', e.target.value)}
+                                  className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* 4. Yıl + KM + Renk */}
                     <div className="grid grid-cols-3 gap-4">
