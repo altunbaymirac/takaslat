@@ -118,6 +118,17 @@ export default function CreateListing() {
     improvedDescription: string;
   } | null>(null);
 
+  // Giriş yoksa hemen login'e yönlendir (son adımda değil)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!currentUser) {
+        try { localStorage.setItem('takaslat-resume-after-login', '1'); } catch { /* */ }
+        navigate('/login?redirect=/create');
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [currentUser, navigate]);
+
   useEffect(() => {
     // Sayfa ilk açıldığında: taslak var mı kontrol et
     try {
@@ -487,17 +498,6 @@ export default function CreateListing() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Giriş yoksa: taslağı kaydet, login'e gönder, dönüşte kaldığı yerden devam etsin
-    if (!currentUser) {
-      try {
-        localStorage.setItem('takaslat-draft', JSON.stringify(form));
-        localStorage.setItem('takaslat-resume-after-login', '1');
-      } catch { /* */ }
-      showToast('Son adım! İlanını yayınlamak için giriş yap — bilgilerin kayıtlı', 'info');
-      navigate('/login?redirect=/create');
-      return;
-    }
 
     // Otomatik başlık
     let autoTitle = form.title;
