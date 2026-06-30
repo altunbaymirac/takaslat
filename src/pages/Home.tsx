@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
@@ -16,6 +16,7 @@ export default function Home() {
   });
 
   const { listings } = useAppStore();
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const heroStats = useMemo(() => {
     const count = listings.length;
@@ -206,6 +207,78 @@ export default function Home() {
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════ SSS ══════════════════════════ */}
+      <section className="py-16 bg-white dark:bg-slate-900">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold uppercase tracking-widest text-blue-500 mb-2">Sıkça Sorulan Sorular</p>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">
+              Aklında soru mu var?
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                q: 'Takaslat nasıl çalışır?',
+                a: 'Aracını fotoğraflarıyla ve teknik detaylarıyla ilan olarak yayınlarsın. Diğer kullanıcılar sana takas teklifi gönderir, sen de uygun bulduğun teklifleri değerlendirip pazarlık yapabilirsin. Anlaştığınızda güvenle buluşup takası tamamlarsınız.',
+              },
+              {
+                q: 'İlan vermek ücretli mi?',
+                a: 'Hayır, ilan vermek tamamen ücretsizdir. Aracını fotoğraflayıp bilgilerini girerek dakikalar içinde yayına alabilirsin.',
+              },
+              {
+                q: 'AI ile eşleştirme nasıl çalışıyor?',
+                a: 'TakaslAI özelliğiyle aradığın aracı kendi cümlelerinle yazman yeterli — yapay zeka mevcut ilanlar arasından sana en uygun olanları saniyeler içinde sıralar.',
+              },
+              {
+                q: 'Üstüne para ekleyerek takas yapabilir miyim?',
+                a: 'Evet. Teklif verirken aracının değer farkını nakit olarak ekleyebilir veya talep edebilirsin, bu seçenek teklif ekranında mevcuttur.',
+              },
+              {
+                q: 'Karşı tarafın güvenilir olduğunu nasıl anlarım?',
+                a: 'Her kullanıcının profilinde geçmiş takasları, aldığı değerlendirmeler ve hesap doğrulama durumu şeffaf şekilde gösterilir. Güven skoruna bakarak karar verebilirsin.',
+              },
+              {
+                q: 'Takas sırasında anlaşmazlık olursa ne olur?',
+                a: 'Görüşmeler platform üzerinden mesajlaşma geçmişiyle birlikte tutulur. Anlaşmazlık durumunda destek ekibimize ulaşabilir, ayrıca buluşmayı her zaman güvenli ve halka açık bir noktada yapmanı öneririz.',
+              },
+            ].map((item, i) => {
+              const open = openFaq === i;
+              return (
+                <div
+                  key={item.q}
+                  className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+                >
+                  <button
+                    onClick={() => setOpenFaq(open ? null : i)}
+                    className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                  >
+                    <span className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100">
+                      {item.q}
+                    </span>
+                    <svg
+                      className={`w-4 h-4 flex-shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {open && (
+                    <div className="px-5 py-4 bg-white dark:bg-slate-900 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
