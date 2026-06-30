@@ -20,6 +20,7 @@ import ResetPassword from './pages/ResetPassword';
 
 // ── Lazy (route-level code splitting) ───────────────────────────────────────
 const Listings      = lazy(() => import('./pages/Listings'));
+const AIResults      = lazy(() => import('./pages/AIResults'));
 const CreateListing = lazy(() => import('./pages/CreateListing'));
 const MyOffers      = lazy(() => import('./pages/MyOffers'));
 const Conversations = lazy(() => import('./pages/Conversations'));
@@ -120,6 +121,7 @@ function AppInner() {
                   <Routes>
                     <Route path="/"              element={<Home />} />
                     <Route path="/listings"      element={<Listings />} />
+                    <Route path="/ai-sonuclar"   element={<AIResults />} />
                     <Route path="/listing/:id"   element={<ListingDetail />} />
                     <Route path="/create"        element={<CreateListing />} />
                     <Route path="/offers"        element={<MyOffers />} />

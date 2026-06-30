@@ -5,7 +5,7 @@ import ListingCard from '../components/ListingCard';
 import FilterBar from '../components/FilterBar';
 import { useSEO } from '../hooks/useSEO';
 import { VEHICLE_GROUPS } from '../data/vehicleTypes';
-import { aiErrorMessage, aiHomeMatch, type HomeMatchResult } from '../services/api';
+import { aiErrorMessage, aiHomeMatch } from '../services/api';
 
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'popular';
 
@@ -48,7 +48,6 @@ export default function Listings() {
   const [aiCashDirection, setAiCashDirection]     = useState<'any' | 'pay' | 'receive'>('any');
   const [aiCashAmount, setAiCashAmount]           = useState('');
   const [aiLoading, setAiLoading]   = useState(false);
-  const [aiResult, setAiResult]     = useState<HomeMatchResult | null>(null);
   const [aiError, setAiError]       = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,16 +72,6 @@ export default function Listings() {
     [listings, currentUserId]
   );
 
-  const aiMatchedListings = useMemo(() => {
-    if (!aiResult) return [];
-    return aiResult.suggestions
-      .map(s => {
-        const listing = listings.find(l => l.id === s.listingId);
-        return listing ? { listing, suggestion: s } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => Boolean(x));
-  }, [aiResult, listings]);
-
   async function runHomeAI() {
     if (aiQuery.trim().length < 3) {
       setAiError('Aradığın aracı biraz daha detaylı yaz.');
@@ -97,10 +86,8 @@ export default function Listings() {
         cashDirection: aiCashDirection,
         cashAmount: Number(aiCashAmount) || undefined,
       });
-      setAiResult(result);
-      setPage(1);
+      navigate('/ai-sonuclar', { state: { result } });
     } catch (err) {
-      setAiResult(null);
       setAiError(aiErrorMessage(err));
     } finally {
       setAiLoading(false);
@@ -286,70 +273,6 @@ export default function Listings() {
         </div>
       )}
 
-      {/* ── AI Results ── */}
-      {aiResult && (
-        <section className="mt-4 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm dark:border-blue-900/40 dark:bg-slate-800">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-blue-500">AI eşleştirme</p>
-              <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{aiResult.message}</h2>
-              {aiResult.source && (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Kaynak ilan: <span className="font-semibold text-slate-700 dark:text-slate-200">{aiResult.source.title}</span>
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setAiResult(null)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
-            >
-              Kapat
-            </button>
-          </div>
-
-          {aiMatchedListings.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {aiMatchedListings.map(({ listing, suggestion }) => (
-                <div key={listing.id} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
-                  <Link to={`/listing/${listing.id}`} className="flex gap-3 p-3 transition hover:bg-white dark:hover:bg-slate-800">
-                    <img src={listing.images[0]} alt="" className="h-24 w-32 rounded-xl object-cover" />
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-black text-white">%{suggestion.compatibilityScore}</span>
-                        <span className="truncate text-xs text-slate-400">{listing.city}</span>
-                      </div>
-                      <h3 className="line-clamp-2 text-sm font-bold text-slate-900 dark:text-slate-100">{listing.title}</h3>
-                      <p className="mt-1 text-sm font-black text-blue-600">{formatPrice(listing.estimatedValue)}</p>
-                      {suggestion.priceDiff !== null && (
-                        <p className={`mt-1 text-xs font-semibold ${suggestion.priceDiff > 0 ? 'text-amber-600' : suggestion.priceDiff < 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                          {suggestion.priceDiff === 0
-                            ? 'Değerler denk'
-                            : suggestion.priceDiff > 0
-                            ? `${formatPrice(suggestion.priceDiff)} üste gerekebilir`
-                            : `${formatPrice(Math.abs(suggestion.priceDiff))} fark alınabilir`}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                  <div className="border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-700">
-                    {suggestion.reasons.length > 0 && (
-                      <p className="text-slate-600 dark:text-slate-300">{suggestion.reasons.join(' · ')}</p>
-                    )}
-                    {suggestion.cashNote && <p className="mt-1 font-semibold text-blue-700 dark:text-blue-300">{suggestion.cashNote}</p>}
-                    {suggestion.negotiationTip && <p className="mt-1 text-slate-500 dark:text-slate-400">{suggestion.negotiationTip}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-              AI bu kriterlerle uygun ilan bulamadı.
-            </div>
-          )}
-        </section>
-      )}
-
       {/* ── Recently Viewed ── */}
       {activeTab === 'search' && recentlyViewedListings.length > 0 && (
         <section className="mt-6">
@@ -377,96 +300,99 @@ export default function Listings() {
         </section>
       )}
 
-      {/* ── Listings toolbar ── */}
-      <div className="flex items-center justify-between mt-6 mb-3 flex-wrap gap-2">
-        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">İlanlar</h2>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => setSortOpen(v => !v)}
-              className="flex items-center gap-1.5 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full transition-colors"
-            >
-              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-              </svg>
-              {SORT_LABELS[sortBy]}
-              <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {sortOpen && (
-              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 z-20">
-                {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => { setSortBy(key); setSortOpen(false); setPage(1); }}
-                    className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2 ${
-                      sortBy === key
-                        ? 'text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-900/20'
-                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {label}
-                    {sortBy === key && <span className="ml-auto text-blue-500">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── Listings grid ── */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <p className="text-slate-600 dark:text-slate-300 font-semibold mb-1">Sonuç bulunamadı</p>
-          <p className="text-slate-400 dark:text-slate-500 text-sm">Farklı filtreler deneyin</p>
-        </div>
-      ) : (
+      {/* ── Listings toolbar + grid (yalnızca İlan Ara sekmesinde) ── */}
+      {activeTab === 'search' && (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span> ilan
-              {filtered.length > PAGE_SIZE && (
-                <span> · <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.min(page * PAGE_SIZE, filtered.length)}</span> gösteriliyor</span>
-              )}
-            </p>
-            {totalPages > 1 && (
-              <span className="text-xs text-slate-400 dark:text-slate-500">Sayfa {page} / {totalPages}</span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {pagedResult.map(l => <ListingCard key={l.id} listing={l} />)}
+          <div className="flex items-center justify-between mt-6 mb-3 flex-wrap gap-2">
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">İlanlar</h2>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button
+                  onClick={() => setSortOpen(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                  </svg>
+                  {SORT_LABELS[sortBy]}
+                  <svg className={`w-3 h-3 text-slate-400 transition-transform ${sortOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {sortOpen && (
+                  <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 z-20">
+                    {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => { setSortBy(key); setSortOpen(false); setPage(1); }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2 ${
+                          sortBy === key
+                            ? 'text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-900/20'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {label}
+                        {sortBy === key && <span className="ml-auto text-blue-500">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
           </div>
 
-          {page * PAGE_SIZE < filtered.length && (
-            <div className="mt-8 flex flex-col items-center gap-2">
-              <button
-                onClick={() => setPage(p => p + 1)}
-                className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold text-sm px-8 py-3 rounded-2xl border border-blue-200 dark:border-blue-900/40 shadow-sm hover:shadow-md transition-all"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-4">
+                <svg className="w-7 h-7 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Daha fazla göster
-                <span className="text-xs text-blue-400 font-normal">({filtered.length - page * PAGE_SIZE} ilan daha)</span>
-              </button>
-              <div className="w-48 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, (page * PAGE_SIZE / filtered.length) * 100)}%` }}
-                />
               </div>
-              <p className="text-xs text-slate-400">
-                %{Math.round((Math.min(page * PAGE_SIZE, filtered.length) / filtered.length) * 100)} görüntülendi
-              </p>
+              <p className="text-slate-600 dark:text-slate-300 font-semibold mb-1">Sonuç bulunamadı</p>
+              <p className="text-slate-400 dark:text-slate-500 text-sm">Farklı filtreler deneyin</p>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span> ilan
+                  {filtered.length > PAGE_SIZE && (
+                    <span> · <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.min(page * PAGE_SIZE, filtered.length)}</span> gösteriliyor</span>
+                  )}
+                </p>
+                {totalPages > 1 && (
+                  <span className="text-xs text-slate-400 dark:text-slate-500">Sayfa {page} / {totalPages}</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {pagedResult.map(l => <ListingCard key={l.id} listing={l} />)}
+              </div>
+
+              {page * PAGE_SIZE < filtered.length && (
+                <div className="mt-8 flex flex-col items-center gap-2">
+                  <button
+                    onClick={() => setPage(p => p + 1)}
+                    className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold text-sm px-8 py-3 rounded-2xl border border-blue-200 dark:border-blue-900/40 shadow-sm hover:shadow-md transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Daha fazla göster
+                    <span className="text-xs text-blue-400 font-normal">({filtered.length - page * PAGE_SIZE} ilan daha)</span>
+                  </button>
+                  <div className="w-48 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (page * PAGE_SIZE / filtered.length) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    %{Math.round((Math.min(page * PAGE_SIZE, filtered.length) / filtered.length) * 100)} görüntülendi
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
