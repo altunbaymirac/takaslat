@@ -14,7 +14,7 @@ import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
 import { VEHICLE_GROUPS, VEHICLE_GROUP_ICONS } from '../data/vehicleTypes';
 import { VEHICLE_COLORS } from '../data/vehicleModels';
-import { VEHICLE_BRANDS, ELECTRONIC_BRANDS, getBrandsForVehicleGroup } from '../data/brands';
+import { ELECTRONIC_BRANDS, getBrandsForVehicleGroup } from '../data/brands';
 import { getModelsFromDB, getTrimsFromDB } from '../data/vehicleDatabase';
 import BrandPicker from '../components/BrandPicker';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
