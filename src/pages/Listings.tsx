@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import ListingCard from '../components/ListingCard';
 import FilterBar from '../components/FilterBar';
@@ -29,6 +29,7 @@ export default function Listings() {
   });
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     listings, filters,
     recentlyViewed, clearRecentlyViewed,
@@ -38,7 +39,9 @@ export default function Listings() {
   const [sortBy, setSortBy]       = useState<SortOption>('newest');
   const [sortOpen, setSortOpen]   = useState(false);
   const [page, setPage]           = useState(1);
-  const [activeTab, setActiveTab] = useState<'search' | 'ai'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'ai'>(
+    searchParams.get('tab') === 'ai' ? 'ai' : 'search'
+  );
 
   const [aiQuery, setAiQuery]                     = useState('');
   const [aiSourceListingId, setAiSourceListingId] = useState('');

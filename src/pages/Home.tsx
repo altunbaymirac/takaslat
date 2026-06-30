@@ -15,7 +15,7 @@ export default function Home() {
     description: 'Arabanı takas et. İlan ver, teklif al, güvenle buluş. Türkiye\'nin en akıllı araç takas platformu.',
   });
 
-  const { listings, openAIPanel } = useAppStore();
+  const { listings } = useAppStore();
 
   const heroStats = useMemo(() => {
     const count = listings.length;
@@ -57,13 +57,13 @@ export default function Home() {
             >
               İlan ver
             </Link>
-            <button
-              onClick={() => openAIPanel()}
+            <Link
+              to="/listings?tab=ai"
               className="flex items-center gap-2 bg-violet-500 hover:bg-violet-400 text-white font-semibold text-sm px-8 py-3.5 rounded-2xl transition-colors shadow-lg shadow-violet-900/20"
             >
               <AIIcon />
               TakaslAI
-            </button>
+            </Link>
           </div>
         </div>
 
