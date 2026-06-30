@@ -183,6 +183,7 @@ const defaultFilters: FilterState = {
   minValue:       0,
   maxValue:       5_000_000,
   searchQuery:    '',
+  model:          '',
   brands:         [],
   minYear:        1990,
   maxYear:        new Date().getFullYear(),

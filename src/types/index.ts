@@ -257,6 +257,7 @@ export interface FilterState {
   minValue: number;
   maxValue: number;
   searchQuery: string;
+  model:         string;
   brands:        string[];
   minYear:       number;
   maxYear:       number;

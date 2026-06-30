@@ -126,6 +126,7 @@ export default function Listings() {
       }
       const v = l.vehicleDetails;
       if (filters.brands.length > 0 && (!v?.brand || !filters.brands.includes(v.brand))) return false;
+      if (filters.model && v?.model !== filters.model) return false;
       if (filters.fuels.length  > 0 && (!v?.fuel  || !filters.fuels.includes(v.fuel)))   return false;
       if (v?.year !== undefined) {
         if (v.year < filters.minYear || v.year > filters.maxYear) return false;
