@@ -77,11 +77,9 @@ export default function Navbar() {
                 key={to}
                 to={to}
                 className={`relative text-sm font-semibold px-4 py-1.5 rounded-full transition-colors ${
-                  isCreate
+                  isCreate || isActive
                     ? 'bg-amber-400 hover:bg-amber-300 text-amber-900'
-                    : isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 dark:text-amber-300'
                 }`}
               >
                 {label}
