@@ -2,13 +2,6 @@ import { Link } from 'react-router-dom';
 import type { Listing } from '../types';
 import { useAppStore } from '../store/useAppStore';
 
-const CONDITION_COLOR: Record<string, string> = {
-  'Mükemmel': 'bg-emerald-500',
-  'İyi':      'bg-blue-500',
-  'Orta':     'bg-amber-500',
-  'Yıpranmış':'bg-red-500',
-};
-
 function fmt(n: number) {
   return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
 }
@@ -20,132 +13,92 @@ export default function ListingCard({ listing }: { listing: Listing }) {
   const isCompare = compareList.includes(listing.id);
   const boosted   = isBoosted(listing.id);
 
-  const ageMs  = Date.now() - new Date(listing.createdAt).getTime();
-  const isNew  = ageMs < 2 * 86_400_000;
-  const isHot  = (listing.viewCount ?? 0) >= 5 && ageMs < 7 * 86_400_000;
+  const ageMs = Date.now() - new Date(listing.createdAt).getTime();
+  const isNew = ageMs < 2 * 86_400_000;
+  const isHot = (listing.viewCount ?? 0) >= 5 && ageMs < 7 * 86_400_000;
+
+  const badge = boosted
+    ? { text: 'Öne Çıkan', color: 'bg-amber-500' }
+    : isHot
+    ? { text: 'Popüler', color: 'bg-orange-500' }
+    : isNew
+    ? { text: 'Yeni', color: 'bg-emerald-600' }
+    : null;
 
   return (
-    <article className="relative bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
+    <article className="relative flex items-stretch gap-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 py-3 sm:px-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
 
       {/* ── Thumbnail ── */}
-      <Link to={`/listing/${listing.id}`} className="relative block flex-shrink-0 overflow-hidden">
+      <Link to={`/listing/${listing.id}`} className="relative flex-shrink-0 w-28 h-24 sm:w-32 sm:h-28 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-800">
         <img
           src={listing.images[0]}
           alt={listing.title}
-          className="w-full h-44 object-cover"
+          className="w-full h-full object-cover"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        {badge && (
+          <span className={`absolute top-1 left-1 ${badge.color} text-white text-[9px] font-bold px-1.5 py-0.5 rounded`}>
+            {badge.text}
+          </span>
+        )}
+      </Link>
 
-        {/* Badge — top left */}
-        <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-          {boosted && (
-            <span className="bg-violet-600 text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full">
-              Öne Çıkan
-            </span>
+      {/* ── Info ── */}
+      <Link to={`/listing/${listing.id}`} className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
+        <div>
+          <h3 className="text-[13px] sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug line-clamp-2">
+            {listing.title}
+          </h3>
+
+          {v && (
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              {v.year} · {v.km.toLocaleString('tr-TR')} km · {v.fuel} · {v.transmission}
+            </p>
           )}
-          {!boosted && isHot && (
-            <span className="bg-orange-500 text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full">
-              Popüler
-            </span>
-          )}
-          {!boosted && !isHot && isNew && (
-            <span className="bg-emerald-500 text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full">
-              Yeni
-            </span>
-          )}
+
+          <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            <svg className="inline w-3 h-3 -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            </svg>
+            {listing.city} · {listing.condition}
+          </p>
         </div>
 
-        {/* Condition — bottom right */}
-        <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
-          <span className={`w-1.5 h-1.5 rounded-full ${CONDITION_COLOR[listing.condition] ?? 'bg-slate-400'}`} />
-          <span className="text-[10px] font-medium text-white">{listing.condition}</span>
+        <div className="flex items-end justify-between mt-1.5">
+          <p className="text-sm sm:text-base font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
+            {fmt(listing.estimatedValue)}
+          </p>
+          <p className="hidden sm:block max-w-[40%] text-[10px] text-slate-400 dark:text-slate-500 truncate text-right">
+            Takas: {listing.wantedFor}
+          </p>
         </div>
       </Link>
 
-      {/* Favorite button */}
-      <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(listing.id); }}
-        aria-label={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-        className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-colors backdrop-blur-sm ${
-          isFav
-            ? 'bg-red-500 text-white'
-            : 'bg-white/90 text-slate-500 hover:text-red-500'
-        }`}
-      >
-        <svg className="w-4 h-4" fill={isFav ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-        </svg>
-      </button>
-
-      {/* ── Body ── */}
-      <div className="flex flex-col flex-1 p-3.5 gap-2.5">
-
-        {/* City */}
-        <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
-          <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      {/* Favorite / Compare */}
+      <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(listing.id); }}
+          aria-label={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+            isFav ? 'text-red-500' : 'text-slate-300 dark:text-slate-600 hover:text-red-400'
+          }`}
+        >
+          <svg className="w-4 h-4" fill={isFav ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
-          {listing.city}
-        </div>
-
-        {/* Title */}
-        <Link to={`/listing/${listing.id}`}>
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug hover:text-blue-600 dark:hover:text-blue-400 transition-colors line-clamp-2">
-            {listing.title}
-          </h3>
-        </Link>
-
-        {/* Vehicle spec chips */}
-        {v && (
-          <div className="flex flex-wrap gap-1.5">
-            {[v.year.toString(), `${v.km.toLocaleString('tr-TR')} km`, v.fuel, v.transmission].map((t) => (
-              <span
-                key={t}
-                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-medium px-2 py-0.5 rounded-md"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Price */}
-        <p className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-          {fmt(listing.estimatedValue)}
-        </p>
-
-        {/* Swap request */}
-        <div className="mt-auto border-l-2 border-blue-200 dark:border-blue-900 pl-2.5 py-0.5">
-          <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">Takas teklifi</p>
-          <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">{listing.wantedFor}</p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-0.5">
-          <Link
-            to={`/listing/${listing.id}`}
-            className="flex-1 text-center text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl transition-colors"
-          >
-            İncele
-          </Link>
-
-          <button
-            onClick={() => toggleCompare(listing.id)}
-            aria-label={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştırmaya ekle'}
-            title={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştır'}
-            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors border ${
-              isCompare
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 hover:text-blue-600 hover:border-blue-300 dark:hover:text-blue-400'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-            </svg>
-          </button>
-
-        </div>
+        </button>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCompare(listing.id); }}
+          aria-label={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştırmaya ekle'}
+          title={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştır'}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+            isCompare ? 'text-amber-600' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
+          </svg>
+        </button>
       </div>
     </article>
   );

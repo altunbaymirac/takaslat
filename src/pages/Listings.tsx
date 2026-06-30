@@ -365,7 +365,7 @@ export default function Listings() {
                   <span className="text-xs text-slate-400 dark:text-slate-500">Sayfa {page} / {totalPages}</span>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden">
                 {pagedResult.map(l => <ListingCard key={l.id} listing={l} />)}
               </div>
 
@@ -373,17 +373,17 @@ export default function Listings() {
                 <div className="mt-8 flex flex-col items-center gap-2">
                   <button
                     onClick={() => setPage(p => p + 1)}
-                    className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold text-sm px-8 py-3 rounded-2xl border border-blue-200 dark:border-blue-900/40 shadow-sm hover:shadow-md transition-all"
+                    className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold text-sm px-8 py-3 rounded-xl border border-amber-200 dark:border-amber-900/40 shadow-sm hover:shadow-md transition-all"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                     Daha fazla göster
-                    <span className="text-xs text-blue-400 font-normal">({filtered.length - page * PAGE_SIZE} ilan daha)</span>
+                    <span className="text-xs text-amber-500 font-normal">({filtered.length - page * PAGE_SIZE} ilan daha)</span>
                   </button>
                   <div className="w-48 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                      className="h-full bg-amber-500 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, (page * PAGE_SIZE / filtered.length) * 100)}%` }}
                     />
                   </div>
