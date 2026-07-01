@@ -245,10 +245,10 @@ export default function AIAssistant() {
   return (
     <>
       {/* Backdrop (mobile) */}
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden" onClick={closeAIPanel} />
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden modal-overlay" onClick={closeAIPanel} />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200">
+      <div className="fixed right-0 top-0 h-full w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200 panel-slide-right">
 
         {/* ── Header ── */}
         <div className="bg-gradient-to-r from-[#1B4FD8] to-[#2563eb] px-4 py-3.5 flex items-center justify-between flex-shrink-0">

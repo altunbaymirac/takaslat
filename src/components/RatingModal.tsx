@@ -46,9 +46,9 @@ export default function RatingModal({ offer, onClose }: Props) {
   const starLabels = ['', 'Çok kötü', 'Kötü', 'Orta', 'İyi', 'Mükemmel'];
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
       <div
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md modal-panel"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">

@@ -28,7 +28,7 @@ export default function ImageLightbox({ images, initial, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/95 z-[80] flex items-center justify-center"
+      className="fixed inset-0 bg-black/95 z-[80] flex items-center justify-center modal-overlay"
       onClick={onClose}
     >
       {/* Top toolbar */}

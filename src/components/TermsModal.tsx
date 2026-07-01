@@ -16,8 +16,8 @@ export default function TermsModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 modal-overlay">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] modal-panel">
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
