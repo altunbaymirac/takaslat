@@ -15,10 +15,19 @@ export function showToast(message: string, type: ToastState['type'] = 'success')
 }
 
 export default function Toast() {
-  const [toast, setToast] = useState<ToastState | null>(null);
+  const [toast, setToast]     = useState<ToastState | null>(null);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    setter = setToast;
+    setter = (t) => {
+      if (t) {
+        setLeaving(false);
+        setToast(t);
+      } else {
+        setLeaving(true);
+        setTimeout(() => setToast(null), 200);
+      }
+    };
     return () => { setter = null; };
   }, []);
 
@@ -35,7 +44,11 @@ export default function Toast() {
     'ℹ';
 
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 ${color} px-5 py-3 rounded-2xl shadow-2xl z-[100] flex items-center gap-2.5 toast-enter`}>
+    <div
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 ${color} px-5 py-3 rounded-2xl shadow-2xl z-[100] flex items-center gap-2.5 transition-all duration-200 ease-out ${
+        leaving ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0 toast-enter'
+      }`}
+    >
       <span className="text-lg leading-none">{icon}</span>
       <span className="text-sm font-medium">{toast.message}</span>
     </div>

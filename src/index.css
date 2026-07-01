@@ -93,3 +93,31 @@ html.dark .card-shadow {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* ─── Inline hata/uyarı banner girişi ────────────────────────────────────── */
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.banner-enter {
+  animation: bannerIn 260ms cubic-bezier(.22, 1, .36, 1);
+  transform-origin: top center;
+}
+
+/* ─── Sayfa içeriği giriş animasyonu ──────────────────────────────────────── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: pageIn 320ms cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ─── Kart/liste öğesi giriş animasyonu (stagger için) ───────────────────── */
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.item-enter {
+  animation: itemIn 320ms cubic-bezier(.22, 1, .36, 1) both;
+}

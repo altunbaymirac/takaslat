@@ -242,7 +242,7 @@ export default function Listings() {
           </details>
 
           {aiError && (
-            <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-900/20 dark:text-red-400 banner-enter">
               {aiError}
             </p>
           )}
@@ -366,7 +366,11 @@ export default function Listings() {
                 )}
               </div>
               <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden">
-                {pagedResult.map(l => <ListingCard key={l.id} listing={l} />)}
+                {pagedResult.map((l, i) => (
+                  <div key={l.id} className="item-enter" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                    <ListingCard listing={l} />
+                  </div>
+                ))}
               </div>
 
               {page * PAGE_SIZE < filtered.length && (
