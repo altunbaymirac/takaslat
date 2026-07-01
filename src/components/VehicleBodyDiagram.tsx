@@ -47,73 +47,79 @@ const HOVER_FILL: Record<PanelState, string> = {
   changed:  '#e2e8f0',
 };
 
-// ViewBox: 0 0 160 340 — sedan top-down schematic
+// ViewBox: 0 0 160 360 — araç üstten görünüm (yuvarlak burun/kuyruk, tekerlekli)
 const PANELS: Array<{ id: string; d: string; lx: number; ly: number }> = [
   {
     id: 'on_tampon',
-    d: 'M52,12 L108,12 Q116,12 116,20 L116,36 L44,36 L44,20 Q44,12 52,12 Z',
-    lx: 80, ly: 25,
+    d: 'M80,10 C94,10 104,17 106,27 L106,36 L54,36 L54,27 C56,17 66,10 80,10 Z',
+    lx: 80, ly: 24,
   },
   {
     id: 'on_kaput',
-    d: 'M52,36 L108,36 L108,118 L52,118 Z',
-    lx: 80, ly: 77,
+    d: 'M96,36 L64,36 L64,140 L96,140 Z',
+    lx: 80, ly: 88,
   },
   {
     id: 'sol_on_camurluk',
-    d: 'M16,36 L52,36 L52,126 L16,122 Z',
-    lx: 34, ly: 81,
+    d: 'M64,36 L52,36 L52,140 L64,140 Z',
+    lx: 58, ly: 88,
   },
   {
     id: 'sag_on_camurluk',
-    d: 'M108,36 L144,36 L144,122 L108,126 Z',
-    lx: 126, ly: 81,
+    d: 'M96,36 L108,36 L108,140 L96,140 Z',
+    lx: 102, ly: 88,
   },
   {
     id: 'tavan',
-    d: 'M52,140 L108,140 L108,222 L52,222 Z',
-    lx: 80, ly: 181,
+    d: 'M64,140 L96,140 L96,224 L64,224 Z',
+    lx: 80, ly: 182,
   },
   {
     id: 'sol_on_kapi',
-    d: 'M16,122 L52,126 L52,180 L16,176 Z',
-    lx: 34, ly: 151,
+    d: 'M52,140 L64,140 L64,182 L52,182 Z',
+    lx: 58, ly: 161,
   },
   {
     id: 'sag_on_kapi',
-    d: 'M108,126 L144,122 L144,176 L108,180 Z',
-    lx: 126, ly: 151,
+    d: 'M108,140 L96,140 L96,182 L108,182 Z',
+    lx: 102, ly: 161,
   },
   {
     id: 'sol_arka_kapi',
-    d: 'M16,176 L52,180 L52,228 L16,224 Z',
-    lx: 34, ly: 202,
+    d: 'M52,182 L64,182 L64,224 L52,224 Z',
+    lx: 58, ly: 203,
   },
   {
     id: 'sag_arka_kapi',
-    d: 'M108,180 L144,176 L144,224 L108,228 Z',
-    lx: 126, ly: 202,
+    d: 'M108,182 L96,182 L96,224 L108,224 Z',
+    lx: 102, ly: 203,
   },
   {
     id: 'sol_arka_camurluk',
-    d: 'M16,224 L52,228 L52,312 L16,308 Z',
-    lx: 34, ly: 268,
+    d: 'M64,224 L52,224 L52,328 L64,328 Z',
+    lx: 58, ly: 276,
   },
   {
     id: 'sag_arka_camurluk',
-    d: 'M108,228 L144,224 L144,308 L108,312 Z',
-    lx: 126, ly: 268,
+    d: 'M96,224 L108,224 L108,328 L96,328 Z',
+    lx: 102, ly: 276,
   },
   {
     id: 'bagaj',
-    d: 'M52,242 L108,242 L108,310 L52,310 Z',
+    d: 'M96,224 L64,224 L64,328 L96,328 Z',
     lx: 80, ly: 276,
   },
   {
     id: 'arka_tampon',
-    d: 'M52,310 L108,310 L108,326 Q108,334 100,334 L60,334 Q52,334 52,326 Z',
-    lx: 80, ly: 322,
+    d: 'M54,328 L106,328 L106,337 C104,347 94,354 80,354 C66,354 56,347 54,337 Z',
+    lx: 80, ly: 344,
   },
+];
+
+// Tekerlekler — dekoratif, gövde kenarından hafif taşan
+const WHEELS: Array<{ x: number; y: number }> = [
+  { x: 44, y: 68 }, { x: 106, y: 68 },
+  { x: 44, y: 252 }, { x: 106, y: 252 },
 ];
 
 export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaintedChange, onChangedChange }: Props) {
@@ -159,21 +165,19 @@ export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaint
         {/* SVG schematic */}
         <div className="flex-shrink-0">
           <svg
-            viewBox="0 0 160 346"
+            viewBox="0 0 160 360"
             xmlns="http://www.w3.org/2000/svg"
             className="w-36 h-auto"
             style={{ cursor: editable ? 'pointer' : 'default' }}
           >
             {/* Direction labels */}
             <text x="80" y="7" textAnchor="middle" fontSize="6" fill="#94a3b8" fontWeight="600" letterSpacing="1">ÖN</text>
-            <text x="80" y="344" textAnchor="middle" fontSize="6" fill="#94a3b8" fontWeight="600" letterSpacing="1">ARKA</text>
+            <text x="80" y="358" textAnchor="middle" fontSize="6" fill="#94a3b8" fontWeight="600" letterSpacing="1">ARKA</text>
 
-            {/* Non-interactive glass areas */}
-            <rect x="52" y="118" width="56" height="22" rx="1" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="0.5" />
-            <text x="80" y="133" textAnchor="middle" fontSize="4.5" fill="#3b82f6">ÖN CAM</text>
-
-            <rect x="52" y="222" width="56" height="20" rx="1" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="0.5" />
-            <text x="80" y="236" textAnchor="middle" fontSize="4.5" fill="#3b82f6">ARKA CAM</text>
+            {/* Tekerlekler */}
+            {WHEELS.map((w, i) => (
+              <rect key={i} x={w.x} y={w.y} width="10" height="40" rx="3" fill="#334155" />
+            ))}
 
             {/* Panels */}
             {PANELS.map(({ id, d, lx, ly }) => {
@@ -196,6 +200,10 @@ export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaint
                 </g>
               );
             })}
+
+            {/* Ön/arka cam — dekoratif, panel sınırlarının üstünde */}
+            <rect x="64" y="128" width="32" height="14" rx="2" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="0.5" pointerEvents="none" />
+            <rect x="64" y="210" width="32" height="14" rx="2" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="0.5" pointerEvents="none" />
 
             {/* Hover tooltip panel name */}
             {hovered && editable && (
