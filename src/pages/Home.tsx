@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { useSEO } from '../hooks/useSEO';
+import { useSEO, useJsonLd } from '../hooks/useSEO';
 
 const AIIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -9,10 +9,69 @@ const AIIcon = () => (
   </svg>
 );
 
+const FAQS = [
+  {
+    q: 'Takaslat nedir, araç takası nasıl yapılır?',
+    a: 'Takaslat, aracını, elektroniğini veya gayrimenkulünü doğrudan başka bir ürünle değiştirmeni sağlayan Türkiye\'nin araç takas platformudur. Aracını fotoğraflarıyla ve teknik detaylarıyla ilan olarak yayınlarsın. Diğer kullanıcılar sana takas teklifi gönderir, sen de uygun bulduğun teklifleri değerlendirip pazarlık yapabilirsin. Anlaştığınızda güvenle buluşup takası tamamlarsınız.',
+  },
+  {
+    q: 'İlan vermek ücretli mi?',
+    a: 'Hayır, Takaslat\'ta ilan vermek tamamen ücretsizdir. Aracını fotoğraflayıp bilgilerini girerek dakikalar içinde yayına alabilirsin.',
+  },
+  {
+    q: 'AI ile eşleştirme nasıl çalışıyor?',
+    a: 'TakaslAI özelliğiyle aradığın aracı kendi cümlelerinle yazman yeterli — yapay zeka mevcut ilanlar arasından sana en uygun olanları saniyeler içinde sıralar.',
+  },
+  {
+    q: 'Üstüne para ekleyerek takas yapabilir miyim?',
+    a: 'Evet. Teklif verirken aracının değer farkını nakit olarak ekleyebilir veya talep edebilirsin, bu seçenek teklif ekranında mevcuttur.',
+  },
+  {
+    q: 'Karşı tarafın güvenilir olduğunu nasıl anlarım?',
+    a: 'Her kullanıcının profilinde geçmiş takasları, aldığı değerlendirmeler ve hesap doğrulama durumu şeffaf şekilde gösterilir. Güven skoruna bakarak karar verebilirsin.',
+  },
+  {
+    q: 'Takas sırasında anlaşmazlık olursa ne olur?',
+    a: 'Görüşmeler platform üzerinden mesajlaşma geçmişiyle birlikte tutulur. Anlaşmazlık durumunda destek ekibimize ulaşabilir, ayrıca buluşmayı her zaman güvenli ve halka açık bir noktada yapmanı öneririz.',
+  },
+];
+
 export default function Home() {
   useSEO({
-    title: 'Araç Takasının En Akıllı Adresi | Takaslat',
-    description: 'Arabanı takas et. İlan ver, teklif al, güvenle buluş. Türkiye\'nin en akıllı araç takas platformu.',
+    title: 'Araç Takas Platformu',
+    description: 'Takaslat ile araç, elektronik ve gayrimenkul takası yap. İlan ver, AI ile eşleş, teklif al, güvenle buluş. Türkiye\'nin en akıllı takas platformu.',
+  });
+
+  useJsonLd('org-jsonld', {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'Takaslat',
+        url: 'https://www.takaslat.com/',
+        logo: 'https://www.takaslat.com/pwa-512.png',
+      },
+      {
+        '@type': 'WebSite',
+        name: 'Takaslat',
+        url: 'https://www.takaslat.com/',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: 'https://www.takaslat.com/listings?q={search_term_string}',
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+  });
+
+  useJsonLd('faq-jsonld', {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
   });
 
   const { listings } = useAppStore();
@@ -222,32 +281,7 @@ export default function Home() {
           </div>
 
           <div className="space-y-3">
-            {[
-              {
-                q: 'Takaslat nasıl çalışır?',
-                a: 'Aracını fotoğraflarıyla ve teknik detaylarıyla ilan olarak yayınlarsın. Diğer kullanıcılar sana takas teklifi gönderir, sen de uygun bulduğun teklifleri değerlendirip pazarlık yapabilirsin. Anlaştığınızda güvenle buluşup takası tamamlarsınız.',
-              },
-              {
-                q: 'İlan vermek ücretli mi?',
-                a: 'Hayır, ilan vermek tamamen ücretsizdir. Aracını fotoğraflayıp bilgilerini girerek dakikalar içinde yayına alabilirsin.',
-              },
-              {
-                q: 'AI ile eşleştirme nasıl çalışıyor?',
-                a: 'TakaslAI özelliğiyle aradığın aracı kendi cümlelerinle yazman yeterli — yapay zeka mevcut ilanlar arasından sana en uygun olanları saniyeler içinde sıralar.',
-              },
-              {
-                q: 'Üstüne para ekleyerek takas yapabilir miyim?',
-                a: 'Evet. Teklif verirken aracının değer farkını nakit olarak ekleyebilir veya talep edebilirsin, bu seçenek teklif ekranında mevcuttur.',
-              },
-              {
-                q: 'Karşı tarafın güvenilir olduğunu nasıl anlarım?',
-                a: 'Her kullanıcının profilinde geçmiş takasları, aldığı değerlendirmeler ve hesap doğrulama durumu şeffaf şekilde gösterilir. Güven skoruna bakarak karar verebilirsin.',
-              },
-              {
-                q: 'Takas sırasında anlaşmazlık olursa ne olur?',
-                a: 'Görüşmeler platform üzerinden mesajlaşma geçmişiyle birlikte tutulur. Anlaşmazlık durumunda destek ekibimize ulaşabilir, ayrıca buluşmayı her zaman güvenli ve halka açık bir noktada yapmanı öneririz.',
-              },
-            ].map((item, i) => {
+            {FAQS.map((item, i) => {
               const open = openFaq === i;
               return (
                 <div

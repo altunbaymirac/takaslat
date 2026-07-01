@@ -12,7 +12,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'pwa-192.png'],
       manifest: {
         name: 'Takaslat — Takas Platformu',
         short_name: 'Takaslat',

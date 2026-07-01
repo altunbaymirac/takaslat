@@ -65,3 +65,21 @@ export function useSEO({ title, description, image, url, type = 'website' }: SEO
     };
   }, [title, description, image, url, type]);
 }
+
+// ─── JSON-LD structured data (zengin snippet / Google için) ──────────────────
+
+export function useJsonLd(id: string, data: object | null) {
+  useEffect(() => {
+    if (!data) return;
+    let el = document.getElementById(id) as HTMLScriptElement | null;
+    if (!el) {
+      el = document.createElement('script');
+      el.id = id;
+      el.type = 'application/ld+json';
+      document.head.appendChild(el);
+    }
+    el.textContent = JSON.stringify(data);
+
+    return () => { el?.remove(); };
+  }, [id, data]);
+}

@@ -24,7 +24,7 @@ const formatPrice = (value: number) =>
 
 export default function Listings() {
   useSEO({
-    title: 'İlanlar | Takaslat',
+    title: 'İlanlar — Araç, Elektronik, Gayrimenkul Takası',
     description: 'Türkiye genelindeki araç takas ilanlarını keşfet. Filtrele, karşılaştır, teklif ver.',
   });
 

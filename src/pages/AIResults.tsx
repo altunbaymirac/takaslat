@@ -9,7 +9,7 @@ const formatPrice = (value: number) =>
 
 export default function AIResults() {
   useSEO({
-    title: 'AI Eşleştirme Sonuçları | Takaslat',
+    title: 'AI Eşleştirme Sonuçları',
     description: 'Yapay zekanın senin için bulduğu takas önerileri.',
   });
 
