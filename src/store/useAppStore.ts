@@ -219,7 +219,7 @@ export const useAppStore = create<AppState>()(
       auctionSyncState:        'idle',
       token:                   null,
       currentUser:             null,
-      currentUserId:           'current-user',
+      currentUserId:           USE_MOCK ? 'current-user' : '',
       currentUserName:         'Kullanıcı',
       filters:                 defaultFilters,
       aiPanelOpen:             false,
@@ -326,7 +326,7 @@ export const useAppStore = create<AppState>()(
               supabase.auth.onAuthStateChange(async (event, newSession) => {
                 if (event === 'SIGNED_OUT' || !newSession) {
                   clearToken();
-                  set({ token: null, currentUser: null, currentUserId: 'current-user', currentUserName: 'Kullanıcı', offers: [], notifications: [] });
+                  set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı', offers: [], notifications: [] });
                 } else if (event === 'TOKEN_REFRESHED' && newSession) {
                   setToken(newSession.access_token);
                   set({ token: newSession.access_token });
@@ -403,7 +403,7 @@ export const useAppStore = create<AppState>()(
         set({
           token:           null,
           currentUser:     null,
-          currentUserId:   'current-user',
+          currentUserId:   USE_MOCK ? 'current-user' : '',
           currentUserName: 'Kullanıcı',
           offers:          [],
           listings:        [],
@@ -962,7 +962,7 @@ export const useAppStore = create<AppState>()(
           ...current,
           token:                   p?.token        ?? null,
           currentUser:             user,
-          currentUserId:           user?.id        ?? 'current-user',
+          currentUserId:           user?.id        ?? (USE_MOCK ? 'current-user' : ''),
           currentUserName:         user?.name      ?? 'Kullanıcı',
           favorites:               p?.favorites    ?? [],
           darkMode:                p?.darkMode     ?? false,

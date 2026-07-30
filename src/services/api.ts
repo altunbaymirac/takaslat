@@ -1,8 +1,8 @@
 /**
  * API Service Layer
  *
- * VITE_SUPABASE_URL tanımlıysa → Supabase (gerçek DB + Auth)
- * Tanımlı değilse               → mock data (demo modu)
+ * Uygulama varsayılan olarak gerçek Supabase projesini kullanır.
+ * Mock veri yalnızca testlerde veya VITE_USE_MOCK=true ile açıkça etkinleştirilir.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -11,13 +11,15 @@ import type { LiveAuction, Listing, ListingAttachment, ListingVerification, Noti
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
-export const USE_MOCK = import.meta.env.MODE === 'test' || !SUPABASE_URL || !SUPABASE_KEY
+const PUBLIC_SUPABASE_URL = 'https://kozvhbepwboaxpksgqaj.supabase.co'
+const PUBLIC_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvenZoYmVwd2JvYXhwa3NncWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5ODg2ODIsImV4cCI6MjA5NTU2NDY4Mn0.qjZxNQxvtnbP_qaWISkS9osE9OMaiFPmWUZQRo3Podo'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY
+export const USE_MOCK = import.meta.env.MODE === 'test' || import.meta.env.VITE_USE_MOCK === 'true'
 
 export const supabase = createClient(
-  SUPABASE_URL || 'https://placeholder.supabase.co',
-  SUPABASE_KEY || 'placeholder',
+  SUPABASE_URL,
+  SUPABASE_KEY,
 )
 
 // ─── Token helpers (backward compat) ─────────────────────────────────────────
