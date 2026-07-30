@@ -191,6 +191,7 @@ interface AppState {
 
 const defaultFilters: FilterState = {
   category:       'Tümü',
+  propertyKind:   '',
   city:           '',
   minValue:       0,
   maxValue:       5_000_000,

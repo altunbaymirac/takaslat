@@ -313,6 +313,7 @@ export interface AIResponse {
 
 export interface FilterState {
   category: Category | 'Tümü';
+  propertyKind: '' | 'Ev' | 'Arsa';
   city: string;
   minValue: number;
   maxValue: number;

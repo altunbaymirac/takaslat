@@ -6,6 +6,7 @@ import FilterBar from '../components/FilterBar';
 import { useSEO } from '../hooks/useSEO';
 import { VEHICLE_GROUPS } from '../data/vehicleTypes';
 import { aiErrorMessage, aiHomeMatch } from '../services/api';
+import type { Listing } from '../types';
 
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'popular';
 
@@ -19,8 +20,28 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 const PAGE_SIZE = 12;
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
+const LAND_KEYWORDS = ['arsa', 'tarla', 'parsel', 'imar', 'bahçe'];
 const formatPrice = (value: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value);
+
+function hasLandKeywords(listing: Listing) {
+  const legacyText = [
+    listing.title,
+    listing.description,
+    listing.wantedFor,
+    ...(listing.tags ?? []),
+  ].join(' ').toLocaleLowerCase('tr-TR');
+
+  return LAND_KEYWORDS.some(keyword => legacyText.includes(keyword));
+}
+
+function isLandListing(listing: Listing) {
+  if (listing.propertyDetails?.type) return listing.propertyDetails.type === 'Arsa';
+  if (listing.category === 'Gayrimenkul') return hasLandKeywords(listing);
+
+  // Eski kayıtlarda arsa, araç kategorisiyle ve araç detayları boş kaydedilmiş olabilir.
+  return !listing.vehicleDetails && hasLandKeywords(listing);
+}
 
 export default function Listings() {
   useSEO({
@@ -96,7 +117,14 @@ export default function Listings() {
 
   const filtered = useMemo(() => {
     const result = listings.filter(l => {
-      if (filters.category !== 'Tümü' && l.category !== filters.category) return false;
+      const isLand = isLandListing(l);
+      if (
+        filters.category !== 'Tümü' &&
+        l.category !== filters.category &&
+        !(filters.category === 'Gayrimenkul' && isLand)
+      ) return false;
+      if (filters.propertyKind === 'Arsa' && !isLand) return false;
+      if (filters.propertyKind === 'Ev' && isLand) return false;
       if (filters.city && l.city !== filters.city) return false;
       if (l.estimatedValue < filters.minValue || l.estimatedValue > filters.maxValue) return false;
       if (filters.searchQuery) {

@@ -11,6 +11,7 @@ import { getModelsFromDB } from '../data/vehicleDatabase';
 
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 const VEHICLE_GROUP_KEYS = Object.keys(VEHICLE_GROUPS);
+type CategoryChoice = 'Tümü' | 'Araç' | 'Ev' | 'Arsa';
 
 export default function FilterBar({ onFilterChange }: { onFilterChange?: () => void } = {}) {
   const { filters, setFilters: _setFilters, resetFilters: _resetFilters, listings } = useAppStore();
@@ -59,6 +60,8 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
   }, []);
 
   const active =
+    filters.category !== 'Tümü' ||
+    filters.propertyKind !== '' ||
     filters.vehicleGroup !== '' ||
     filters.brands.length > 0 ||
     filters.model !== '' ||
@@ -69,6 +72,41 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
   const selectedBrand = filters.brands[0] ?? '';
   const brandOptions = getBrandsForVehicleGroup(filters.vehicleGroup);
   const modelOptions = selectedBrand ? getModelsFromDB(filters.vehicleGroup, selectedBrand) : [];
+  const categoryChoice: CategoryChoice =
+    filters.category === 'Tümü'
+      ? 'Tümü'
+      : filters.category === 'Araç'
+        ? 'Araç'
+        : filters.propertyKind === 'Arsa'
+          ? 'Arsa'
+          : 'Ev';
+  const isVehicle = categoryChoice === 'Araç';
+
+  function pickCategory(category: CategoryChoice) {
+    const sharedVehicleReset = {
+      vehicleGroup: '',
+      brands: [],
+      model: '',
+      fuels: [],
+      noAccidentOnly: false,
+    };
+
+    if (category === 'Tümü') {
+      setFilters({ category: 'Tümü', propertyKind: '', ...sharedVehicleReset });
+      return;
+    }
+
+    if (category === 'Araç') {
+      setFilters({ category: 'Araç', propertyKind: '', ...sharedVehicleReset });
+      return;
+    }
+
+    setFilters({
+      category: 'Gayrimenkul',
+      propertyKind: category,
+      ...sharedVehicleReset,
+    });
+  }
 
   function pickVehicleGroup(group: string) {
     const next = filters.vehicleGroup === group ? '' : group;
@@ -85,34 +123,22 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
-      {/* Araç tipi — seçe seçe filtreleme */}
       <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
-        <span className="mr-1 text-xs font-bold uppercase tracking-wide text-slate-400">Araç tipi</span>
-        <button
-          onClick={() => pickVehicleGroup('')}
-          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-            !filters.vehicleGroup
-              ? 'border-blue-600 bg-blue-600 text-white'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-          }`}
-        >
-          Tümü
-        </button>
-        {VEHICLE_GROUP_KEYS.map(group => (
+        <span className="mr-1 text-xs font-bold uppercase tracking-wide text-slate-400">Kategori</span>
+        {(['Tümü', 'Araç', 'Ev', 'Arsa'] as CategoryChoice[]).map(category => (
           <button
-            key={group}
-            onClick={() => pickVehicleGroup(group)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-              filters.vehicleGroup === group
+            key={category}
+            onClick={() => pickCategory(category)}
+            className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
+              categoryChoice === category
                 ? 'border-blue-600 bg-blue-600 text-white'
                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
             }`}
           >
-            {group}
+            {category}
           </button>
         ))}
 
-        {/* İlan kodu ile direkt bul — opsiyonel, ayrı */}
         <div className="relative ml-auto" ref={codeRef}>
           <input
             type="text"
@@ -135,9 +161,41 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
         </div>
       </div>
 
-      {/* Marka → Model → seçe seçe */}
-      <div className="grid gap-2 pt-3 lg:grid-cols-[1fr_1fr_180px_230px_auto_auto]">
-        <div className="relative">
+      {isVehicle && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 py-3 dark:border-slate-700">
+          <span className="mr-1 text-xs font-bold uppercase tracking-wide text-slate-400">Araç tipi</span>
+          <button
+            onClick={() => pickVehicleGroup('')}
+            className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
+              !filters.vehicleGroup
+                ? 'border-blue-600 bg-blue-600 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+          >
+            Tümü
+          </button>
+          {VEHICLE_GROUP_KEYS.map(group => (
+            <button
+              key={group}
+              onClick={() => pickVehicleGroup(group)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
+                filters.vehicleGroup === group
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              {group}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className={`grid gap-2 pt-3 ${
+        isVehicle
+          ? 'lg:grid-cols-[1fr_1fr_180px_230px_auto_auto]'
+          : 'lg:grid-cols-[minmax(180px,1fr)_minmax(230px,1fr)_auto]'
+      }`}>
+        {isVehicle && <div className="relative">
           <select
             value={selectedBrand}
             onChange={e => pickBrand(e.target.value)}
@@ -149,9 +207,9 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
-        </div>
+        </div>}
 
-        <div className="relative">
+        {isVehicle && <div className="relative">
           <select
             value={filters.model}
             onChange={e => pickModel(e.target.value)}
@@ -164,7 +222,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
-        </div>
+        </div>}
 
         <div className="relative">
           <select
@@ -199,7 +257,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           />
         </div>
 
-        <AdvancedFilters />
+        {isVehicle && <AdvancedFilters />}
         <SavedSearchesPanel />
       </div>
 
