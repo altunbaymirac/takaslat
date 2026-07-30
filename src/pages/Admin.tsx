@@ -50,7 +50,7 @@ export default function Admin() {
   }
 
   useEffect(() => {
-    if (isAdmin) void load();
+    if (isAdmin) queueMicrotask(() => { void load(); });
   }, [isAdmin, status, tab, userSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function setModeration(id: string, next: 'pending' | 'approved' | 'rejected') {

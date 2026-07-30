@@ -3,15 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { playDing, isSoundEnabled } from '../lib/sound';
 
-const ICONS: Record<string, string> = {
-  offer:   '🤝',
-  message: '💬',
-  status:  '📌',
-  system:  '⚙️',
-  moderation: '🛡️',
-  wishlist: '🎯',
-};
-
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const sec  = Math.floor(diff / 1000);
@@ -73,7 +64,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-1rem)] max-w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Bildirimler</h3>
@@ -91,7 +82,9 @@ export default function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="py-12 text-center">
-                <div className="text-3xl mb-2">🔕</div>
+                <svg className="mx-auto mb-2 h-7 w-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Bildirim yok</p>
               </div>
             ) : (
@@ -104,7 +97,7 @@ export default function NotificationBell() {
                     !n.read ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''
                   }`}
                 >
-                  <div className="text-lg flex-shrink-0 mt-0.5">{ICONS[n.type]}</div>
+                  <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className={`text-sm font-medium ${

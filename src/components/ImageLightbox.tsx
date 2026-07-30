@@ -12,8 +12,8 @@ export default function ImageLightbox({ images, initial, onClose }: Props) {
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape')     onClose();
-      if (e.key === 'ArrowLeft')  prev();
-      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowLeft')  setIdx((i) => (i - 1 + images.length) % images.length);
+      if (e.key === 'ArrowRight') setIdx((i) => (i + 1) % images.length);
     }
     document.addEventListener('keydown', handler);
     document.body.style.overflow = 'hidden';
@@ -21,7 +21,7 @@ export default function ImageLightbox({ images, initial, onClose }: Props) {
       document.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [images.length, onClose]);
 
   const prev = () => setIdx((i) => (i - 1 + images.length) % images.length);
   const next = () => setIdx((i) => (i + 1) % images.length);

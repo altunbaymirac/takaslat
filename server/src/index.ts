@@ -75,6 +75,7 @@ app.use((_req, res) => {
 // ─── Global error handler ─────────────────────────────────────────────────────
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  void _next;
   console.error('[ERROR]', err.message);
   res.status(500).json({ error: 'Sunucu hatası oluştu' });
 });

@@ -37,13 +37,15 @@ export default function Profile() {
   useEffect(() => {
     if (profileFromListing) return;          // ilanlar varsa API'ye gerek yok
     if (!id) return;
-    setLoading(true);
-    setNotFound(false);
-    fetchUserById(id).then((u) => {
-      if (u) setApiUser(u);
-      else    setNotFound(true);
-    }).catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
+    queueMicrotask(() => {
+      setLoading(true);
+      setNotFound(false);
+      fetchUserById(id).then((u) => {
+        if (u) setApiUser(u);
+        else setNotFound(true);
+      }).catch(() => setNotFound(true))
+        .finally(() => setLoading(false));
+    });
   }, [id, profileFromListing]);
 
   // İstatistikler
@@ -204,10 +206,10 @@ export default function Profile() {
           { icon: '🤝', label: 'Tamamlanan Takas', value: ownerSwaps.toString() },
           { icon: '💰', label: 'Toplam Portföy', value: fmt(totalValue) },
         ].map((s) => (
-          <div key={s.label} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div key={s.label} className="min-w-0 bg-white dark:bg-slate-800 rounded-2xl p-3 sm:p-4 border border-slate-100 dark:border-slate-700 shadow-sm">
             <div className="text-2xl mb-1">{s.icon}</div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{s.label}</div>
-            <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">{s.value}</div>
+            <div className="break-words text-base sm:text-xl font-bold text-slate-900 dark:text-slate-100">{s.value}</div>
           </div>
         ))}
       </div>

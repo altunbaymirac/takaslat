@@ -149,7 +149,17 @@ function buildMessage(query: string, source: Listing | null, results: ReturnType
 
   // İlan bağlamlı sorgular
   if (results.length === 0) {
-    return 'Bu ilan için şu an eşleşen başka bir ilan bulamadım. Farklı bir şey denememi ister misin?';
+    if (!source) {
+      return [
+        'Net eşleşme çıkarabilmem için hangi ilanı takasa koyduğunu veya ne aradığını yazman gerekiyor.',
+        '',
+        'Örnek:',
+        '- "2018 Civic var, SUV bakıyorum"',
+        '- "İstanbulda 900 bine kadar otomatik araç öner"',
+        '- "Bu ilan için daha düşük fark isteyenleri bul"',
+      ].join('\n');
+    }
+    return 'Belirttiğin kritere uyan net bir eşleşme bulamadım. Marka, şehir, bütçe veya nakit fark aralığını biraz genişletmeyi deneyebilirsin.';
   }
 
   const top = results[0];

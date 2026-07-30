@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export const PANEL_LABELS: Record<string, string> = {
+const PANEL_LABELS: Record<string, string> = {
   on_tampon:         'Ön Tampon',
   on_kaput:          'Ön Kaput',
   sol_on_camurluk:   'Sol Ön Çamurluk',
@@ -43,83 +43,82 @@ const STROKE: Record<PanelState, string> = {
 };
 const HOVER_FILL: Record<PanelState, string> = {
   original: '#dbeafe',
-  painted:  '#fca5a5',
-  changed:  '#e2e8f0',
+  painted:  '#fde68a',
+  changed:  '#fecaca',
 };
 
-// ViewBox: 0 0 160 360 — araç üstten görünüm (yuvarlak burun/kuyruk, tekerlekli)
+// Üstten görünüm; paneller gerçek otomobil oranlarına yakın ayrı bölgeler olarak çizilir.
 const PANELS: Array<{ id: string; d: string; lx: number; ly: number }> = [
   {
     id: 'on_tampon',
-    d: 'M80,10 C94,10 104,17 106,27 L106,36 L54,36 L54,27 C56,17 66,10 80,10 Z',
-    lx: 80, ly: 24,
+    d: 'M78,20 Q110,5 142,20 L160,34 L154,50 L66,50 L60,34 Z',
+    lx: 110, ly: 33,
   },
   {
     id: 'on_kaput',
-    d: 'M96,36 L64,36 L64,140 L96,140 Z',
-    lx: 80, ly: 88,
+    d: 'M74,50 L146,50 L151,124 L69,124 Z',
+    lx: 110, ly: 88,
   },
   {
     id: 'sol_on_camurluk',
-    d: 'M64,36 L52,36 L52,140 L64,140 Z',
-    lx: 58, ly: 88,
+    d: 'M66,50 L74,50 L69,124 L56,138 Q46,111 48,78 Q50,60 66,50 Z',
+    lx: 58, ly: 91,
   },
   {
     id: 'sag_on_camurluk',
-    d: 'M96,36 L108,36 L108,140 L96,140 Z',
-    lx: 102, ly: 88,
+    d: 'M146,50 L154,50 Q170,60 172,78 Q174,111 164,138 L151,124 Z',
+    lx: 162, ly: 91,
   },
   {
     id: 'tavan',
-    d: 'M64,140 L96,140 L96,224 L64,224 Z',
-    lx: 80, ly: 182,
+    d: 'M76,136 Q110,120 144,136 L147,260 Q110,278 73,260 Z',
+    lx: 110, ly: 205,
   },
   {
     id: 'sol_on_kapi',
-    d: 'M52,140 L64,140 L64,182 L52,182 Z',
-    lx: 58, ly: 161,
+    d: 'M56,132 L76,136 L75,196 L50,196 L50,154 Z',
+    lx: 62, ly: 166,
   },
   {
     id: 'sag_on_kapi',
-    d: 'M108,140 L96,140 L96,182 L108,182 Z',
-    lx: 102, ly: 161,
+    d: 'M144,136 L164,132 L170,154 L170,196 L145,196 Z',
+    lx: 158, ly: 166,
   },
   {
     id: 'sol_arka_kapi',
-    d: 'M52,182 L64,182 L64,224 L52,224 Z',
-    lx: 58, ly: 203,
+    d: 'M50,196 L75,196 L73,260 L54,266 L50,242 Z',
+    lx: 62, ly: 229,
   },
   {
     id: 'sag_arka_kapi',
-    d: 'M108,182 L96,182 L96,224 L108,224 Z',
-    lx: 102, ly: 203,
+    d: 'M145,196 L170,196 L170,242 L166,266 L147,260 Z',
+    lx: 158, ly: 229,
   },
   {
     id: 'sol_arka_camurluk',
-    d: 'M64,224 L52,224 L52,328 L64,328 Z',
-    lx: 58, ly: 276,
+    d: 'M54,266 L73,260 L69,350 L62,350 Q48,330 48,294 Z',
+    lx: 59, ly: 307,
   },
   {
     id: 'sag_arka_camurluk',
-    d: 'M96,224 L108,224 L108,328 L96,328 Z',
-    lx: 102, ly: 276,
+    d: 'M147,260 L166,266 L172,294 Q172,330 158,350 L151,350 Z',
+    lx: 161, ly: 307,
   },
   {
     id: 'bagaj',
-    d: 'M96,224 L64,224 L64,328 L96,328 Z',
-    lx: 80, ly: 276,
+    d: 'M73,260 Q110,278 147,260 L151,350 L69,350 Z',
+    lx: 110, ly: 313,
   },
   {
     id: 'arka_tampon',
-    d: 'M54,328 L106,328 L106,337 C104,347 94,354 80,354 C66,354 56,347 54,337 Z',
-    lx: 80, ly: 344,
+    d: 'M69,350 L151,350 L158,366 Q110,390 62,366 Z',
+    lx: 110, ly: 368,
   },
 ];
 
-// Tekerlekler — dekoratif, gövde kenarından hafif taşan
 const WHEELS: Array<{ x: number; y: number }> = [
-  { x: 44, y: 68 }, { x: 106, y: 68 },
-  { x: 44, y: 252 }, { x: 106, y: 252 },
+  { x: 33, y: 72 }, { x: 171, y: 72 },
+  { x: 33, y: 282 }, { x: 171, y: 282 },
 ];
 
 export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaintedChange, onChangedChange }: Props) {
@@ -161,23 +160,30 @@ export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaint
         </div>
       )}
 
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
         {/* SVG schematic */}
         <div className="flex-shrink-0">
           <svg
-            viewBox="0 0 160 360"
+            viewBox="0 0 220 400"
             xmlns="http://www.w3.org/2000/svg"
-            className="w-36 h-auto"
+            className="h-auto w-44 sm:w-52"
             style={{ cursor: editable ? 'pointer' : 'default' }}
           >
             {/* Direction labels */}
-            <text x="80" y="7" textAnchor="middle" fontSize="6" fill="#94a3b8" fontWeight="600" letterSpacing="1">ÖN</text>
-            <text x="80" y="358" textAnchor="middle" fontSize="6" fill="#94a3b8" fontWeight="600" letterSpacing="1">ARKA</text>
+            <text x="110" y="10" textAnchor="middle" fontSize="7" fill="#94a3b8" fontWeight="700" letterSpacing="1.2">ÖN</text>
+            <text x="110" y="397" textAnchor="middle" fontSize="7" fill="#94a3b8" fontWeight="700" letterSpacing="1.2">ARKA</text>
 
             {/* Tekerlekler */}
             {WHEELS.map((w, i) => (
-              <rect key={i} x={w.x} y={w.y} width="10" height="40" rx="3" fill="#334155" />
+              <rect key={i} x={w.x} y={w.y} width="16" height="54" rx="6" fill="#1e293b" />
             ))}
+
+            <path
+              d="M78,18 Q110,2 142,18 Q168,27 174,70 L174,320 Q170,360 150,378 Q110,396 70,378 Q50,360 46,320 L46,70 Q52,27 78,18 Z"
+              fill="#f8fafc"
+              stroke="#64748b"
+              strokeWidth="2"
+            />
 
             {/* Panels */}
             {PANELS.map(({ id, d, lx, ly }) => {
@@ -201,16 +207,19 @@ export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaint
               );
             })}
 
-            {/* Ön/arka cam — dekoratif, panel sınırlarının üstünde */}
-            <rect x="64" y="128" width="32" height="14" rx="2" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="0.5" pointerEvents="none" />
-            <rect x="64" y="210" width="32" height="14" rx="2" fill="#bfdbfe" stroke="#93c5fd" strokeWidth="0.5" pointerEvents="none" />
+            {/* Camlar ve kabin çizgileri */}
+            <path d="M78,136 Q110,123 142,136 L139,158 L81,158 Z" fill="#bfdbfe" stroke="#60a5fa" strokeWidth="1" pointerEvents="none" />
+            <path d="M81,164 L139,164 L141,232 L79,232 Z" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1" pointerEvents="none" />
+            <path d="M79,238 L141,238 L145,258 Q110,271 75,258 Z" fill="#bfdbfe" stroke="#60a5fa" strokeWidth="1" pointerEvents="none" />
+            <line x1="110" y1="164" x2="110" y2="232" stroke="#93c5fd" strokeWidth="1" pointerEvents="none" />
+            <path d="M51,151 L43,144 L42,158 L50,164 Z M169,151 L177,144 L178,158 L170,164 Z" fill="#64748b" pointerEvents="none" />
 
             {/* Hover tooltip panel name */}
             {hovered && editable && (
               <g>
-                <rect x="4" y="1" width="152" height="10" rx="2" fill="rgba(15,23,42,0.75)" />
-                <text x="80" y="8.5" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="500">
-                  {PANEL_LABELS[hovered]} — {panelState(hovered, paintedParts, changedParts) === 'original' ? 'Orijinal → Boyalı' : panelState(hovered, paintedParts, changedParts) === 'painted' ? 'Boyalı → Değişen' : 'Değişen → Orijinal'}
+                <rect x="8" y="2" width="204" height="13" rx="3" fill="rgba(15,23,42,0.82)" />
+                <text x="110" y="11" textAnchor="middle" fontSize="6.5" fill="white" fontWeight="600">
+                  {PANEL_LABELS[hovered]}: {panelState(hovered, paintedParts, changedParts) === 'original' ? 'Orijinal → Boyalı' : panelState(hovered, paintedParts, changedParts) === 'painted' ? 'Boyalı → Değişen' : 'Değişen → Orijinal'}
                 </text>
               </g>
             )}

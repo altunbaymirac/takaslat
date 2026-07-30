@@ -6,6 +6,8 @@ import type { SwapOffer, OfferStatus } from '../types';
 import RatingModal from '../components/RatingModal';
 import NegotiationSimulator from '../components/NegotiationSimulator';
 import MeetingScheduler from '../components/MeetingScheduler';
+import OfferDecisionPanel from '../components/OfferDecisionPanel';
+import SecureSwapFlow from '../components/SecureSwapFlow';
 import { aiConversationCoach, aiErrorMessage, confirmOfferComplete, subscribeNotificationStream, type RawMessageEvent, type OfferStatusEvent } from '../services/api';
 import { showToast } from '../components/Toast';
 
@@ -126,8 +128,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
       const result = await confirmOfferComplete(offer.id);
       setLocalConfirmed(true);
       if (result.status === 'Tamamlandı') {
-        updateOfferStatus(offer.id, 'Tamamlandı');
-        showToast('🎉 Takas tamamlandı!', 'success');
+        showToast('Takas tamamlandı', 'success');
         setTimeout(() => setRatingOpen(true), 400);
       } else {
         showToast('Onayınız alındı, karşı tarafın onayı bekleniyor', 'info');
@@ -141,11 +142,21 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
       setConfirmLoading(false);
     }
   }
+
+  async function handleStatusChange(status: SwapOffer['status']) {
+    try {
+      await updateOfferStatus(offer.id, status);
+      showToast(status === 'Onaylandı' ? 'Onayın alındı' : 'Teklif güncellendi', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Teklif güncellenemedi', 'error');
+    }
+  }
   const [text, setText] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const st = STATUS[offer.status];
 
   const relatedListing = listings.find(l => l.id === offer.listingId);
+  const offeredListing = listings.find(l => l.id === offer.offeredListingId);
   const myListings = listings.filter(l => l.ownerId === currentUserId);
   const selectedRevisionListing = myListings.find(l => l.id === revisionListingId);
 
@@ -167,14 +178,9 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
   }, [offer.id, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messages = messagesRef.current;
+    if (messages) messages.scrollTop = messages.scrollHeight;
   }, [offer.messages]);
-
-  useEffect(() => {
-    setRevisionValue(offer.offeredValue?.toString() ?? '');
-    setRevisionListingId(offer.offeredListingId ?? '');
-    setRevisionOpen(false);
-  }, [offer.id, offer.offeredListingId, offer.offeredValue]);
 
   const send = () => {
     if (!text.trim()) return;
@@ -184,20 +190,24 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
     setText('');
   };
 
-  function submitRevision(e: React.FormEvent) {
+  async function submitRevision(e: React.FormEvent) {
     e.preventDefault();
     const value = Number(revisionValue);
     if (!value && !selectedRevisionListing) {
       showToast('Revizyon için değer veya teklif edilecek ilan seçin', 'error');
       return;
     }
-    reviseOffer(offer.id, {
-      offeredValue: value || selectedRevisionListing?.estimatedValue,
-      offeredListingId: selectedRevisionListing?.id,
-      offeredListingTitle: selectedRevisionListing?.title,
-    });
-    setRevisionOpen(false);
-    showToast('Teklif revize edildi', 'success');
+    try {
+      await reviseOffer(offer.id, {
+        offeredValue: value || selectedRevisionListing?.estimatedValue,
+        offeredListingId: selectedRevisionListing?.id,
+        offeredListingTitle: selectedRevisionListing?.title,
+      });
+      setRevisionOpen(false);
+      showToast('Teklif revize edildi', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Teklif revize edilemedi', 'error');
+    }
   }
 
   // Build a unified message thread: first message = the original offer message
@@ -291,7 +301,9 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
             title="Buluşma planla"
             className="text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 px-2.5 py-1.5 rounded-full transition-colors flex items-center gap-1"
           >
-            <span>📅</span>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 9h16.5m-15-4.5h13.5A1.5 1.5 0 0120.25 6v12a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5z" />
+            </svg>
             <span className="hidden sm:inline">Buluşma</span>
           </button>
           <span className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${st.badge}`}>
@@ -364,6 +376,14 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
           )}
         </div>
 
+        <OfferDecisionPanel
+          offer={offer}
+          targetListing={relatedListing}
+          offeredListing={offeredListing}
+        />
+
+        <SecureSwapFlow offer={offer} />
+
         <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
           <summary className="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">Özel görüşme notları</summary>
           <textarea
@@ -419,10 +439,14 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
 
       {/* ── Messages (Sohbet sekmesi) ── */}
       {chatTab === 'sohbet' && (
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-slate-50 dark:bg-slate-900">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-slate-50 dark:bg-slate-900">
         {thread.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center px-6">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-2xl">💬</div>
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Henüz mesaj yok</p>
             <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Aşağıdaki kutudan ilk mesajını yazarak görüşmeyi başlat.</p>
           </div>
@@ -444,7 +468,6 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
             </div>
           );
         })}
-        <div ref={bottomRef} />
       </div>
       )}
 
@@ -458,13 +481,13 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Teklifi yanıtla:</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => updateOfferStatus(offer.id, 'Görüşülüyor')}
+                  onClick={() => void handleStatusChange('Görüşülüyor')}
                   className="flex-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 rounded-xl transition-colors"
                 >
-                  💬 Görüşmeye Başla
+                  Görüşmeye Başla
                 </button>
                 <button
-                  onClick={() => updateOfferStatus(offer.id, 'Reddedildi')}
+                  onClick={() => void handleStatusChange('Reddedildi')}
                   className="flex-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 rounded-xl transition-colors"
                 >
                   ✕ Reddet
@@ -486,13 +509,16 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Teklifi resmileştir:</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => updateOfferStatus(offer.id, 'Onaylandı')}
-                  className="flex-1 text-xs font-semibold bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 py-2 rounded-xl transition-colors"
+                  onClick={() => void handleStatusChange('Onaylandı')}
+                  disabled={isIncoming ? offer.toAccepted : offer.fromAccepted}
+                  className="flex-1 text-xs font-semibold bg-violet-50 hover:bg-violet-100 disabled:opacity-60 text-violet-700 border border-violet-200 py-2 rounded-xl transition-colors"
                 >
-                  ✓ Her İki Taraf Anlaştı — Onayla
+                  {(isIncoming ? offer.toAccepted : offer.fromAccepted)
+                    ? 'Onayın alındı, karşı taraf bekleniyor'
+                    : 'Teklif Şartlarını Kabul Et'}
                 </button>
                 <button
-                  onClick={() => updateOfferStatus(offer.id, 'Reddedildi')}
+                  onClick={() => void handleStatusChange('Reddedildi')}
                   className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl transition-colors"
                 >
                   ✕
@@ -536,11 +562,11 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
                     onClick={handleConfirmComplete}
                     className="flex-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                   >
-                    {confirmLoading ? '…' : '🤝 Takas Tamamlandı — Onayla'}
+                    {confirmLoading ? '…' : 'Takası Tamamla ve Onayla'}
                   </button>
                 )}
                 <button
-                  onClick={() => updateOfferStatus(offer.id, 'Reddedildi')}
+                  onClick={() => void handleStatusChange('Reddedildi')}
                   className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl transition-colors"
                   title="İptal et"
                 >
@@ -556,23 +582,22 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
       {chatTab === 'sohbet' && offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
         <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex gap-1.5 overflow-x-auto">
           {[
-            { icon: '👋', text: 'Merhaba, ilanınızla ilgileniyorum.' },
-            { icon: '💰', text: 'Fiyat konusunda esnek misiniz?' },
-            { icon: '📅', text: 'Ne zaman görüşebiliriz?' },
-            { icon: '📍', text: 'Hangi şehirde buluşabiliriz?' },
-            { icon: '📋', text: 'Belgeleri görebilir miyim?' },
-            { icon: '🤝', text: 'Takas teklifini kabul ediyorum.' },
-            { icon: '❓', text: 'Aracın bakım geçmişi nasıl?' },
-            { icon: '✅', text: 'Anlaştık, ne zaman buluşalım?' },
-          ].map((tpl) => (
+            'Merhaba, ilanınızla ilgileniyorum.',
+            'Fiyat konusunda esnek misiniz?',
+            'Ne zaman görüşebiliriz?',
+            'Hangi şehirde buluşabiliriz?',
+            'Belgeleri görebilir miyim?',
+            'Takas teklifini kabul ediyorum.',
+            'Aracın bakım geçmişi nasıl?',
+            'Anlaştık, ne zaman buluşalım?',
+          ].map((reply) => (
             <button
-              key={tpl.text}
-              onClick={() => setText(tpl.text)}
-              title={tpl.text}
-              className="flex-shrink-0 text-xs bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-full transition-colors flex items-center gap-1"
+              key={reply}
+              onClick={() => setText(reply)}
+              title={reply}
+              className="max-w-48 flex-shrink-0 truncate rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 transition-colors hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-blue-900/20"
             >
-              <span>{tpl.icon}</span>
-              <span className="hidden sm:inline truncate max-w-[120px]">{tpl.text}</span>
+              {reply}
             </button>
           ))}
         </div>
@@ -624,7 +649,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
             title="AI Negosiasyon Analizi"
             className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40 flex items-center justify-center transition-colors flex-shrink-0"
           >
-            <span className="text-sm">🤖</span>
+            <span className="text-[10px] font-black">AI</span>
           </button>
           <button
             onClick={send}
@@ -642,7 +667,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
         }`}>
           <div className="text-center text-sm font-medium">
             {offer.status === 'Tamamlandı'
-              ? <span className="text-emerald-700">🎉 Takas tamamlandı!</span>
+              ? <span className="text-emerald-700">Takas tamamlandı</span>
               : <span className="text-red-600">Bu teklif reddedildi.</span>}
           </div>
           {offer.status === 'Tamamlandı' && !alreadyRated && (
@@ -650,7 +675,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
               onClick={() => setRatingOpen(true)}
               className="mt-2 w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5"
             >
-              <span>⭐</span> Karşı tarafı değerlendir
+              Karşı tarafı değerlendir
             </button>
           )}
           {offer.status === 'Tamamlandı' && alreadyRated && (
@@ -766,7 +791,7 @@ export default function Conversations() {
   useSEO({ title: 'Mesajlar', description: 'Takas tekliflerin ve kullanıcılarla yazışmaların.' });
 
   const { offers, currentUserId } = useAppStore();
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(() => offers[0]?.id ?? null);
   const [tab, setTab] = useState<'all' | 'incoming' | 'outgoing'>('all');
 
   const incoming = offers.filter(o => o.toUserId === currentUserId);
@@ -779,22 +804,17 @@ export default function Conversations() {
   const activeOffer = offers.find(o => o.id === activeId);
   const isIncoming = activeOffer ? activeOffer.toUserId === currentUserId : false;
 
-  // Auto-select first on mount
-  useEffect(() => {
-    if (!activeId && shown.length > 0) setActiveId(shown[0].id);
-  }, []);
-
   const pendingCount = incoming.filter(o => o.status === 'Beklemede').length;
 
   // Giriş yapılmamışsa CTA göster
   if (!currentUserId) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
         <div className="mb-5">
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Görüşmeler</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Tüm takas teklifleri ve sohbetler</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center py-20 text-center px-6">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-20 text-center dark:border-slate-700 dark:bg-slate-800">
           <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -817,17 +837,42 @@ export default function Conversations() {
     );
   }
 
+  if (all.length === 0) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mb-4">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Görüşmeler</h1>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Tüm takas teklifleri ve sohbetler</p>
+        </div>
+        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-6 text-center dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
+            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Henüz görüşme yok</h2>
+          <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+            Bir ilana takas teklifi gönderdiğinde görüşme burada açılır.
+          </p>
+          <Link to="/listings" className="mt-5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
+            İlanları incele
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="mb-5">
+    <div className="mx-auto max-w-[1440px] px-2 py-3 sm:px-4">
+      <div className="mb-3">
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Görüşmeler</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-0.5">Tüm takas teklifleri ve sohbetler</p>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 180px)', minHeight: 480 }}>
+      <div className="h-[calc(100dvh-142px)] min-h-[420px] overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 sm:min-h-[520px]">
         <div className="flex h-full">
           {/* ── Sol panel: liste — mobilde chat açıkken gizle ── */}
-          <div className={`w-full sm:w-72 md:w-80 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 flex flex-col ${activeId ? 'hidden sm:flex' : 'flex'}`}>
+          <div className={`w-full flex-shrink-0 border-r border-slate-200 dark:border-slate-700 sm:w-80 lg:w-96 flex-col ${activeId ? 'hidden sm:flex' : 'flex'}`}>
             {/* Tabs */}
             <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex-shrink-0">
               {([['all','Tümü'], ['incoming','Gelen'], ['outgoing','Gönderilen']] as const).map(([key, label]) => (

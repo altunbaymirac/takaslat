@@ -18,6 +18,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
   const [sent, setSent] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [qualityLoading, setQualityLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [quality, setQuality] = useState<OfferQualityResult | null>(null);
 
   const myListings = listings.filter((l) => l.ownerId === currentUserId);
@@ -27,21 +28,29 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
   const effectiveOfferedValue = Number(offeredValue) || selected?.estimatedValue || 0;
   const priceDiff = effectiveOfferedValue > 0 ? effectiveOfferedValue - listing.estimatedValue : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    sendOffer({
-      fromUserId: currentUserId,
-      fromUserName: currentUserName,
-      toUserId: listing.ownerId,
-      listingId: listing.id,
-      listingTitle: listing.title,
-      offeredListingId: selected?.id,
-      offeredListingTitle: selected?.title,
-      message,
-      status: 'Beklemede',
-      offeredValue: Number(offeredValue) || selected?.estimatedValue,
-    });
-    setSent(true);
+    if (sending) return;
+    setSending(true);
+    try {
+      await sendOffer({
+        fromUserId: currentUserId,
+        fromUserName: currentUserName,
+        toUserId: listing.ownerId,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        offeredListingId: selected?.id,
+        offeredListingTitle: selected?.title,
+        message,
+        status: 'Beklemede',
+        offeredValue: Number(offeredValue) || selected?.estimatedValue,
+      });
+      setSent(true);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Teklif gönderilemedi', 'error');
+    } finally {
+      setSending(false);
+    }
   };
 
   async function generateMessage() {
@@ -277,9 +286,10 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors"
+                disabled={sending}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors"
               >
-                Teklif Gönder
+                {sending ? 'Gönderiliyor...' : 'Teklif Gönder'}
               </button>
             </div>
           </form>

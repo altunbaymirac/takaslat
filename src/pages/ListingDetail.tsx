@@ -11,19 +11,21 @@ import ListingQASection from '../components/ListingQASection';
 import ListingCard from '../components/ListingCard';
 import VideoEmbed from '../components/VideoEmbed';
 import ListingAIInsights from '../components/ListingAIInsights';
+import VehiclePassport from '../components/VehiclePassport';
+import SwapChainPanel from '../components/SwapChainPanel';
 import { showToast } from '../components/Toast';
 import { getListingHealth } from '../lib/listingHealth';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
-import { fetchListingById } from '../services/api';
+import { fetchListingById, fetchListingVerification } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
-import type { Listing } from '../types';
+import type { Listing, ListingVerification } from '../types';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
 
 // ─── Küçük yardımcı: özellik satırı ─────────────────────────────────────────
 
-function SpecRow({ icon, label, value, accent }: {
+function SpecRow({ label, value, accent }: {
   icon: React.ReactNode;
   label: string;
   value: string;
@@ -39,10 +41,7 @@ function SpecRow({ icon, label, value, accent }: {
 
   return (
     <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
-      <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-sm">
-        <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{icon}</span>
-        {label}
-      </div>
+      <div className="text-sm text-slate-500 dark:text-slate-400">{label}</div>
       <span className={`text-sm ${accentClass}`}>{value}</span>
     </div>
   );
@@ -50,12 +49,88 @@ function SpecRow({ icon, label, value, accent }: {
 
 // ─── Öne çıkan özellik rozeti ─────────────────────────────────────────────────
 
-function HighlightBadge({ icon, text, color }: { icon: string; text: string; color: string }) {
+function HighlightBadge({ text, color }: { icon: string; text: string; color: string }) {
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${color}`}>
-      <span>{icon}</span>
+    <div className={`rounded-md px-3 py-2 text-sm font-semibold ${color}`}>
       <span>{text}</span>
     </div>
+  );
+}
+
+function SwapExpectationPanel({
+  wantedFor,
+  estimatedValue,
+  isOwner,
+  onOffer,
+  onMatch,
+  onEdit,
+}: {
+  wantedFor: string;
+  estimatedValue: number;
+  isOwner: boolean;
+  onOffer: () => void;
+  onMatch: () => void;
+  onEdit: () => void;
+}) {
+  const expectation = wantedFor.trim();
+  const hasClearExpectation = expectation.length >= 20;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-amber-200 bg-white shadow-sm dark:border-amber-900/50 dark:bg-slate-800">
+      <div className="border-b border-amber-100 bg-amber-50 px-5 py-4 dark:border-amber-900/40 dark:bg-amber-900/20">
+        <p className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-400">Takas beklentisi</p>
+        <h2 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">Bu ilan için ne isteniyor?</h2>
+      </div>
+      <div className="p-5">
+        <p className="text-base font-semibold leading-6 text-slate-800 dark:text-slate-100">
+          {hasClearExpectation
+            ? expectation
+            : 'Satıcı takas beklentisini yeterince açıklamamış.'}
+        </p>
+        {!hasClearExpectation && (
+          <p className="mt-2 rounded bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+            Teklif vermeden önce kabul edeceği araç türünü ve nakit fark tercihini sorun.
+          </p>
+        )}
+        <div className="mt-4 grid grid-cols-2 gap-3 border-y border-slate-100 py-3 text-xs dark:border-slate-700">
+          <div>
+            <p className="text-slate-400">İlan değeri</p>
+            <p className="mt-0.5 font-bold text-slate-800 dark:text-slate-100">{fmt(estimatedValue)}</p>
+          </div>
+          <div>
+            <p className="text-slate-400">Teklif içeriği</p>
+            <p className="mt-0.5 font-bold text-slate-800 dark:text-slate-100">İlan + nakit fark</p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+          Kendi ilanını seçip varsa nakit farkını teklif sırasında ekleyebilirsin.
+        </p>
+
+        {isOwner ? (
+          <button
+            onClick={onEdit}
+            className="mt-4 w-full rounded-lg border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            Takas beklentisini düzenle
+          </button>
+        ) : (
+          <div className="mt-4 grid gap-2">
+            <button
+              onClick={onOffer}
+              className="w-full rounded-lg bg-blue-600 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+            >
+              Bu beklentiye teklif ver
+            </button>
+            <button
+              onClick={onMatch}
+              className="w-full rounded-lg border border-amber-200 bg-amber-50 py-2.5 text-sm font-bold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
+            >
+              AI ile uygun ilanımı bul
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -195,22 +270,30 @@ export default function ListingDetail() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [forecastOpen,      setForecastOpen]      = useState(false);
   const [lightboxOpen,      setLightboxOpen]      = useState(false);
+  const [verification,      setVerification]      = useState<ListingVerification | null>(null);
 
   // ── Store'da yoksa API'den yükle ──────────────────────────────────────────
   const storeMatch = listings.find((l) => l.id === id);
   useEffect(() => {
     if (storeMatch || !id) return;
-    setApiLoading(true);
-    setApiNotFound(false);
-    fetchListingById(id)
-      .then((l) => { if (l) setApiFetched(l); else setApiNotFound(true); })
-      .catch(() => setApiNotFound(true))
-      .finally(() => setApiLoading(false));
-  }, [id, storeMatch]); // eslint-disable-line react-hooks/exhaustive-deps
+    queueMicrotask(() => {
+      setApiLoading(true);
+      setApiNotFound(false);
+      fetchListingById(id)
+        .then((l) => { if (l) setApiFetched(l); else setApiNotFound(true); })
+        .catch(() => setApiNotFound(true))
+        .finally(() => setApiLoading(false));
+    });
+  }, [id, storeMatch]);
 
   useEffect(() => {
     if (id) recordView(id);
-  }, [id, recordView]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, recordView]);
+
+  useEffect(() => {
+    if (!id) return;
+    void fetchListingVerification(id).then(setVerification);
+  }, [id]);
 
   // ── Hooks that depend on listing.id — use `id` (URL param) to stay above ─
   // conditional returns and obey Rules of Hooks.
@@ -249,7 +332,10 @@ export default function ListingDetail() {
   });
 
   // ── Derived values (non-hook, can be after conditional returns) ───────────
-  const listing = storeMatch ?? apiFetched;
+  const baseListing = storeMatch ?? apiFetched;
+  const listing = baseListing
+    ? { ...baseListing, verification: verification ?? baseListing.verification }
+    : null;
 
   if (apiLoading) {
     return (
@@ -263,7 +349,6 @@ export default function ListingDetail() {
   if (!listing || apiNotFound) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <div className="text-6xl mb-4">🔍</div>
         <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-100 mb-2">İlan bulunamadı</h2>
         <p className="text-slate-400 mb-8">Bu ilan kaldırılmış veya URL yanlış olabilir.</p>
         <Link to="/" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors">
@@ -303,6 +388,9 @@ export default function ListingDetail() {
   };
   const ownerRating = listing.ownerRating ?? null;
   const ownerSwapsCount = listing.ownerTotalSwaps ?? 0;
+  const visibleTags = listing.tags.filter(
+    (tag) => !['Mükemmel', 'İyi', 'Orta', 'Yıpranmış'].includes(tag),
+  );
 
   // ── Sahip için istatistikler ─────────────────────────────────────────────
   const allOffers    = useAppStore.getState().offers;  // getState() is NOT a hook — safe here
@@ -318,13 +406,6 @@ export default function ListingDetail() {
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/listing/${listing.id}`
     : `/listing/${listing.id}`;
-
-  const conditionMeta: Record<string, { color: string; label: string }> = {
-    'Mükemmel': { color: 'bg-emerald-100 text-emerald-700', label: 'Mükemmel' },
-    'İyi':      { color: 'bg-blue-100 text-blue-700',       label: 'İyi'       },
-    'Orta':     { color: 'bg-amber-100 text-amber-700',     label: 'Orta'      },
-    'Yıpranmış':{ color: 'bg-red-100 text-red-700',         label: 'Yıpranmış' },
-  };
 
   // Otomatik öne çıkan özellikler
   const highlights: { icon: string; text: string; color: string }[] = [];
@@ -352,8 +433,6 @@ export default function ListingDetail() {
     if (p.titleDeed === 'Kat Mülkiyetli')   highlights.push({ icon: '📜', text: 'Kat Mülkiyetli',    color: 'bg-emerald-50 text-emerald-700' });
     if ((p.buildingAge ?? 99) <= 5)         highlights.push({ icon: '🏗️', text: 'Yeni Bina',         color: 'bg-violet-50 text-violet-700' });
   }
-  if (listing.condition === 'Mükemmel') highlights.push({ icon: '⭐', text: 'Mükemmel Durum', color: 'bg-amber-50 text-amber-700' });
-
   // Yakıt ikonu
   const fuelIcon: Record<string, string> = {
     'Benzin': '⛽', 'Dizel': '🛢️', 'LPG': '🔵',
@@ -407,7 +486,9 @@ export default function ListingDetail() {
             title="12 aylık değer projeksiyonu"
             className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-slate-600 dark:text-slate-300 hover:text-violet-600 flex items-center justify-center transition-colors"
           >
-            <span className="text-sm">🔮</span>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V9m6 10V5m6 14v-7m4 7H2" />
+            </svg>
           </button>
 
           {/* Yazdır / PDF */}
@@ -436,6 +517,33 @@ export default function ListingDetail() {
         </div>
       </div>
 
+      <header className="mb-6 border-b border-slate-200 pb-5 dark:border-slate-700">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="rounded bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{listing.category}</span>
+              {listing.listingCode && <span className="text-slate-400">{listing.listingCode}</span>}
+            </div>
+            <h1 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white sm:text-3xl">{listing.title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+              <span>{listing.city}</span>
+              <span aria-hidden="true">·</span>
+              <span>{new Date(listing.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              {typeof listing.viewCount === 'number' && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{listing.viewCount.toLocaleString('tr-TR')} görüntülenme</span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="shrink-0 sm:text-right">
+            <p className="text-xs font-semibold text-slate-400">Tahmini değer</p>
+            <p className="mt-1 text-2xl font-extrabold text-slate-950 dark:text-white sm:text-3xl">{fmt(listing.estimatedValue)}</p>
+          </div>
+        </div>
+      </header>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* ── Sol: Görsel + Özellikler ── */}
@@ -452,9 +560,6 @@ export default function ListingDetail() {
               />
               {/* Üst rozetler */}
               <div className="absolute top-3 left-3 flex gap-2">
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${conditionMeta[listing.condition]?.color ?? 'bg-slate-100 text-slate-600'}`}>
-                  {listing.condition}
-                </span>
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white/90 text-slate-700">
                   {listing.category}
                 </span>
@@ -501,34 +606,19 @@ export default function ListingDetail() {
             )}
           </div>
 
-          {/* Başlık + Fiyat + Hızlı Özellikler */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{listing.title}</h1>
-                <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    {listing.city}
-                  </span>
-                  <span>·</span>
-                  <span>{new Date(listing.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">{fmt(listing.estimatedValue)}</div>
-                {!isOwner && (
-                  <button
-                    onClick={() => setOfferModalOpen(true)}
-                    className="mt-3 inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
-                  >
-                    Takas Teklifi Gönder
-                  </button>
-                )}
-                <div className="text-xs text-slate-400 mt-0.5">Tahmini değer</div>
-              </div>
-            </div>
+          <div className="lg:hidden">
+            <SwapExpectationPanel
+              wantedFor={listing.wantedFor}
+              estimatedValue={listing.estimatedValue}
+              isOwner={isOwner}
+              onOffer={() => setOfferModalOpen(true)}
+              onMatch={() => openAIPanel(listing.id)}
+              onEdit={() => setEditModalOpen(true)}
+            />
+          </div>
 
+          {/* Hızlı özellikler */}
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
             {/* Hızlı araç özellikleri (bar) */}
             {v && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
@@ -537,9 +627,8 @@ export default function ListingDetail() {
                   { icon: '🛣️', label: 'Kilometre',  value: `${(v.km ?? 0).toLocaleString('tr-TR')} km` },
                   { icon: fuelIcon[v.fuel ?? ''] ?? '⛽', label: 'Yakıt', value: v.fuel ?? '—' },
                   { icon: '⚙️', label: 'Şanzıman',   value: v.transmission ?? '—' },
-                ].map(({ icon, label, value }) => (
+                ].map(({ label, value }) => (
                   <div key={label} className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl py-3 px-2 text-center">
-                    <span className="text-xl mb-1">{icon}</span>
                     <span className="text-xs text-slate-400 mb-0.5">{label}</span>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</span>
                   </div>
@@ -555,9 +644,8 @@ export default function ListingDetail() {
                   { icon: '💾', label: 'Depolama',  value: e.storage ?? '—' },
                   { icon: '🛡️', label: 'Garanti',  value: e.warranty ?? '—' },
                   { icon: '🔋', label: 'Batarya',   value: e.batteryHealth ? `%${e.batteryHealth}` : '—' },
-                ].map(({ icon, label, value }) => (
+                ].map(({ label, value }) => (
                   <div key={label} className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl py-3 px-2 text-center">
-                    <span className="text-xl mb-1">{icon}</span>
                     <span className="text-xs text-slate-400 mb-0.5">{label}</span>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</span>
                   </div>
@@ -573,9 +661,8 @@ export default function ListingDetail() {
                   { icon: '🚪', label: 'Oda',        value: p.rooms ?? '—' },
                   { icon: '🏢', label: 'Kat',        value: p.floor ?? '—' },
                   { icon: '🏗️', label: 'Bina Yaşı', value: p.buildingAge !== undefined ? `${p.buildingAge} yıl` : '—' },
-                ].map(({ icon, label, value }) => (
+                ].map(({ label, value }) => (
                   <div key={label} className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl py-3 px-2 text-center">
-                    <span className="text-xl mb-1">{icon}</span>
                     <span className="text-xs text-slate-400 mb-0.5">{label}</span>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</span>
                   </div>
@@ -584,9 +671,9 @@ export default function ListingDetail() {
             )}
 
             {/* Etiketler */}
-            {listing.tags.length > 0 && (
+            {visibleTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
-                {listing.tags.map((tag) => (
+                {visibleTags.map((tag) => (
                   <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-medium">
                     {tag}
                   </span>
@@ -598,9 +685,7 @@ export default function ListingDetail() {
           {/* Öne Çıkan Özellikler */}
           {highlights.length > 0 && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                <span>⭐</span> Öne Çıkan Özellikler
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Öne Çıkan Özellikler</h2>
               <div className="flex flex-wrap gap-2">
                 {highlights.map((h, i) => (
                   <HighlightBadge key={i} {...h} />
@@ -611,14 +696,16 @@ export default function ListingDetail() {
 
           <ListingAIInsights listing={listing} />
 
+          {v && <VehiclePassport listing={listing} />}
+
+          <SwapChainPanel listing={listing} listings={listings} />
+
           {v && <VehicleDamageSchema vehicle={v} />}
 
           {/* Detaylı Araç Özellikleri */}
           {v && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-2">
-                <span>🚗</span> Araç Özellikleri
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Araç Özellikleri</h2>
               <p className="text-xs text-slate-400 mb-4">Satıcı tarafından girilmiş teknik bilgiler</p>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -629,7 +716,7 @@ export default function ListingDetail() {
                 />
                 <SpecRow
                   icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>}
-                  label="Seri"
+                  label="Model"
                   value={v.model ?? '—'}
                 />
                 {v.trim && (
@@ -710,12 +797,6 @@ export default function ListingDetail() {
                   value={v.hasAccidentRecord ? 'Var' : 'Yok'}
                   accent={v.hasAccidentRecord ? 'red' : 'green'}
                 />
-                <SpecRow
-                  icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
-                  label="Genel Durum"
-                  value={listing.condition}
-                  accent={listing.condition === 'Mükemmel' || listing.condition === 'İyi' ? 'green' : listing.condition === 'Yıpranmış' ? 'red' : 'amber'}
-                />
               </div>
             </div>
           )}
@@ -747,9 +828,7 @@ export default function ListingDetail() {
           {/* ── Elektronik Özellikleri ─────────────────────────────────────── */}
           {e && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-2">
-                <span>📱</span> Cihaz Özellikleri
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Cihaz Özellikleri</h2>
               <p className="text-xs text-slate-400 mb-4">Satıcı tarafından girilmiş teknik bilgiler</p>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -778,11 +857,11 @@ export default function ListingDetail() {
                 />
                 {e.accessories && e.accessories.length > 0 && (
                   <div className="py-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">📦 Aksesuarlar</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Aksesuarlar</p>
                     <div className="flex flex-wrap gap-1.5">
                       {e.accessories.map((a) => (
                         <span key={a} className="text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-1 rounded-full font-medium">
-                          ✓ {a}
+                          {a}
                         </span>
                       ))}
                     </div>
@@ -795,9 +874,7 @@ export default function ListingDetail() {
           {/* ── Gayrimenkul Özellikleri ────────────────────────────────────── */}
           {p && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-2">
-                <span>🏠</span> Gayrimenkul Özellikleri
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Gayrimenkul Özellikleri</h2>
               <p className="text-xs text-slate-400 mb-4">Mülke ait teknik bilgiler</p>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -845,7 +922,7 @@ export default function ListingDetail() {
                             ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
                             : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500 line-through'
                         }`}>
-                        {b.icon} {b.label}
+                        {b.label}
                       </span>
                     ))}
                   </div>
@@ -856,9 +933,7 @@ export default function ListingDetail() {
 
           {listing.attachments && listing.attachments.length > 0 && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                <span>📎</span> Belgeler ve Ekspertiz
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Belgeler ve Ekspertiz</h2>
               <div className="space-y-2">
                 {listing.attachments.map((file) => (
                   <a
@@ -886,9 +961,7 @@ export default function ListingDetail() {
 
           {/* Açıklama */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-              <span>📋</span> Açıklama
-            </h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Açıklama</h2>
             <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line text-sm">{listing.description}</p>
           </div>
 
@@ -897,12 +970,9 @@ export default function ListingDetail() {
 
           {/* Konum */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-              <span>📍</span> Konum
-            </h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Konum</h2>
             <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl h-32 flex items-center justify-center border border-slate-100">
               <div className="text-center">
-                <div className="text-3xl mb-1">🗺️</div>
                 <p className="text-slate-700 font-semibold">{listing.city}</p>
                 <p className="text-slate-400 text-xs mt-0.5">Yaklaşık konum gösterilmektedir</p>
               </div>
@@ -912,6 +982,17 @@ export default function ListingDetail() {
 
         {/* ── Sağ: Sidebar ── */}
         <div className="space-y-4 print:hidden">
+
+          <div className="hidden lg:block lg:sticky lg:top-20 lg:z-10">
+            <SwapExpectationPanel
+              wantedFor={listing.wantedFor}
+              estimatedValue={listing.estimatedValue}
+              isOwner={isOwner}
+              onOffer={() => setOfferModalOpen(true)}
+              onMatch={() => openAIPanel(listing.id)}
+              onEdit={() => setEditModalOpen(true)}
+            />
+          </div>
 
           {/* Fiyat özeti (sticky) */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
@@ -951,20 +1032,19 @@ export default function ListingDetail() {
                   onClick={() => setOfferModalOpen(true)}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
                 >
-                  🤝 Takas Teklifi Gönder
+                  Takas Teklifi Gönder
                 </button>
                 <button
                   onClick={() => openAIPanel(listing.id)}
                   className="w-full bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-amber-200 dark:border-amber-900/40"
                 >
-                  <span className="text-base">✦</span>
                   AI ile Eşleştir
                 </button>
               </div>
             ) : (
               <div className="space-y-2.5">
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center border border-blue-100 dark:border-blue-900/40">
-                  <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">📋 Bu sizin ilanınız</p>
+                  <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">Bu sizin ilanınız</p>
                 </div>
 
                 {/* Sahip istatistikleri */}
@@ -978,7 +1058,6 @@ export default function ListingDetail() {
                         { icon: '✅', label: 'Tamamlanan',     value: ownerStats.accepted, color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' },
                       ].map((s) => (
                         <div key={s.label} className={`rounded-xl p-2.5 text-center ${s.color}`}>
-                          <div className="text-base">{s.icon}</div>
                           <div className="text-lg font-bold leading-tight">{s.value}</div>
                           <div className="text-[10px] opacity-80">{s.label}</div>
                         </div>
@@ -987,7 +1066,7 @@ export default function ListingDetail() {
 
                     {/* 7 günlük view chart */}
                     <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
-                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">📈 Son 7 Gün</p>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Son 7 Gün</p>
                       {(() => {
                         const max = Math.max(...viewsByDay.map((d) => d.count), 1);
                         return (
@@ -1029,11 +1108,11 @@ export default function ListingDetail() {
                     }}
                     className="w-full bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-violet-200 dark:border-violet-900/40"
                   >
-                    <span>⚡</span> Öne Çıkar (7 gün)
+                    Öne Çıkar (7 gün)
                   </button>
                 ) : (
                   <div className="w-full bg-violet-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
-                    <span>⚡</span> Öne Çıkarıldı
+                    Öne Çıkarıldı
                   </div>
                 )}
 
@@ -1070,15 +1149,6 @@ export default function ListingDetail() {
                 </button>
               </div>
             )}
-          </div>
-
-          {/* Sahibi ne istiyor */}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-            <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2 text-sm">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-              Sahibi Ne İstiyor?
-            </h3>
-            <p className="text-amber-700 text-sm leading-relaxed">{listing.wantedFor}</p>
           </div>
 
           {/* İlan sahibi (profile linki) */}
@@ -1130,7 +1200,7 @@ export default function ListingDetail() {
 
           {/* Güvenlik notu */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-            <p className="text-xs text-slate-500 font-medium mb-1">🔒 Güvenli Takas</p>
+            <p className="text-xs text-slate-500 font-medium mb-1">Güvenli Takas</p>
             <p className="text-xs text-slate-400 leading-relaxed">
               Teklifler uygulama üzerinden yapılır. Ödeme veya transfer taleplerine ihtiyatlı yaklaşın.
             </p>

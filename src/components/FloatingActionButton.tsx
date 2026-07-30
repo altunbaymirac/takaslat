@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 
 export default function FloatingActionButton() {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { openAIPanel, aiPanelOpen, currentUser, compareList, bundleCart } = useAppStore();
@@ -14,9 +15,6 @@ export default function FloatingActionButton() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  // Compare veya bundle bar açıksa FAB'ı yukarı çek
-  const offsetBottom = (compareList.length > 0 || bundleCart.length > 0) ? 'bottom-24' : 'bottom-6';
 
   const items = currentUser ? [
     { icon: '📋', label: 'Yeni İlan',    to: '/create',         color: 'bg-blue-600 hover:bg-blue-700' },
@@ -31,10 +29,10 @@ export default function FloatingActionButton() {
   ];
 
   // AI paneli açıkken FAB'ı gizle — çakışmayı önle
-  if (aiPanelOpen) return null;
+  if (location.pathname.startsWith('/listing/') || aiPanelOpen || compareList.length > 0 || bundleCart.length > 0) return null;
 
   return (
-    <div className={`fixed right-5 ${offsetBottom} z-20 print:hidden`} ref={ref}>
+    <div className="fixed bottom-6 right-5 z-20 print:hidden" ref={ref}>
       {/* Mini menu */}
       {open && (
         <div className="absolute bottom-full right-0 mb-3 flex flex-col items-end gap-2">

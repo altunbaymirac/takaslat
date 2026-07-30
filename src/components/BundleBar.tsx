@@ -9,6 +9,7 @@ export default function BundleBar() {
   const { bundleCart, listings, toggleBundleItem, clearBundle, sendOffer, currentUser, currentUserId, currentUserName } = useAppStore();
   const [message, setMessage]   = useState('');
   const [showSend, setShowSend] = useState(false);
+  const [sending, setSending] = useState(false);
 
   if (bundleCart.length === 0) return null;
 
@@ -25,7 +26,7 @@ export default function BundleBar() {
   const isOwnBundle  = ownerId === currentUserId;
   const totalValue   = items.reduce((s, l) => s + l.estimatedValue, 0);
 
-  function handleSend() {
+  async function handleSend() {
     if (!currentUser) { showToast('Giriş gerekli', 'error'); return; }
     if (!sameOwner)   { showToast('Bundle için aynı sahipten olmalı', 'error'); return; }
     if (isOwnBundle)  { showToast('Kendi ilanlarına teklif gönderemezsin', 'error'); return; }
@@ -34,35 +35,38 @@ export default function BundleBar() {
       return;
     }
 
-    // Her ilan için bir offer yarat (paket olarak)
-    for (const l of items) {
-      sendOffer({
+    if (sending) return;
+    setSending(true);
+    try {
+      await Promise.all(items.map((l) => sendOffer({
         fromUserId:          currentUserId,
         fromUserName:        currentUserName,
         toUserId:            l.ownerId,
         listingId:           l.id,
         listingTitle:        l.title,
-        message:             `🛒 [BUNDLE - ${items.length} ilan, toplam ${fmt(totalValue)}] ${message}`,
+        message:             `[BUNDLE - ${items.length} ilan, toplam ${fmt(totalValue)}] ${message}`,
         offeredValue:        l.estimatedValue,
         status:              'Beklemede',
         offeredListingTitle: items.length > 1 ? `Bundle: ${items.map((x) => x.title).join(' + ')}` : undefined,
-      });
+      })));
+      showToast(`${items.length} ilanlı bundle teklif gönderildi`, 'success');
+      clearBundle();
+      setMessage('');
+      setShowSend(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Paket teklif gönderilemedi', 'error');
+    } finally {
+      setSending(false);
     }
-
-    showToast(`${items.length} ilanlı bundle teklif gönderildi`, 'success');
-    clearBundle();
-    setMessage('');
-    setShowSend(false);
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-2xl">
+    <div className="fixed bottom-0 left-0 right-0 z-30 max-h-[50dvh] overflow-y-auto bg-white pb-[env(safe-area-inset-bottom)] dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-2xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
 
         {/* Üst satır: özet + actions */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-lg">🛒</span>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Bundle Teklif</span>
             <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full">
               {items.length} ilan
@@ -108,7 +112,7 @@ export default function BundleBar() {
               disabled={!sameOwner || isOwnBundle}
               className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl transition-colors"
             >
-              {showSend ? 'Kapat' : '📤 Paket Teklif Gönder'}
+              {showSend ? 'Kapat' : 'Paket Teklif Gönder'}
             </button>
           </div>
         </div>
@@ -125,9 +129,10 @@ export default function BundleBar() {
             />
             <button
               onClick={handleSend}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 rounded-xl"
+              disabled={sending}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 rounded-xl"
             >
-              Gönder
+              {sending ? 'Gönderiliyor...' : 'Gönder'}
             </button>
           </div>
         )}

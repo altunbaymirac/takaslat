@@ -9,6 +9,7 @@ interface ToastState {
 
 let setter: ((t: ToastState | null) => void) | null = null;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function showToast(message: string, type: ToastState['type'] = 'success') {
   setter?.({ message, type });
   setTimeout(() => setter?.(null), 2400);
@@ -45,12 +46,12 @@ export default function Toast() {
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 ${color} px-5 py-3 rounded-2xl shadow-2xl z-[100] flex items-center gap-2.5 transition-all duration-200 ease-out ${
+      className={`fixed bottom-4 sm:bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-md sm:w-auto -translate-x-1/2 ${color} px-5 py-3 rounded-2xl shadow-2xl z-[100] flex items-center justify-center gap-2.5 transition-all duration-200 ease-out ${
         leaving ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0 toast-enter'
       }`}
     >
       <span className="text-lg leading-none">{icon}</span>
-      <span className="text-sm font-medium">{toast.message}</span>
+      <span className="text-center text-sm font-medium break-words">{toast.message}</span>
     </div>
   );
 }

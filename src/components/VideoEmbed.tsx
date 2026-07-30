@@ -30,9 +30,7 @@ export default function VideoEmbed({ url }: Props) {
     return (
       <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm">
         <div className="px-6 pt-5 pb-3">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <span>🎬</span> Video Tanıtım
-          </h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Video Tanıtım</h2>
         </div>
         <div className="relative w-full pb-[56.25%]">
           <iframe
@@ -53,9 +51,7 @@ export default function VideoEmbed({ url }: Props) {
     return (
       <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm">
         <div className="px-6 pt-5 pb-3">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <span>🎬</span> Video Tanıtım
-          </h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Video Tanıtım</h2>
         </div>
         <video controls className="w-full" preload="metadata">
           <source src={url} />
@@ -68,16 +64,14 @@ export default function VideoEmbed({ url }: Props) {
   // Geçersiz URL — sadece link göster
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-      <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
-        <span>🎬</span> Video Tanıtım
-      </h2>
+      <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">Video Tanıtım</h2>
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
       >
-        🔗 {url}
+        {url}
       </a>
     </div>
   );

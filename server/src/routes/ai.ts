@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { optionalAuth } from '../middleware/auth';
-import { runSwapAI, runConversationalAI, type AIListing, type ConversationTurn } from '../lib/swapAI';
+import { runConversationalAI, type AIListing, type ConversationTurn } from '../lib/swapAI';
 
 const router = Router();
 
@@ -637,7 +637,7 @@ router.post('/advice', optionalAuth, async (req, res) => {
     take: 80,
   });
   const text = parsed.data.userText.toLowerCase();
-  const budgetMatch = text.match(/(\d[\d\.\s]{3,})/);
+  const budgetMatch = text.match(/(\d[\d.\s]{3,})/);
   const mentionedValue = budgetMatch ? Number(budgetMatch[1].replace(/[^\d]/g, '')) : null;
   const targetValue = listing?.estimatedValue ?? mentionedValue;
 
@@ -995,7 +995,7 @@ router.post('/forecast', optionalAuth, async (req, res) => {
   // Aylık değer kaybı oranı
   let monthlyDepreciation = 0.005; // varsayılan %0.5/ay
   let inflationAdjust     = 0.025; // aylık inflasyon ~%2.5 (TL'de değer korur)
-  let factors: string[] = [];
+  const factors: string[] = [];
 
   if (isVehicle) {
     monthlyDepreciation = 0.010; // %1/ay araçlar
@@ -1041,7 +1041,7 @@ router.post('/forecast', optionalAuth, async (req, res) => {
   const totalChange12m = ((after12m - currentValue) / currentValue) * 100;
 
   // Tavsiye
-  let recommendation = '';
+  let recommendation: string;
   if (totalChange12m > 5) {
     recommendation = `📈 Değerini koruyor — beklemek değer kazanabilir`;
   } else if (totalChange12m > -10) {

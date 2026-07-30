@@ -20,16 +20,17 @@ type SpeechRecognitionLike = {
 
 export default function VoiceSearch({ onResult }: Props) {
   const [listening, setListening] = useState(false);
-  const [supported, setSupported] = useState(true);
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
+  const browserWindow = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  const supported = Boolean(browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition);
 
   useEffect(() => {
     const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
     const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!SR) {
-      setSupported(false);
-      return;
-    }
+    if (!SR) return;
     const r = new SR();
     r.continuous     = false;
     r.interimResults = false;
@@ -75,7 +76,7 @@ export default function VoiceSearch({ onResult }: Props) {
   return (
     <button
       onClick={toggle}
-      title={listening ? 'Dinleniyor — durdurmak için tıkla' : 'Sesli arama'}
+      title={listening ? 'Dinleniyor. Durdurmak için tıkla' : 'Sesli arama'}
       className={`absolute right-12 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
         listening
           ? 'bg-red-500 text-white animate-pulse'

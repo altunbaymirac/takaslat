@@ -19,6 +19,7 @@ export function escapeHtml(str: string): string {
 export function sanitizeText(str: string, maxLength = 5000): string {
   return str
     .replace(/\0/g, '')          // null byte
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')  // kontrol karakterleri
     .trim()
     .slice(0, maxLength)

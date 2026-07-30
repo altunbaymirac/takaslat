@@ -19,9 +19,6 @@ export default function BrandPicker({ value, onChange, brands, required, placeho
   const [open,  setOpen]    = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // value prop dışarıdan değişirse senkronize et
-  useEffect(() => { setQuery(value); }, [value]);
-
   // Outside click → kapat
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -43,25 +40,33 @@ export default function BrandPicker({ value, onChange, brands, required, placeho
     setOpen(false);
   }
 
+  function toggleOpen() {
+    if (!open) setQuery(value);
+    setOpen((current) => !current);
+  }
+
   return (
     <div className="relative" ref={ref}>
       <input
         type="text"
         required={required}
-        value={query}
+        value={open ? query : value}
         onChange={(e) => {
           setQuery(e.target.value);
           onChange(e.target.value);   // her değişiklikte parent'a bildir
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setQuery(value);
+          setOpen(true);
+        }}
         placeholder={placeholder ?? 'Marka seç...'}
         className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 pr-9 focus:outline-none focus:ring-2 focus:ring-blue-500"
         autoComplete="off"
       />
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
       >
         <svg className="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -73,7 +78,7 @@ export default function BrandPicker({ value, onChange, brands, required, placeho
         <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-30 max-h-72 overflow-y-auto py-1">
           {filtered.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-400 dark:text-slate-500 text-center">
-              Eşleşme yok — yazdığın "<strong>{query}</strong>" markası kullanılacak
+              Eşleşme yok. Yazdığın "<strong>{query}</strong>" markası kullanılacak
             </div>
           ) : (
             filtered.map((b) => {

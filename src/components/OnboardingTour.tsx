@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 interface Step {
-  emoji:   string;
   title:   string;
   body:    string;
   hint?:   string;
@@ -10,36 +9,30 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    emoji: '👋',
     title: "Takaslat'a hoş geldin!",
     body:  'Burada araç, elektronik, gayrimenkul ve daha fazlasını saniyeler içinde takas edebilirsin. Sana hızlıca platform turu atalım.',
     hint:  'Sadece 6 adım — 1 dakika sürer',
   },
   {
-    emoji: '🔍',
     title: 'Akıllı Arama',
-    body:  'Üstteki arama kutusuna yaz veya 🎤 mikrofona basıp konuş. Sağda "Gelişmiş Filtre" ile marka, yıl, km gibi detaylar.',
+    body:  'Üstteki arama kutusuna yaz veya mikrofon butonuna basıp konuş. Sağda "Gelişmiş Filtre" ile marka, yıl, km gibi detaylar.',
     hint:  '/ tuşu arama kutusuna hızlıca odaklanır',
   },
   {
-    emoji: '✦',
     title: 'TakaslAI Asistanı',
     body:  'Sağ üstte ✦ TakaslAI butonuna bas. AI sana takas öner, fiyat analiz et, pazarlık tavsiyesi ver. Aracını söyle, gerisini halletsin.',
     hint:  'i tuşu AI panelini açar',
   },
   {
-    emoji: '⚖️',
-    title: 'Karşılaştır + 🛒 Bundle',
-    body:  '⚖️ ile 2-3 ilanı yan yana karşılaştır. 🛒 ile aynı kullanıcının birden çok ilanını paket olarak teklif et.',
+    title: 'Karşılaştır ve Paket Teklif',
+    body:  'İki veya üç ilanı yan yana karşılaştır. Aynı kullanıcının birden çok ilanını paket olarak teklif et.',
   },
   {
-    emoji: '🎯',
     title: 'Akıllı Araçlar',
     body:  '"Akıllı Araçlar" sayfasında fırsat ilanları (ortalamadan ucuz olanlar) ve bütçe asistanı (X TL ne alır) var.',
     hint:  'g + t → Trendler, g + d → Dashboard',
   },
   {
-    emoji: '🚀',
     title: 'İlan Ver',
     body:  'Sağ üstte "İlan Ver" butonuyla başla. Şablonlardan birini seç, AI ile açıklama yaz, fiyatı AI ile hesapla. Hepsi otomatik.',
     hint:  'c tuşu ilan formuna gider',
@@ -100,11 +93,10 @@ export default function OnboardingTour() {
 
         {/* İçerik */}
         <div className="text-center">
-          <div className="text-5xl mb-3">{current.emoji}</div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">{current.title}</h2>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{current.body}</p>
           {current.hint && (
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-3 italic">💡 {current.hint}</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-3 italic">{current.hint}</p>
           )}
         </div>
 
@@ -123,7 +115,7 @@ export default function OnboardingTour() {
               onClick={finish}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-5 py-2 rounded-xl"
             >
-              Başlayalım! 🚀
+              Başlayalım
             </button>
           ) : (
             <button

@@ -84,7 +84,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
       {/* Araç tipi — seçe seçe filtreleme */}
       <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
         <span className="mr-1 text-xs font-bold uppercase tracking-wide text-slate-400">Araç tipi</span>
@@ -92,8 +92,8 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           onClick={() => pickVehicleGroup('')}
           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
             !filters.vehicleGroup
-              ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+              ? 'border-blue-600 bg-blue-600 text-white'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
           }`}
         >
           Tümü
@@ -104,8 +104,8 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
             onClick={() => pickVehicleGroup(group)}
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
               filters.vehicleGroup === group
-                ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                ? 'border-blue-600 bg-blue-600 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
             }`}
           >
             {group}
@@ -121,7 +121,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
             onChange={(e) => { setCodeQuery(e.target.value); setCodeOpen(true); }}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCodeSearch(); }}
             disabled={codeSearching}
-            className="h-8 w-44 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="h-8 w-44 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           />
           {codeOpen && LISTING_CODE_RE.test(codeQuery.trim()) && (
             <button
@@ -141,7 +141,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           <select
             value={selectedBrand}
             onChange={e => pickBrand(e.target.value)}
-            className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-4 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-slate-50 pl-3 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           >
             <option value="">Tüm markalar</option>
             {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
@@ -156,7 +156,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
             value={filters.model}
             onChange={e => pickModel(e.target.value)}
             disabled={!selectedBrand}
-            className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-4 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-slate-50 pl-3 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           >
             <option value="">{selectedBrand ? 'Tüm modeller' : 'Önce marka seç'}</option>
             {modelOptions.map(m => <option key={m} value={m}>{m}</option>)}
@@ -170,7 +170,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           <select
             value={filters.city}
             onChange={e => setFilters({ city: e.target.value })}
-            className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-4 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-slate-50 pl-3 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           >
             <option value="">Tüm şehirler</option>
             {CITIES_81.map(c => <option key={c}>{c}</option>)}
@@ -180,7 +180,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           </svg>
         </div>
 
-        <div className="flex h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900">
           <span className="mr-2 select-none text-sm font-bold text-slate-400">₺</span>
           <input
             type="number"

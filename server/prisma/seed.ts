@@ -217,7 +217,7 @@ async function main() {
   console.log(`✅ ${listings.length} ilan oluşturuldu`);
 
   // Sample offers
-  const offer1 = await prisma.offer.create({
+  await prisma.offer.create({
     data: {
       listingId:  listings[0].id,
       fromUserId: users[0].id,

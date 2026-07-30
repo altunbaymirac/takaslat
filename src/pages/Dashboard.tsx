@@ -31,19 +31,6 @@ export default function Dashboard() {
   const [seeding,  setSeeding]  = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  if (!currentUser) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <div className="text-5xl mb-3">🔒</div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Giriş gerekiyor</h2>
-        <p className="text-slate-500 dark:text-slate-400 mb-6">Dashboard'unu görmek için giriş yap.</p>
-        <Link to="/login" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium">
-          Giriş Yap
-        </Link>
-      </div>
-    );
-  }
-
   // ── İstatistikler ───────────────────────────────────────────────────────────
 
   const myListings   = useMemo(() => listings.filter((l) => l.ownerId === currentUserId), [listings, currentUserId]);
@@ -84,6 +71,19 @@ export default function Dashboard() {
       .sort((a, b) => b.when.localeCompare(a.when))
       .slice(0, 8);
   }, [myListings, offers, currentUserId]);
+
+  if (!currentUser) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <div className="text-5xl mb-3">🔒</div>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Giriş gerekiyor</h2>
+        <p className="text-slate-500 dark:text-slate-400 mb-6">Kontrol panelini görmek için giriş yap.</p>
+        <Link to="/login" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium">
+          Giriş Yap
+        </Link>
+      </div>
+    );
+  }
 
   const unreadNotes = getNotifications().filter((n) => !n.read).length;
 

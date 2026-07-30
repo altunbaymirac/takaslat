@@ -22,7 +22,6 @@ export default function Footer() {
           <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
             <Link to="/" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">İlanlar</Link>
             <Link to="/trends" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Trendler</Link>
-            <Link to="/trust" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Güven Merkezi</Link>
             <Link to="/settings" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Ayarlar</Link>
           </nav>
 

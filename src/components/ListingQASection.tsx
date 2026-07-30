@@ -56,7 +56,7 @@ export default function ListingQASection({ listingId, ownerId }: Props) {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
       <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-2">
-        <span>❓</span> Soru-Cevap
+        Soru-Cevap
         {myQAs.length > 0 && (
           <span className="text-xs font-normal bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full">
             {myQAs.length}
@@ -99,7 +99,6 @@ export default function ListingQASection({ listingId, ownerId }: Props) {
       {/* Sorular */}
       {myQAs.length === 0 ? (
         <div className="text-center py-8">
-          <div className="text-3xl mb-2">💬</div>
           <p className="text-sm text-slate-500 dark:text-slate-400">Henüz soru yok — ilk soruyu sen sor!</p>
         </div>
       ) : (
@@ -116,7 +115,7 @@ export default function ListingQASection({ listingId, ownerId }: Props) {
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{qa.userName}</p>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{timeAgo(qa.createdAt)}</span>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-200">❓ {qa.question}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-200">{qa.question}</p>
                 </div>
                 {qa.userId === currentUserId && (
                   <button
@@ -134,7 +133,6 @@ export default function ListingQASection({ listingId, ownerId }: Props) {
               {/* Yanıt */}
               {qa.answer ? (
                 <div className="ml-10 flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3">
-                  <span className="text-base flex-shrink-0">💡</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-bold text-blue-700 dark:text-blue-300">İlan Sahibi</span>
@@ -163,12 +161,12 @@ export default function ListingQASection({ listingId, ownerId }: Props) {
                       onClick={() => { setAnswerTo(qa.id); setAnswerText(''); }}
                       className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      💬 Bu soruyu yanıtla
+                      Bu soruyu yanıtla
                     </button>
                   )}
                 </div>
               ) : (
-                <p className="ml-10 text-xs text-slate-400 dark:text-slate-500 italic">⌛ Yanıt bekleniyor…</p>
+                <p className="ml-10 text-xs text-slate-400 dark:text-slate-500 italic">Yanıt bekleniyor…</p>
               )}
             </div>
           ))}

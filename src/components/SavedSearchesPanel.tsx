@@ -58,7 +58,7 @@ export default function SavedSearchesPanel() {
       </button>
 
       {open && (
-        <div className="absolute left-0 mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-30 overflow-hidden">
+        <div className="absolute left-0 mt-2 w-[calc(100vw-1rem)] max-w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-30 overflow-hidden">
           {/* Header + save current */}
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
             {naming ? (

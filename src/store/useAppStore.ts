@@ -1,13 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Listing, SwapOffer, AIMessage, FilterState, ListingReport, Notification, SavedSearch, SwapRating, WishItem, MeetingProposal, ListingQA } from '../types';
+import type { Listing, SwapOffer, AIMessage, FilterState, ListingReport, Notification, SavedSearch, SwapRating, WishItem, MeetingProposal, ListingQA, LiveAuction, SwapProcess, SwapProcessStep } from '../types';
 import {
   fetchListings,
   fetchOffers,
   fetchNotifications,
+  fetchAuctions,
   createListing as apiCreateListing,
   updateListingApi,
   deleteListingApi,
+  createAuctionApi,
+  placeAuctionBidApi,
+  closeAuctionApi,
   createOffer as apiCreateOffer,
   updateOfferStatus as apiUpdateOfferStatus,
   reviseOfferApi,
@@ -46,6 +50,8 @@ interface AppState {
   listings: Listing[];
   offers:   SwapOffer[];
   notifications: Notification[];
+  auctions: LiveAuction[];
+  auctionSyncState: 'idle' | 'loading' | 'live' | 'local' | 'error';
 
   // ── Auth
   token:       string | null;
@@ -89,11 +95,13 @@ interface AppState {
   wishlist:                  WishItem[];
   meetings:                  MeetingProposal[];
   conversationNotes:         Record<string, string>;
+  swapProcesses:             Record<string, SwapProcess>;
 
   // ── Actions
   loadListings:  () => Promise<void>;
   loadOffers:    () => Promise<void>;
   loadNotifications: () => Promise<void>;
+  loadAuctions:  () => Promise<void>;
   pushNotification:  (notification: Notification) => void;
   loginUser:     (email: string, password: string, twoFactorCode?: string) => Promise<void>;
   registerUser:  (name: string, email: string, password: string, city?: string) => Promise<void>;
@@ -104,12 +112,16 @@ interface AppState {
   addListing:        (listing: Omit<Listing, 'id' | 'createdAt' | 'ownerId' | 'ownerName' | 'ownerAvatar'>) => Promise<void>;
   updateListing:     (listingId: string, patch: Partial<Listing>) => void;
   deleteListing:     (listingId: string) => void;
+  createAuction:     (auction: Omit<LiveAuction, 'id' | 'createdAt' | 'bids' | 'currentBid' | 'watcherCount'>) => Promise<string>;
+  placeAuctionBid:   (auctionId: string, amount: number, note?: string) => Promise<void>;
+  closeAuction:      (auctionId: string) => Promise<void>;
 
-  sendOffer:         (offer: Omit<SwapOffer, 'id' | 'createdAt'>) => void;
-  updateOfferStatus: (offerId: string, status: SwapOffer['status']) => void;
-  reviseOffer:       (offerId: string, patch: { offeredValue?: number; offeredListingId?: string; offeredListingTitle?: string }) => void;
+  sendOffer:         (offer: Omit<SwapOffer, 'id' | 'createdAt'>) => Promise<void>;
+  updateOfferStatus: (offerId: string, status: SwapOffer['status']) => Promise<void>;
+  reviseOffer:       (offerId: string, patch: { offeredValue?: number; offeredListingId?: string; offeredListingTitle?: string }) => Promise<void>;
   addOfferMessage:   (offerId: string, message: string, fromUserId: string) => void;
   setConversationNote: (offerId: string, note: string) => void;
+  toggleSwapProcessStep: (offerId: string, step: SwapProcessStep) => void;
 
   toggleFavorite:  (listingId: string) => void;
   isFavorite:      (listingId: string) => boolean;
@@ -203,6 +215,8 @@ export const useAppStore = create<AppState>()(
       listings:                [],
       offers:                  [],
       notifications:           [],
+      auctions:                [],
+      auctionSyncState:        'idle',
       token:                   null,
       currentUser:             null,
       currentUserId:           'current-user',
@@ -232,6 +246,7 @@ export const useAppStore = create<AppState>()(
       wishlist:                [],
       meetings:                [],
       conversationNotes:       {},
+      swapProcesses:           {},
 
       // ── Load listings from API (or mock)
       loadListings: async () => {
@@ -268,6 +283,18 @@ export const useAppStore = create<AppState>()(
           set({ notifications });
         } catch {
           set({ notifications: [] });
+        }
+      },
+
+      loadAuctions: async () => {
+        set({ auctionSyncState: 'loading' });
+        try {
+          const auctions = await fetchAuctions();
+          set({ auctions, auctionSyncState: 'live' });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          const schemaUnavailable = /auctions|auction_bids|schema cache|PGRST205/i.test(message);
+          set({ auctionSyncState: schemaUnavailable ? 'local' : 'error' });
         }
       },
 
@@ -410,56 +437,144 @@ export const useAppStore = create<AppState>()(
           listings:    s.listings.filter((l) => l.id !== listingId),
           favorites:   s.favorites.filter((id) => id !== listingId),
           compareList: s.compareList.filter((id) => id !== listingId),
+          auctions:    s.auctions.filter((a) => a.listingId !== listingId),
         }));
       },
 
       // ── Offers
-      sendOffer: (data) => {
-        const tempOffer: SwapOffer = {
-          ...data,
-          id:        `offer-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-        };
-        set((s) => ({ offers: [tempOffer, ...s.offers] }));
-        void apiCreateOffer(data).then((created) => {
-          set((s) => ({ offers: [created, ...s.offers.filter((o) => o.id !== tempOffer.id)] }));
-        }).catch(() => undefined);
-      },
-
-      updateOfferStatus: (offerId, status) => {
-        void apiUpdateOfferStatus(offerId, status).then((updated) => {
-          set((s) => ({ offers: s.offers.map((o) => (o.id === offerId ? updated : o)) }));
-        }).catch(() => undefined);
-        set((s) => ({
-          offers: s.offers.map((o) => (o.id === offerId ? { ...o, status } : o)),
-        }));
-      },
-
-      reviseOffer: (offerId, patch) => {
+      createAuction: async (auction) => {
         const now = new Date().toISOString();
+        const id = `auc-local-${Date.now()}`;
+        const optimisticAuction: LiveAuction = {
+          ...auction,
+          id,
+          createdAt: now,
+          currentBid: auction.startingPrice,
+          bids: [],
+          watcherCount: 0,
+        };
         set((s) => ({
-          offers: s.offers.map((o) =>
-            o.id === offerId
-              ? {
-                  ...o,
-                  ...patch,
-                  status: 'Görüşülüyor',
-                  messages: [
-                    ...(o.messages ?? []),
-                    {
-                      id: `msg-${Date.now()}`,
-                      fromUserId: s.currentUserId,
-                      text: 'Teklif revize edildi.',
-                      createdAt: now,
-                    },
-                  ],
-                }
-              : o
+          auctions: [
+            optimisticAuction,
+            ...s.auctions.filter((a) => a.listingId !== auction.listingId),
+          ],
+        }));
+        try {
+          const created = await createAuctionApi(auction);
+          set((s) => ({
+            auctions: [created, ...s.auctions.filter((item) => item.id !== id && item.listingId !== created.listingId)],
+            auctionSyncState: USE_MOCK ? 'local' : 'live',
+          }));
+          return created.id;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          if (/auctions|schema cache|PGRST205/i.test(message)) {
+            set({ auctionSyncState: 'local' });
+            return id;
+          }
+          set((s) => ({ auctions: s.auctions.filter((item) => item.id !== id), auctionSyncState: 'error' }));
+          throw error;
+        }
+      },
+
+      placeAuctionBid: async (auctionId, amount, note) => {
+        const { currentUserId, currentUserName } = get();
+        const previous = get().auctions.find((auction) => auction.id === auctionId);
+        set((s) => ({
+          auctions: s.auctions.map((auction) => {
+            const now = Date.now();
+            const endsAt = new Date(auction.endsAt).getTime();
+            const minimumBid = auction.currentBid + auction.bidIncrement;
+            if (auction.id !== auctionId || auction.status === 'ended' || now >= endsAt || amount < minimumBid) {
+              return auction;
+            }
+            return {
+              ...auction,
+              status: 'live',
+              currentBid: amount,
+              bids: [
+                {
+                  id: `bid-${Date.now()}`,
+                  userId: currentUserId,
+                  userName: currentUserName,
+                  amount,
+                  note,
+                  createdAt: new Date().toISOString(),
+                },
+                ...auction.bids,
+              ],
+            };
+          }),
+        }));
+        try {
+          const updated = await placeAuctionBidApi(
+            auctionId,
+            amount,
+            note,
+            { id: currentUserId, name: currentUserName },
+          );
+          set((s) => ({
+            auctions: s.auctions.map((auction) => auction.id === auctionId ? updated : auction),
+            auctionSyncState: USE_MOCK ? 'local' : 'live',
+          }));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          if (/auctions|auction_bids|schema cache|PGRST205/i.test(message) || auctionId.startsWith('auc-local-')) {
+            set({ auctionSyncState: 'local' });
+            return;
+          }
+          if (previous) {
+            set((s) => ({
+              auctions: s.auctions.map((auction) => auction.id === auctionId ? previous : auction),
+              auctionSyncState: 'error',
+            }));
+          }
+          throw error;
+        }
+      },
+
+      closeAuction: async (auctionId) => {
+        const previous = get().auctions.find((auction) => auction.id === auctionId);
+        set((s) => ({
+          auctions: s.auctions.map((auction) =>
+            auction.id === auctionId ? { ...auction, status: 'ended' } : auction
           ),
         }));
-        void reviseOfferApi(offerId, patch).then((updated) => {
-          set((s) => ({ offers: s.offers.map((o) => (o.id === offerId ? updated : o)) }));
-        }).catch(() => undefined);
+        try {
+          const updated = await closeAuctionApi(auctionId);
+          set((s) => ({
+            auctions: s.auctions.map((auction) => auction.id === auctionId ? updated : auction),
+            auctionSyncState: USE_MOCK ? 'local' : 'live',
+          }));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          if (/auctions|schema cache|PGRST205/i.test(message) || auctionId.startsWith('auc-local-')) {
+            set({ auctionSyncState: 'local' });
+            return;
+          }
+          if (previous) {
+            set((s) => ({
+              auctions: s.auctions.map((auction) => auction.id === auctionId ? previous : auction),
+              auctionSyncState: 'error',
+            }));
+          }
+          throw error;
+        }
+      },
+
+      sendOffer: async (data) => {
+        const created = await apiCreateOffer(data);
+        set((s) => ({ offers: [created, ...s.offers.filter((o) => o.id !== created.id)] }));
+      },
+
+      updateOfferStatus: async (offerId, status) => {
+        const updated = await apiUpdateOfferStatus(offerId, status);
+        set((s) => ({ offers: s.offers.map((o) => (o.id === offerId ? updated : o)) }));
+      },
+
+      reviseOffer: async (offerId, patch) => {
+        const updated = await reviseOfferApi(offerId, patch);
+        set((s) => ({ offers: s.offers.map((o) => (o.id === offerId ? updated : o)) }));
       },
 
       addOfferMessage: (offerId, message, fromUserId) => {
@@ -491,6 +606,25 @@ export const useAppStore = create<AppState>()(
             [offerId]: note,
           },
         })),
+
+      toggleSwapProcessStep: (offerId, step) =>
+        set((s) => {
+          const current = s.swapProcesses[offerId];
+          const completedSteps = current?.completedSteps ?? [];
+          const hasStep = completedSteps.includes(step);
+          return {
+            swapProcesses: {
+              ...s.swapProcesses,
+              [offerId]: {
+                offerId,
+                completedSteps: hasStep
+                  ? completedSteps.filter((item) => item !== step)
+                  : [...completedSteps, step],
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          };
+        }),
 
       // ── Favoriler
       toggleFavorite: (listingId) =>
@@ -775,6 +909,7 @@ export const useAppStore = create<AppState>()(
         soundEnabled:             s.soundEnabled,
         accentColor:              s.accentColor,
         reports:                  s.reports,
+        auctions:                 s.auctions,
         compareList:              s.compareList,
         notificationsLastSeenAt:  s.notificationsLastSeenAt,
         savedSearches:            s.savedSearches,
@@ -782,6 +917,7 @@ export const useAppStore = create<AppState>()(
         wishlist:                 s.wishlist,
         meetings:                 s.meetings,
         conversationNotes:        s.conversationNotes,
+        swapProcesses:            s.swapProcesses,
         recentlyViewed:           s.recentlyViewed,
         searchHistory:            s.searchHistory,
         boostedListings:          s.boostedListings,
@@ -801,6 +937,7 @@ export const useAppStore = create<AppState>()(
           soundEnabled?:            boolean;
           accentColor?:             string;
           reports?:                 ListingReport[];
+          auctions?:                LiveAuction[];
           compareList?:             string[];
           notificationsLastSeenAt?: string;
           savedSearches?:           SavedSearch[];
@@ -808,6 +945,7 @@ export const useAppStore = create<AppState>()(
           wishlist?:                WishItem[];
           meetings?:                MeetingProposal[];
           conversationNotes?:       Record<string, string>;
+          swapProcesses?:           Record<string, SwapProcess>;
           recentlyViewed?:          string[];
           searchHistory?:           string[];
           boostedListings?:         Record<string, string>;
@@ -831,6 +969,7 @@ export const useAppStore = create<AppState>()(
           soundEnabled:            p?.soundEnabled ?? true,
           accentColor:             p?.accentColor  ?? 'blue',
           reports:                 p?.reports      ?? [],
+          auctions:                (p?.auctions ?? []).filter((auction) => !auction.id.startsWith('auc-seed-')),
           compareList:             p?.compareList  ?? [],
           notificationsLastSeenAt: p?.notificationsLastSeenAt ?? new Date(0).toISOString(),
           savedSearches:           p?.savedSearches ?? [],
@@ -838,6 +977,7 @@ export const useAppStore = create<AppState>()(
           wishlist:                p?.wishlist      ?? [],
           meetings:                p?.meetings      ?? [],
           conversationNotes:       p?.conversationNotes ?? {},
+          swapProcesses:           p?.swapProcesses ?? {},
           recentlyViewed:          p?.recentlyViewed ?? [],
           searchHistory:           p?.searchHistory  ?? [],
           boostedListings:         p?.boostedListings ?? {},

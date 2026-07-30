@@ -158,7 +158,7 @@ export default function KeyboardShortcuts() {
               ))}
 
               <p className="text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-700 italic">
-                💡 İpucu: <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">g</kbd> tuşuna bas, ardından gitmek istediğin sayfanın harfini gir.
+                İpucu: <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">g</kbd> tuşuna bas, ardından gitmek istediğin sayfanın harfini gir.
               </p>
             </div>
           </div>

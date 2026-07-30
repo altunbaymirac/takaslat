@@ -7,13 +7,13 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { mockListings, mockOffers } from '../data/mockListings'
-import type { Listing, ListingAttachment, Notification, SwapOffer } from '../types'
+import type { LiveAuction, Listing, ListingAttachment, ListingVerification, Notification, SwapOffer } from '../types'
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
-export const USE_MOCK = !SUPABASE_URL || !SUPABASE_KEY
+export const USE_MOCK = import.meta.env.MODE === 'test' || !SUPABASE_URL || !SUPABASE_KEY
 
 export const supabase = createClient(
   SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -34,6 +34,7 @@ export function clearToken() {
 }
 
 const delay = (ms = 250) => new Promise(r => setTimeout(r, ms))
+const mockAuctions: LiveAuction[] = []
 
 // ─── DB row → Frontend tip dönüşümleri ───────────────────────────────────────
 
@@ -105,6 +106,8 @@ function dbToOffer(row: any): SwapOffer {
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? undefined,
     offeredValue: row.offered_value ?? undefined,
+    fromAccepted: row.from_accepted,
+    toAccepted: row.to_accepted,
     fromConfirmed: row.from_confirmed,
     toConfirmed: row.to_confirmed,
     counterMessage: row.counter_message ?? undefined,
@@ -128,8 +131,43 @@ function dbToOffer(row: any): SwapOffer {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToAuction(row: any): LiveAuction {
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    title: row.title,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    startingPrice: Number(row.starting_price),
+    currentBid: Number(row.current_bid),
+    bidIncrement: Number(row.bid_increment),
+    reservePrice: row.reserve_price == null ? undefined : Number(row.reserve_price),
+    reserveMet: row.reserve_met ?? undefined,
+    winnerId: row.winner_id ?? undefined,
+    winningBid: row.winning_bid == null ? undefined : Number(row.winning_bid),
+    closedAt: row.closed_at ?? undefined,
+    status: row.status,
+    watcherCount: row.watcher_count ?? 0,
+    createdAt: row.created_at,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bids: (row.bids ?? []).map((bid: any) => ({
+      id: bid.id,
+      userId: bid.user_id,
+      userName: bid.bidder?.name ?? 'Katılımcı',
+      amount: Number(bid.amount),
+      note: bid.note ?? undefined,
+      createdAt: bid.created_at,
+    })).sort((a: { createdAt: string }, b: { createdAt: string }) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ),
+  }
+}
+
 const LISTING_SELECT = `*, owner:profiles!owner_id(name, avatar, rating, total_swaps, email_verified, phone_verified)`
 const OFFER_SELECT   = `*, messages(*), listing:listings!listing_id(id, title, estimated_value, images, city), from_profile:profiles!from_user_id(name), to_profile:profiles!to_user_id(name)`
+const AUCTION_SELECT = `*, bids:auction_bids(*, bidder:profiles!user_id(name))`
+const PROFILE_SELECT = 'id, name, city, avatar, rating, total_swaps, role, email_verified, phone_verified, created_at'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -164,6 +202,7 @@ export async function signInWithGoogle() {
 }
 
 export async function login(email: string, password: string, _twoFactorCode?: string) {
+  void _twoFactorCode
   if (USE_MOCK) {
     await delay(300)
     return { user: { id: 'current-user', name: 'Demo Kullanıcı' }, token: 'mock-token' }
@@ -175,7 +214,7 @@ export async function login(email: string, password: string, _twoFactorCode?: st
   const token = data.session?.access_token ?? ''
   if (token) setToken(token)
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single()
+  const { data: profile } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', data.user.id).single()
   return {
     user: {
       id: data.user.id,
@@ -194,7 +233,7 @@ export async function getMe() {
   if (USE_MOCK) return null
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', user.id).single()
   if (!profile) return null
   return {
     id: user.id,
@@ -214,7 +253,7 @@ export async function updateMe(patch: { name?: string; city?: string; avatar?: s
   if (USE_MOCK) return {}
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Oturum acik degil')
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('profiles')
     .update({
       ...(patch.name   !== undefined && { name: patch.name }),
@@ -224,10 +263,8 @@ export async function updateMe(patch: { name?: string; city?: string; avatar?: s
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)
-    .select()
-    .single()
   if (error) throw new Error(error.message)
-  return data
+  return { ...patch }
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string; devCode?: string }> {
@@ -247,7 +284,7 @@ export async function resetPassword(_email: string, _code: string, password: str
 }
 
 export async function setupTwoFactor(): Promise<{ message: string; devCode?: string }> { return { message: 'Mock' } }
-export async function verifyTwoFactor(_code: string): Promise<Record<string, unknown>> { return {} }
+export async function verifyTwoFactor(_code: string): Promise<Record<string, unknown>> { void _code; return {} }
 export async function disableTwoFactor(): Promise<Record<string, unknown>> { return {} }
 export async function requestEmailVerification(): Promise<{ message: string }> {
   if (USE_MOCK) return { message: 'Mock: doğrulama bağlantısı gönderildi' }
@@ -383,7 +420,7 @@ export interface PublicUser {
 
 export async function fetchUserById(id: string): Promise<PublicUser | null> {
   if (USE_MOCK) { await delay(100); return null }
-  const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
+  const { data } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', id).single()
   if (!data) return null
   return { id: data.id, name: data.name, city: data.city, avatar: data.avatar, rating: data.rating, totalSwaps: data.total_swaps, emailVerified: data.email_verified, phoneVerified: data.phone_verified, createdAt: data.created_at }
 }
@@ -392,8 +429,28 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
   if (USE_MOCK) { await delay(100); return mockListings.find(l => l.id === id) ?? null }
   const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('id', id).single()
   if (!data) return null
-  supabase.from('listings').update({ view_count: (data.view_count ?? 0) + 1 }).eq('id', id).then(() => {})
+  void supabase.rpc('increment_listing_view', { p_listing_id: id })
   return dbToListing(data)
+}
+
+export async function fetchListingVerification(listingId: string): Promise<ListingVerification | null> {
+  if (USE_MOCK) return null
+  const { data, error } = await supabase
+    .from('listing_verifications')
+    .select('identity_state, ownership_state, vin_state, mileage_state, damage_state, expertise_state, updated_at')
+    .eq('listing_id', listingId)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return {
+    identity: data.identity_state,
+    ownership: data.ownership_state,
+    vin: data.vin_state,
+    mileage: data.mileage_state,
+    damage: data.damage_state,
+    expertise: data.expertise_state,
+    updatedAt: data.updated_at,
+  }
 }
 
 export async function fetchListingByCode(code: string): Promise<Listing | null> {
@@ -506,35 +563,165 @@ export async function deleteListingApi(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload  = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
-
 export async function uploadFile(file: File, kind: ListingAttachment['kind'] = 'document'): Promise<ListingAttachment> {
-  await delay(150)
-  return { id: `att-${Date.now()}-${file.name}`, name: file.name, url: URL.createObjectURL(file), mimeType: file.type, kind, size: file.size, createdAt: new Date().toISOString() }
+  if (USE_MOCK) {
+    await delay(150)
+    return { id: `att-${Date.now()}-${file.name}`, name: file.name, url: URL.createObjectURL(file), mimeType: file.type, kind, size: file.size, createdAt: new Date().toISOString() }
+  }
+  if (file.size > 10 * 1024 * 1024) throw new Error('Belge boyutu 10 MB sınırını aşıyor')
+  const allowedTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+  if (!allowedTypes.has(file.type)) throw new Error('Yalnızca PDF, JPG, PNG veya WEBP yükleyebilirsin')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Belge yüklemek için giriş yapmalısın')
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+  const path = `${user.id}/documents/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('images').upload(path, file, {
+    upsert: false,
+    contentType: file.type,
+  })
+  if (error) throw new Error(error.message)
+  const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path)
+  return {
+    id: crypto.randomUUID(),
+    name: file.name,
+    url: publicUrl,
+    mimeType: file.type,
+    kind,
+    size: file.size,
+    createdAt: new Date().toISOString(),
+  }
 }
 
 export async function uploadImages(files: File[]): Promise<string[]> {
   if (USE_MOCK) { await delay(200); return files.map((f) => URL.createObjectURL(f)) }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Görsel yüklemek için giriş yapmalısın')
   const urls: string[] = []
   for (const file of files) {
     const ext  = file.name.split('.').pop() ?? 'jpg'
-    const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const { error } = await supabase.storage.from('images').upload(path, file, { upsert: true })
-    if (error) {
-      urls.push(await readAsDataUrl(file))
-    } else {
-      const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path)
-      urls.push(publicUrl)
-    }
+    const path = `${user.id}/listings/${crypto.randomUUID()}.${ext}`
+    const { error } = await supabase.storage.from('images').upload(path, file, { upsert: false })
+    if (error) throw new Error(error.message)
+    const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path)
+    urls.push(publicUrl)
   }
   return urls
+}
+
+// ─── Auctions ─────────────────────────────────────────────────────────────────
+
+export async function fetchAuctions(): Promise<LiveAuction[]> {
+  if (USE_MOCK) {
+    await delay(100)
+    return [...mockAuctions]
+  }
+  await supabase.rpc('finalize_expired_auctions')
+  const { data, error } = await supabase
+    .from('auctions')
+    .select(AUCTION_SELECT)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToAuction)
+}
+
+export async function createAuctionApi(
+  auction: Omit<LiveAuction, 'id' | 'createdAt' | 'bids' | 'currentBid' | 'watcherCount'>,
+): Promise<LiveAuction> {
+  if (USE_MOCK) {
+    await delay(150)
+    const created: LiveAuction = {
+      ...auction,
+      id: `auc-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      currentBid: auction.startingPrice,
+      bids: [],
+      watcherCount: 0,
+    }
+    mockAuctions.unshift(created)
+    return created
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Mezat başlatmak için giriş yapmalısın')
+  const { data, error } = await supabase
+    .from('auctions')
+    .insert({
+      listing_id: auction.listingId,
+      owner_id: user.id,
+      title: auction.title,
+      starts_at: auction.startsAt,
+      ends_at: auction.endsAt,
+      starting_price: auction.startingPrice,
+      current_bid: auction.startingPrice,
+      bid_increment: auction.bidIncrement,
+      reserve_price: auction.reservePrice ?? null,
+      status: auction.status,
+    })
+    .select(AUCTION_SELECT)
+    .single()
+  if (error) throw new Error(error.message)
+  return dbToAuction(data)
+}
+
+export async function placeAuctionBidApi(
+  auctionId: string,
+  amount: number,
+  note: string | undefined,
+  mockBidder: { id: string; name: string },
+): Promise<LiveAuction> {
+  if (USE_MOCK) {
+    await delay(100)
+    const auction = mockAuctions.find((item) => item.id === auctionId)
+    if (!auction) throw new Error('Mezat bulunamadı')
+    const minimumBid = auction.currentBid + auction.bidIncrement
+    if (auction.status === 'ended' || Date.now() >= new Date(auction.endsAt).getTime()) {
+      throw new Error('Bu mezat sona erdi')
+    }
+    if (amount < minimumBid) throw new Error(`Minimum teklif ${minimumBid} olmalı`)
+    auction.currentBid = amount
+    auction.bids.unshift({
+      id: `bid-${Date.now()}`,
+      userId: mockBidder.id,
+      userName: mockBidder.name,
+      amount,
+      note,
+      createdAt: new Date().toISOString(),
+    })
+    return { ...auction, bids: [...auction.bids] }
+  }
+
+  const { data, error } = await supabase.rpc('place_auction_bid', {
+    p_auction_id: auctionId,
+    p_amount: amount,
+    p_note: note ?? null,
+  })
+  if (error) throw new Error(error.message)
+  return dbToAuction(data)
+}
+
+export async function closeAuctionApi(auctionId: string): Promise<LiveAuction> {
+  if (USE_MOCK) {
+    await delay(100)
+    const auction = mockAuctions.find((item) => item.id === auctionId)
+    if (!auction) throw new Error('Mezat bulunamadı')
+    auction.status = 'ended'
+    return { ...auction, bids: [...auction.bids] }
+  }
+  const { data, error } = await supabase.rpc('finalize_auction', {
+    p_auction_id: auctionId,
+  })
+  if (error) throw new Error(error.message)
+  return dbToAuction(data)
+}
+
+export function subscribeAuctionStream(onChange: () => void): () => void {
+  if (USE_MOCK) return () => undefined
+  const channel = supabase
+    .channel(`auctions-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_bids' }, onChange)
+    .subscribe()
+  return () => { void supabase.removeChannel(channel) }
 }
 
 // ─── Offers ───────────────────────────────────────────────────────────────────
@@ -548,6 +735,16 @@ export async function fetchOffers(userId: string): Promise<SwapOffer[]> {
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map(dbToOffer)
+}
+
+async function fetchOfferById(offerId: string): Promise<SwapOffer> {
+  const { data, error } = await supabase
+    .from('offers')
+    .select(OFFER_SELECT)
+    .eq('id', offerId)
+    .single()
+  if (error) throw new Error(error.message)
+  return dbToOffer(data)
 }
 
 export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Promise<SwapOffer> {
@@ -579,17 +776,20 @@ export async function updateOfferStatus(offerId: string, status: SwapOffer['stat
     await delay(200)
     const o = mockOffers.find(x => x.id === offerId)
     if (!o) throw new Error('Teklif bulunamadi')
+    if (status === 'Onaylandı') {
+      o.fromAccepted = true
+      o.toAccepted = true
+    }
     o.status = status
     return o
   }
-  const { data, error } = await supabase
-    .from('offers')
-    .update({ status, ...(meetingNote && { meeting_note: meetingNote }), updated_at: new Date().toISOString() })
-    .eq('id', offerId)
-    .select(OFFER_SELECT)
-    .single()
+  const rpcName = status === 'Onaylandı' ? 'accept_offer' : 'update_offer_status'
+  const args = status === 'Onaylandı'
+    ? { p_offer_id: offerId }
+    : { p_offer_id: offerId, p_status: status, p_meeting_note: meetingNote ?? null }
+  const { error } = await supabase.rpc(rpcName, args)
   if (error) throw new Error(error.message)
-  return dbToOffer(data)
+  return fetchOfferById(offerId)
 }
 
 export async function confirmOfferComplete(offerId: string): Promise<SwapOffer> {
@@ -600,26 +800,20 @@ export async function confirmOfferComplete(offerId: string): Promise<SwapOffer> 
     o.status = 'Tamamlandı'
     return o
   }
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Oturum acik degil')
-  const { data: offer } = await supabase.from('offers').select('from_user_id, to_user_id, from_confirmed, to_confirmed').eq('id', offerId).single()
-  if (!offer) throw new Error('Teklif bulunamadi')
-
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  const isFrom = user.id === offer.from_user_id
-  const isTo   = user.id === offer.to_user_id
-  if (isFrom) patch.from_confirmed = true
-  if (isTo)   patch.to_confirmed   = true
-  const bothConfirmed = (isFrom && offer.to_confirmed) || (isTo && offer.from_confirmed)
-  if (bothConfirmed) patch.status = 'Tamamlandı'
-
-  const { data, error } = await supabase.from('offers').update(patch).eq('id', offerId).select(OFFER_SELECT).single()
+  const { error } = await supabase.rpc('confirm_offer_complete', { p_offer_id: offerId })
   if (error) throw new Error(error.message)
-  return dbToOffer(data)
+  return fetchOfferById(offerId)
 }
 
-export async function rateOffer(_offerId: string, score: number, _comment?: string): Promise<{ success: boolean; newRating: number }> {
-  return { success: true, newRating: score }
+export async function rateOffer(offerId: string, score: number, comment?: string): Promise<{ success: boolean; newRating: number }> {
+  if (USE_MOCK) return { success: true, newRating: score }
+  const { data, error } = await supabase.rpc('rate_offer', {
+    p_offer_id: offerId,
+    p_score: score,
+    p_comment: comment ?? null,
+  })
+  if (error) throw new Error(error.message)
+  return { success: true, newRating: Number(data) }
 }
 
 export async function reviseOfferApi(offerId: string, patch: { offeredValue?: number; offeredListingId?: string; offeredListingTitle?: string }): Promise<SwapOffer> {
@@ -630,20 +824,14 @@ export async function reviseOfferApi(offerId: string, patch: { offeredValue?: nu
     Object.assign(o, patch, { status: 'Görüşülüyor' as const })
     return o
   }
-  const { data, error } = await supabase
-    .from('offers')
-    .update({
-      ...(patch.offeredValue         !== undefined && { offered_value: patch.offeredValue }),
-      ...(patch.offeredListingId     !== undefined && { offered_listing_id: patch.offeredListingId }),
-      ...(patch.offeredListingTitle  !== undefined && { offered_listing_title: patch.offeredListingTitle }),
-      status: 'Görüşülüyor',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', offerId)
-    .select(OFFER_SELECT)
-    .single()
+  const { error } = await supabase.rpc('revise_offer', {
+    p_offer_id: offerId,
+    p_offered_value: patch.offeredValue ?? null,
+    p_offered_listing_id: patch.offeredListingId ?? null,
+    p_offered_listing_title: patch.offeredListingTitle ?? null,
+  })
   if (error) throw new Error(error.message)
-  return dbToOffer(data)
+  return fetchOfferById(offerId)
 }
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
@@ -670,9 +858,8 @@ export async function fetchNotifications(): Promise<Notification[]> {
 
 export async function markNotificationsReadApi(): Promise<void> {
   if (USE_MOCK) return
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false)
+  const { error } = await supabase.rpc('mark_notifications_read')
+  if (error) throw new Error(error.message)
 }
 
 export async function sendTestNotification(): Promise<Notification> {
@@ -689,6 +876,8 @@ export function subscribeNotificationStream(
   _onMessageEvent?: (event: RawMessageEvent) => void,
   _onOfferStatusEvent?: (event: OfferStatusEvent) => void,
 ): () => void {
+  void _onMessageEvent
+  void _onOfferStatusEvent
   if (USE_MOCK) return () => undefined
   // Benzersiz kanal adı: aynı topic'e iki kez abone olup
   // "cannot add postgres_changes after subscribe()" hatasını önler
@@ -744,7 +933,7 @@ export function aiErrorMessage(err: unknown): string {
   return raw || 'AI işlemi tamamlanamadı, tekrar dene.'
 }
 
-export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { return {} }
+export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { void _p; return {} }
 
 // TakaslAI sohbet — LLM yanıtı + gerçek ilan önerileri.
 // USE_MOCK veya hata durumunda fırlatır; çağıran (AIAssistant) yerel motora düşer.
@@ -829,14 +1018,155 @@ export interface HomeMatchResult {
     negotiationTip: string;
   }[];
 }
+
+type HomeMatchParams = {
+  query: string;
+  sourceListingId?: string;
+  cashDirection?: 'any' | 'pay' | 'receive';
+  cashAmount?: number;
+};
+
+function normalizeMatchText(value: string): string {
+  return value
+    .toLocaleLowerCase('tr-TR')
+    .replaceAll('ı', 'i')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function buildHomeMatchFallback(
+  p: HomeMatchParams,
+  listings: Listing[],
+  currentUserId?: string | null,
+): HomeMatchResult {
+  const query = normalizeMatchText(p.query);
+  const source = listings.find((listing) => listing.id === p.sourceListingId) ?? null;
+  const mileageMatch = query.match(/(\d[\d.\s]*)\s*km\b/);
+  const rawMileage = mileageMatch ? Number(mileageMatch[1].replace(/[.\s]/g, '')) : null;
+  const maxKm = rawMileage && rawMileage <= 1_000 ? rawMileage * 1_000 : rawMileage;
+  const yearMatch = query.match(/\b((?:19|20)\d{2})\b/);
+  const minYear = yearMatch && /(ustu|sonrasi|ve yeni|en az)/.test(query) ? Number(yearMatch[1]) : null;
+  const transmission = query.includes('otomatik') ? 'otomatik' : query.includes('manuel') ? 'manuel' : null;
+  const noAccident = /hasarsiz|hasar kaydi yok/.test(query);
+  const bodyTypes = ['sedan', 'suv', 'hatchback', 'station wagon', 'coupe', 'pickup', 'cabrio'];
+  const bodyType = bodyTypes.find((value) => query.includes(value)) ?? null;
+  const fuels = ['benzin', 'dizel', 'hibrit', 'elektrik', 'lpg'];
+  const fuel = fuels.find((value) => query.includes(value)) ?? null;
+  const brands = [...new Set(listings.map((listing) => listing.vehicleDetails?.brand).filter(Boolean) as string[])];
+  const brand = brands.find((value) => query.includes(normalizeMatchText(value))) ?? null;
+  const stopWords = new Set([
+    'alti', 'altinda', 'ustu', 'ustunde', 'arac', 'araba', 'ilan', 'istiyorum',
+    'ariyorum', 've', 'ile', 'bir', 'olan', 'olsun', 'km', 'model',
+  ]);
+  const terms = query
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length > 2 && !stopWords.has(term) && !/^\d+$/.test(term));
+
+  const candidates = listings
+    .filter((listing) => listing.id !== source?.id)
+    .filter((listing) => !currentUserId || listing.ownerId !== currentUserId)
+    .filter((listing) => {
+      const vehicle = listing.vehicleDetails;
+      if (maxKm !== null && (!vehicle?.km || vehicle.km > maxKm)) return false;
+      if (minYear !== null && (!vehicle?.year || vehicle.year < minYear)) return false;
+      if (transmission && normalizeMatchText(vehicle?.transmission ?? '') !== transmission) return false;
+      if (noAccident && vehicle?.hasAccidentRecord) return false;
+      if (bodyType && !normalizeMatchText(vehicle?.bodyType ?? '').includes(bodyType)) return false;
+      if (fuel && !normalizeMatchText(vehicle?.fuel ?? '').includes(fuel)) return false;
+      if (brand && normalizeMatchText(vehicle?.brand ?? '') !== normalizeMatchText(brand)) return false;
+      if (source && p.cashAmount && p.cashDirection && p.cashDirection !== 'any') {
+        const difference = listing.estimatedValue - source.estimatedValue;
+        const tolerance = p.cashAmount * 1.15;
+        if (p.cashDirection === 'pay' && (difference < 0 || difference > tolerance)) return false;
+        if (p.cashDirection === 'receive' && (difference > 0 || Math.abs(difference) > tolerance)) return false;
+      }
+      return true;
+    })
+    .map((listing) => {
+      const vehicle = listing.vehicleDetails;
+      const haystack = normalizeMatchText([
+        listing.title,
+        listing.description,
+        listing.wantedFor,
+        listing.city,
+        vehicle?.brand,
+        vehicle?.model,
+        vehicle?.fuel,
+        vehicle?.transmission,
+        vehicle?.bodyType,
+      ].filter(Boolean).join(' '));
+      const matchedTerms = terms.filter((term) => haystack.includes(term));
+      let score = 48 + Math.min(20, matchedTerms.length * 5);
+      const reasons: string[] = [];
+
+      if (source) {
+        const ratio = Math.abs(listing.estimatedValue - source.estimatedValue) / Math.max(source.estimatedValue, 1);
+        score += Math.max(0, 28 - Math.round(ratio * 35));
+        if (listing.category === source.category) score += 8;
+        if (listing.city === source.city) {
+          score += 6;
+          reasons.push('Aynı şehir');
+        }
+      }
+      if (brand) reasons.push(`${brand} eşleşmesi`);
+      if (maxKm !== null) reasons.push(`${maxKm.toLocaleString('tr-TR')} km altında`);
+      if (minYear !== null) reasons.push(`${minYear} ve üzeri`);
+      if (transmission) reasons.push('Otomatik vites');
+      if (noAccident) reasons.push('Hasar kaydı yok');
+      if (bodyType) reasons.push(`${bodyType.toUpperCase()} kasa`);
+      if (fuel) reasons.push(`${fuel} yakıt`);
+      if (reasons.length === 0 && matchedTerms.length > 0) reasons.push('Arama ifadenle uyumlu');
+      if (reasons.length === 0) reasons.push('Değer ve kategori uyumu');
+
+      const priceDiff = source ? listing.estimatedValue - source.estimatedValue : null;
+      return {
+        listing,
+        score: Math.max(45, Math.min(97, score)),
+        priceDiff,
+        reasons: reasons.slice(0, 4),
+      };
+    })
+    .sort((a, b) => b.score - a.score || Math.abs(a.priceDiff ?? 0) - Math.abs(b.priceDiff ?? 0))
+    .slice(0, 6);
+
+  return {
+    message: candidates.length > 0
+      ? `Kriterlerine uygun ${candidates.length} ilan buldum.`
+      : 'Bu kriterlerle uygun aktif ilan bulamadım. Kilometre veya fiyat farkı aralığını genişletmeyi deneyebilirsin.',
+    interpreted: { maxKm, minYear, transmission, noAccident, bodyType, fuel, brand },
+    source: source ? { id: source.id, title: source.title, value: source.estimatedValue } : null,
+    suggestions: candidates.map(({ listing, score, priceDiff, reasons }) => ({
+      listingId: listing.id,
+      title: listing.title,
+      city: listing.city,
+      value: listing.estimatedValue,
+      compatibilityScore: score,
+      priceDiff,
+      reasons,
+      cashNote: priceDiff === null
+        ? ''
+        : priceDiff === 0
+          ? 'Değerler birbirine çok yakın.'
+          : `${Math.abs(priceDiff).toLocaleString('tr-TR')} TL civarında fark oluşabilir.`,
+      negotiationTip: 'Tekliften önce bakım, hasar ve ekspertiz bilgilerini karşılıklı doğrulayın.',
+    })),
+  };
+}
+
 export async function aiHomeMatch(p: {
   query: string;
   sourceListingId?: string;
   cashDirection?: 'any' | 'pay' | 'receive';
   cashAmount?: number;
-}): Promise<HomeMatchResult> {
-  if (USE_MOCK) throw new Error('Backend gerekli')
-  return invokeAI<HomeMatchResult>('homeMatch', p as unknown as Record<string, unknown>)
+}, fallbackListings: Listing[] = [], currentUserId?: string | null): Promise<HomeMatchResult> {
+  if (USE_MOCK) return buildHomeMatchFallback(p, fallbackListings, currentUserId)
+  try {
+    return await invokeAI<HomeMatchResult>('homeMatch', p as unknown as Record<string, unknown>)
+  } catch (error) {
+    if (fallbackListings.length === 0) throw error
+    console.warn('[AI] homeMatch yerel eşleştirmeye geçti:', error)
+    return buildHomeMatchFallback(p, fallbackListings, currentUserId)
+  }
 }
 
 export interface NegotiationAnalysis { analysis: { tone: 'agresif' | 'pasif' | 'dengeli'; toneReason: string; length: { score: number; note: string }; positives: string[]; negatives: string[]; overallScore: number }; possibilities: { probability: number; type: 'kabul' | 'pazarlik' | 'red'; message: string; reason: string }[]; tips: string[] }
@@ -975,16 +1305,22 @@ export async function clearDevData(): Promise<{ deleted: { listings: number; off
 export interface AdminStats { users: number; listings: number; pendingListings: number; offers: number; reports: number; notifications: number; recentListings: Array<Listing & { owner?: { id: string; name: string; email: string } }> }
 export async function fetchAdminStats(): Promise<AdminStats> {
   if (USE_MOCK) return { users: 0, listings: 0, pendingListings: 0, offers: 0, reports: 0, notifications: 0, recentListings: [] }
-  const [{ count: users }, { count: listings }, { count: offers }] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('listings').select('*', { count: 'exact', head: true }),
-    supabase.from('offers').select('*', { count: 'exact', head: true }),
-  ])
+  const { data: stats, error } = await supabase.rpc('admin_get_stats')
+  if (error) throw new Error(error.message)
   const { data: recent } = await supabase.from('listings').select(LISTING_SELECT).order('created_at', { ascending: false }).limit(5)
-  return { users: users ?? 0, listings: listings ?? 0, pendingListings: 0, offers: offers ?? 0, reports: 0, notifications: 0, recentListings: (recent ?? []).map(dbToListing) }
+  return {
+    users: Number(stats?.users ?? 0),
+    listings: Number(stats?.listings ?? 0),
+    pendingListings: Number(stats?.pending_listings ?? 0),
+    offers: Number(stats?.offers ?? 0),
+    reports: 0,
+    notifications: Number(stats?.notifications ?? 0),
+    recentListings: (recent ?? []).map(dbToListing),
+  }
 }
 
 export async function fetchAdminListings(_status?: string): Promise<Array<Listing & { owner?: { id: string; name: string; email: string } }>> {
+  void _status
   if (USE_MOCK) return []
   const { data } = await supabase.from('listings').select(LISTING_SELECT).order('created_at', { ascending: false })
   return (data ?? []).map(dbToListing)
@@ -992,38 +1328,36 @@ export async function fetchAdminListings(_status?: string): Promise<Array<Listin
 
 export async function moderateListing(id: string, status: 'pending' | 'approved' | 'rejected', reason?: string) {
   if (USE_MOCK) return {}
-  await supabase.from('listings').update({ moderation_status: status, rejection_reason: reason ?? null }).eq('id', id)
+  const { error } = await supabase.rpc('admin_moderate_listing', {
+    p_listing_id: id,
+    p_status: status,
+    p_reason: reason ?? null,
+  })
+  if (error) throw new Error(error.message)
   return { success: true }
 }
 
 export interface AdminUser { id: string; name: string; email: string; role: string; emailVerified: boolean; phoneVerified: boolean; rating: number; totalSwaps: number; createdAt: string; _count: { listings: number; sentOffers: number } }
 export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
   if (USE_MOCK) return []
-  let q = supabase.from('profiles')
-    .select('id, name, email, role, email_verified, phone_verified, rating, total_swaps, created_at')
-    .order('created_at', { ascending: false }).limit(100)
-  if (search) q = q.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
-  const { data: profiles } = await q
-  // İlan ve teklif sayıları (gruplanmış)
-  const [{ data: listingRows }, { data: offerRows }] = await Promise.all([
-    supabase.from('listings').select('owner_id'),
-    supabase.from('offers').select('from_user_id'),
-  ])
-  const lc = new Map<string, number>(); for (const r of listingRows ?? []) lc.set(r.owner_id, (lc.get(r.owner_id) ?? 0) + 1)
-  const oc = new Map<string, number>(); for (const r of offerRows ?? []) oc.set(r.from_user_id, (oc.get(r.from_user_id) ?? 0) + 1)
+  const { data: profiles, error } = await supabase.rpc('admin_get_users', { p_search: search ?? null })
+  if (error) throw new Error(error.message)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (profiles ?? []).map((p: any) => ({
     id: p.id, name: p.name ?? '', email: p.email ?? '',
     role: (p.role ?? 'user').toUpperCase(),
     emailVerified: !!p.email_verified, phoneVerified: !!p.phone_verified,
     rating: p.rating ?? 0, totalSwaps: p.total_swaps ?? 0, createdAt: p.created_at,
-    _count: { listings: lc.get(p.id) ?? 0, sentOffers: oc.get(p.id) ?? 0 },
+    _count: { listings: Number(p.listing_count ?? 0), sentOffers: Number(p.offer_count ?? 0) },
   }))
 }
 
 export async function setUserRole(userId: string, role: 'USER' | 'ADMIN' | 'MODERATOR') {
   if (USE_MOCK) return {}
-  const { error } = await supabase.from('profiles').update({ role: role.toLowerCase() }).eq('id', userId)
+  const { error } = await supabase.rpc('admin_set_user_role', {
+    p_user_id: userId,
+    p_role: role.toLowerCase(),
+  })
   if (error) throw new Error(error.message)
   return { success: true }
 }
@@ -1031,7 +1365,7 @@ export async function setUserRole(userId: string, role: 'USER' | 'ADMIN' | 'MODE
 export async function banUser(userId: string) {
   if (USE_MOCK) return {}
   // Şemada ban kolonu yok — kullanıcının tüm ilanları pasif yapılır
-  const { error } = await supabase.from('listings').update({ is_active: false }).eq('owner_id', userId)
+  const { error } = await supabase.rpc('admin_ban_user', { p_user_id: userId })
   if (error) throw new Error(error.message)
   return { success: true }
 }

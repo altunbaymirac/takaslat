@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Listing } from '../types';
+
+const PAGE_LOADED_AT = Date.now();
 import { useAppStore } from '../store/useAppStore';
 
 function fmt(n: number) {
@@ -13,7 +15,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
   const isCompare = compareList.includes(listing.id);
   const boosted   = isBoosted(listing.id);
 
-  const ageMs = Date.now() - new Date(listing.createdAt).getTime();
+  const ageMs = PAGE_LOADED_AT - new Date(listing.createdAt).getTime();
   const isNew = ageMs < 2 * 86_400_000;
   const isHot = (listing.viewCount ?? 0) >= 5 && ageMs < 7 * 86_400_000;
 
@@ -60,7 +62,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
             <svg className="inline w-3 h-3 -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             </svg>
-            {listing.city} · {listing.condition}
+            {listing.city}
           </p>
         </div>
 

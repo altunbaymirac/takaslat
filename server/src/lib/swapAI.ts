@@ -737,7 +737,7 @@ export function runConversationalAI(params: {
 
     // Sıralama
     let sorted: AIListing[] = [...pool];
-    let intro = '';
+    let intro: string;
     if (intent.showcaseKind === 'popular') {
       // viewCount yok bu listede, ama estimated value ve son aktivite proxy olabilir
       sorted = sorted.sort((a, b) => b.estimatedValue - a.estimatedValue);

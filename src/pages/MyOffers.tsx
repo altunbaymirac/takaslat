@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import type { SwapOffer, OfferStatus } from '../types';
 import { useSEO } from '../hooks/useSEO';
+import { showToast } from '../components/Toast';
 
 const statusConfig: Record<OfferStatus, { label: string; color: string; bg: string }> = {
   'Beklemede': { label: 'Beklemede', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
@@ -13,7 +14,7 @@ const statusConfig: Record<OfferStatus, { label: string; color: string; bg: stri
 function OfferCard({ offer, isIncoming, onStatusChange }: {
   offer: SwapOffer;
   isIncoming: boolean;
-  onStatusChange?: (status: OfferStatus) => void;
+  onStatusChange?: (status: OfferStatus) => Promise<void>;
 }) {
   const formatPrice = (value?: number) =>
     value ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value) : '-';
@@ -74,12 +75,6 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
             Görüşmeye Başla
           </button>
           <button
-            onClick={() => onStatusChange('Tamamlandı')}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-          >
-            Kabul Et
-          </button>
-          <button
             onClick={() => onStatusChange('Reddedildi')}
             className="flex-1 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
           >
@@ -91,10 +86,10 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
       {isIncoming && offer.status === 'Görüşülüyor' && onStatusChange && (
         <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
           <button
-            onClick={() => onStatusChange('Tamamlandı')}
+            onClick={() => onStatusChange('Onaylandı')}
             className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
           >
-            Tamamlandı Olarak İşaretle
+            Şartları Kabul Et
           </button>
           <button
             onClick={() => onStatusChange('Reddedildi')}
@@ -112,6 +107,15 @@ export default function MyOffers() {
   useSEO({ title: 'Tekliflerim', description: 'Gönderdiğin ve aldığın takas tekliflerini takip et.' });
 
   const { offers, currentUserId, updateOfferStatus } = useAppStore();
+
+  const changeStatus = async (offerId: string, status: OfferStatus) => {
+    try {
+      await updateOfferStatus(offerId, status);
+      showToast(status === 'Onaylandı' ? 'Onayın alındı' : 'Teklif güncellendi', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Teklif güncellenemedi', 'error');
+    }
+  };
 
   if (!currentUserId) {
     return (
@@ -143,16 +147,16 @@ export default function MyOffers() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-center">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 sm:p-4 text-center">
           <div className="text-2xl font-bold text-amber-500">{stats.pending}</div>
           <div className="text-sm text-slate-500 dark:text-slate-400">Bekleyen</div>
         </div>
-        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 sm:p-4 text-center">
           <div className="text-2xl font-bold text-blue-600">{stats.negotiating}</div>
           <div className="text-sm text-slate-500 dark:text-slate-400">Görüşülüyor</div>
         </div>
-        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 text-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 sm:p-4 text-center">
           <div className="text-2xl font-bold text-emerald-600">{stats.completed}</div>
           <div className="text-sm text-slate-500 dark:text-slate-400">Tamamlanan</div>
         </div>
@@ -183,7 +187,7 @@ export default function MyOffers() {
                 key={offer.id}
                 offer={offer}
                 isIncoming={true}
-                onStatusChange={(status) => updateOfferStatus(offer.id, status)}
+                onStatusChange={(status) => changeStatus(offer.id, status)}
               />
             ))}
           </div>

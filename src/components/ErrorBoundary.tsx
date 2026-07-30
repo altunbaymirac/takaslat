@@ -31,7 +31,11 @@ export default class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
-          <div className="text-5xl">{isChunkError ? '📦' : '⚠️'}</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:bg-red-900/20">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.052 3.38c.866-1.5 3.03-1.5 3.896 0l7.355 12.746zM12 16.5h.008v.008H12V16.5z" />
+            </svg>
+          </div>
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
             {isChunkError ? 'Güncelleme gerekiyor' : 'Bir şeyler yanlış gitti'}
           </h2>

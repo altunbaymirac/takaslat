@@ -21,6 +21,10 @@ export default function EditListingModal({ listing, onClose }: Props) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (wantedFor.trim().length < 20) {
+      showToast('Takas beklentini en az 20 karakterle açıkla', 'error');
+      return;
+    }
 
     const patch: Partial<Listing> = {
       title,
@@ -140,8 +144,13 @@ export default function EditListingModal({ listing, onClose }: Props) {
               value={wantedFor}
               onChange={(e) => setWantedFor(e.target.value)}
               required
+              minLength={20}
+              maxLength={500}
               className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
+            <p className={`mt-1 text-xs ${wantedFor.trim().length < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {wantedFor.trim().length < 20 ? 'Ne istediğini ve nakit fark tercihini açıkla' : 'Beklenti yeterince açık'}
+            </p>
           </div>
 
           <div className="flex gap-3 pt-2">

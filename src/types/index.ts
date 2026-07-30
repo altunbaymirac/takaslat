@@ -87,6 +87,18 @@ export interface ListingAttachment {
   createdAt: string;
 }
 
+export type VerificationState = 'verified' | 'pending' | 'not_started';
+
+export interface ListingVerification {
+  identity?: VerificationState;
+  ownership?: VerificationState;
+  vin?: VerificationState;
+  mileage?: VerificationState;
+  damage?: VerificationState;
+  expertise?: VerificationState;
+  updatedAt?: string;
+}
+
 export interface Listing {
   id: string;
   listingCode?: string;   // TKS-XXXXXXX — benzersiz ilan kodu
@@ -113,6 +125,38 @@ export interface Listing {
   viewCount?: number;
   videoUrl?: string;            // YouTube veya doğrudan video URL'si
   attachments?: ListingAttachment[];
+  verification?: ListingVerification;
+}
+
+export type AuctionStatus = 'scheduled' | 'live' | 'ended';
+
+export interface AuctionBid {
+  id: string;
+  userId: string;
+  userName: string;
+  amount: number;
+  createdAt: string;
+  note?: string;
+}
+
+export interface LiveAuction {
+  id: string;
+  listingId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  startingPrice: number;
+  currentBid: number;
+  bidIncrement: number;
+  reservePrice?: number;
+  reserveMet?: boolean;
+  winnerId?: string;
+  winningBid?: number;
+  closedAt?: string;
+  status: AuctionStatus;
+  bids: AuctionBid[];
+  watcherCount: number;
+  createdAt: string;
 }
 
 // ─── Saved searches & ratings ─────────────────────────────────────────────────
@@ -203,6 +247,9 @@ export interface SwapOffer {
   updatedAt?: string;
   offeredValue?: number;
   messages?: OfferMessage[];
+  // Teklif şartlarının iki tarafça ayrı ayrı kabulü
+  fromAccepted?: boolean;
+  toAccepted?: boolean;
   // Çift onay
   fromConfirmed?: boolean;
   toConfirmed?: boolean;
@@ -221,6 +268,19 @@ export interface SwapOffer {
     images: string[];
     city: string;
   };
+}
+
+export type SwapProcessStep =
+  | 'identity'
+  | 'expertise'
+  | 'agreement'
+  | 'secure_payment'
+  | 'notary';
+
+export interface SwapProcess {
+  offerId: string;
+  completedSteps: SwapProcessStep[];
+  updatedAt: string;
 }
 
 export interface User {

@@ -7,6 +7,7 @@ const NAV = [
   { to: '/listings',      label: 'İlanlar'    },
   { to: '/favorites',     label: 'Favoriler'  },
   { to: '/conversations', label: 'Görüşmeler' },
+  { to: '/auctions',      label: 'Mezat'       },
   { to: '/trends',        label: 'Trendler'   },
   { to: '/create',        label: 'İlan ver'   },
 ];
@@ -73,7 +74,7 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1.5 flex-1">
+        <nav className="hidden md:flex items-center gap-0.5 flex-1">
           {NAV.map(({ to, label }) => {
             const isCreate = to === '/create';
             const isActive = pathname === to;
@@ -81,10 +82,12 @@ export default function Navbar() {
               <Link
                 key={to}
                 to={to}
-                className={`relative text-sm font-semibold px-4 py-1.5 rounded-full transition-colors ${
-                  isCreate || isActive
-                    ? 'bg-amber-400 hover:bg-amber-300 text-amber-900'
-                    : 'bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 dark:text-amber-300'
+                className={`relative rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                  isCreate
+                    ? 'ml-1 bg-blue-600 text-white hover:bg-blue-700'
+                    : isActive
+                      ? 'bg-slate-100 text-slate-950 dark:bg-slate-800 dark:text-white'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`}
               >
                 {label}
@@ -163,6 +166,7 @@ export default function Navbar() {
                   {/* Social */}
                   <DropItem to="/favorites" icon={<IconHeart />} label="Favoriler" badge={favorites.length || undefined} onClick={() => setMenuOpen(false)} />
                   <DropItem to="/conversations" icon={<IconMessages />} label="Görüşmeler" badge={pending || undefined} onClick={() => setMenuOpen(false)} />
+                  <DropItem to="/auctions" icon={<IconDashboard />} label="Canlı Mezat" onClick={() => setMenuOpen(false)} />
                   <DropItem to="/map" icon={<IconMap />} label="Harita" onClick={() => setMenuOpen(false)} />
 
                   <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
@@ -214,6 +218,7 @@ export default function Navbar() {
             to === '/listings'      ? <IconList /> :
             to === '/favorites'     ? <IconHeartSm /> :
             to === '/conversations' ? <IconMessagesSm /> :
+            to === '/auctions'      ? <IconChart /> :
             to === '/trends'        ? <IconChart /> :
             <IconPlus />;
           const badge =
@@ -221,27 +226,16 @@ export default function Navbar() {
             to === '/conversations' ? pending :
             0;
 
-          if (isCreate) {
-            return (
-              <Link
-                key={to}
-                to={to}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2"
-              >
-                <span className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center -mt-4 shadow-md shadow-amber-500/30 border-4 border-white dark:border-slate-900">
-                  {icon}
-                </span>
-                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{label}</span>
-              </Link>
-            );
-          }
-
           return (
             <Link
               key={to}
               to={to}
-              className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ${
-                active ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'
+              className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ${
+                isCreate
+                  ? 'text-blue-600'
+                  : active
+                    ? 'bg-slate-50 text-blue-600 dark:bg-slate-800'
+                    : 'text-slate-400 dark:text-slate-500'
               }`}
             >
               <span className="relative">

@@ -30,7 +30,7 @@ function buildLocalSummary(listing: Listing) {
     `${v.km.toLocaleString('tr-TR')} km`,
   ].filter(Boolean);
 
-  return `${parts.join(', ')} özelliklerinde bir araç. ${listing.condition} durum bilgisiyle, ${listing.city} çevresinde takas düşünen kullanıcılar için değerlendirilebilir.`;
+  return `${parts.join(', ')} özelliklerinde bir araç. ${listing.city} çevresinde takas düşünen kullanıcılar için değerlendirilebilir.`;
 }
 
 function buildHighlights(listing: Listing) {
@@ -93,7 +93,7 @@ export default function ListingAIInsights({ listing }: { listing: Listing }) {
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
-            <span>✦</span> AI İlan Analizi
+            AI İlan Analizi
           </h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Aracın genel karakteri, öne çıkan özellikleri ve takas uyumu.

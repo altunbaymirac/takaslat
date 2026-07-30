@@ -73,7 +73,7 @@ export default function AdvancedFilters() {
       </button>
 
       {open && (
-        <div className="absolute left-0 mt-2 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-30 p-4 max-h-[70vh] overflow-y-auto">
+        <div className="absolute left-0 mt-2 w-[calc(100vw-1rem)] max-w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-30 p-4 max-h-[70dvh] overflow-y-auto">
           {/* Markalar */}
           <div className="mb-4">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">

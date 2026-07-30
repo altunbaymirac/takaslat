@@ -59,7 +59,7 @@ function SuggestionCard({ s, fallbackListing }: {
             ))}
           </div>
           {s.negotiationTip && (
-            <p className="text-[11px] text-slate-400 italic leading-relaxed">💡 {s.negotiationTip}</p>
+            <p className="text-[11px] text-slate-400 italic leading-relaxed">{s.negotiationTip}</p>
           )}
           <Link to={`/listing/${s.listingId}`} className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:text-blue-700 mt-1.5">
             İlana Git <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
@@ -81,7 +81,7 @@ function renderLine(line: string, lineKey: number) {
   while (remaining.length > 0) {
     const boldStart = remaining.indexOf('**');
     if (boldStart === -1) {
-      parts.push(<span key={keyIdx++}>{remaining}</span>);
+      parts.push(<span key={keyIdx}>{remaining}</span>);
       break;
     }
     // text before **
@@ -91,7 +91,7 @@ function renderLine(line: string, lineKey: number) {
     const boldEnd = remaining.indexOf('**', boldStart + 2);
     if (boldEnd === -1) {
       // unclosed **, render literally
-      parts.push(<span key={keyIdx++}>{remaining.slice(boldStart)}</span>);
+      parts.push(<span key={keyIdx}>{remaining.slice(boldStart)}</span>);
       break;
     }
     parts.push(
@@ -116,48 +116,12 @@ function MessageText({ content }: { content: string }) {
 // ─── Dynamic quick actions ───────────────────────────────────────────────────
 
 function buildListingQuickActions(listing: ReturnType<typeof useAppStore.getState>['listings'][0]): string[] {
-  const v = listing.vehicleDetails;
-  const actions: string[] = [];
-
-  // 1. Her zaman: bu ilan için en iyi eşleşmeler
-  actions.push(`${v?.brand ?? listing.title} için en uygun takasları bul`);
-
-  // 2. Yakıt tipine göre alternatif öneri
-  if (v?.fuel === 'Dizel') {
-    actions.push('Hibrit veya benzinli alternatifler var mı?');
-  } else if (v?.fuel === 'Benzin') {
-    actions.push('Dizel veya hibrit alternatifler göster');
-  } else if (v?.fuel === 'Hibrit' || v?.fuel === 'Elektrik') {
-    actions.push('Benzer hibrit/elektrik ilanlar var mı?');
-  } else {
-    actions.push('Farklı yakıt tipinde alternatifler?');
-  }
-
-  // 3. Km durumuna göre
-  if (v?.km !== undefined) {
-    if (v.km > 150_000) {
-      actions.push('Daha düşük kilometreli seçenekler?');
-    } else if (v.km < 50_000) {
-      actions.push('Aynı km aralığında başka ne var?');
-    } else {
-      actions.push('Daha az km\'li araçları göster');
-    }
-  } else {
-    actions.push('Daha az km\'li araçları göster');
-  }
-
-  // 4. Hasar kaydı / fiyat / wantedFor'a göre
-  if (v?.hasAccidentRecord) {
-    actions.push('Hasarsız ve yakın fiyatlı alternatifler?');
-  } else if (listing.wantedFor && listing.wantedFor.length > 5) {
-    // wantedFor'dan ilk kelime grubunu al (max 4 kelime)
-    const want = listing.wantedFor.split(/[\s,،]+/).slice(0, 3).join(' ');
-    actions.push(`"${want}" isteğine uygun ilanlar?`);
-  } else {
-    actions.push('Pazarlık için müzakere taktikleri?');
-  }
-
-  return actions.slice(0, 4);
+  return [
+    'Bu ilana en yakın değerli takasları bul',
+    'Nakit farkı en düşük seçenekleri sırala',
+    `${listing.city} ve yakın şehirlerde eşleşme ara`,
+    'Karşı tarafa göndereceğim kısa teklif mesajını yaz',
+  ];
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -185,19 +149,21 @@ export default function AIAssistant() {
     const msg: AIMessage = {
       role: 'assistant',
       content: currentListing
-        ? `**${currentListing.title}** ilanındasın. Ne öğrenmek istiyorsun?\n\nTakas seçeneklerini bulabilirim, fiyat değerlendirmesi yapabilirim ya da pazarlık için ne söylemen gerektiğini anlatabilirim.`
-        : `Merhaba! Ben TakaslAI. Takas bulmana, fiyat karşılaştırmasına ya da pazarlık tüyolarına yardımcı olabilirim.\n\nMesela şunu yazabilirsin:\n- "Toyota Corolla arıyorum"\n- "Daha ucuz var mı?"\n- "BMW alınır mı?"\n- "Nasıl pazarlık yapayım?"`,
+        ? `**${currentListing.title}** için hazırım.\n\nDirekt eşleşme çıkarabilir, nakit farkı yorumlayabilir veya karşı tarafa gönderilecek kısa teklif metni hazırlayabilirim.`
+        : `**TakaslAI hazır.**\n\nNet sonuç için aracını ve aradığın aracı birlikte yaz. Genel marka yorumları yerine takas kararına yarayan kısa analiz çıkarırım.`,
     };
     addAIMessage(msg);
-  }, [aiPanelOpen]);
+  }, [addAIMessage, aiMessages.length, aiPanelOpen, currentListing]);
 
+  const topCities = [...new Set(listings.map((listing) => listing.city).filter(Boolean))].slice(0, 2);
+  const topVehicle = listings.find((listing) => listing.vehicleDetails)?.vehicleDetails;
   const quickActions = currentListing
     ? buildListingQuickActions(currentListing)
     : [
-        'Nasıl pazarlık yapayım?',
-        'Hasarsız ilanları göster',
-        'Hangi markalar güvenilir?',
-        'Takas nasıl çalışır?',
+        topVehicle ? `${topVehicle.brand} ${topVehicle.model} için takas adaylarını bul` : 'Aracımı yazacağım, uygun takasları çıkar',
+        topCities[0] ? `${topCities[0]} içindeki düşük nakit fark seçeneklerini göster` : 'Şehir ve bütçeye göre ilan filtrele',
+        '900 bine kadar otomatik araçları kıyasla',
+        'Teklif mesajımı daha ciddi ve kısa hale getir',
       ];
 
   const sendMessage = async (overrideText?: string) => {
@@ -248,7 +214,7 @@ export default function AIAssistant() {
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden modal-overlay" onClick={closeAIPanel} />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200 panel-slide-right">
+      <div className="fixed right-0 top-0 h-[100dvh] w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200 panel-slide-right">
 
         {/* ── Header ── */}
         <div className="bg-gradient-to-r from-[#1B4FD8] to-[#2563eb] px-4 py-3.5 flex items-center justify-between flex-shrink-0">
