@@ -6,7 +6,6 @@ import FilterBar from '../components/FilterBar';
 import { useSEO } from '../hooks/useSEO';
 import { VEHICLE_GROUPS } from '../data/vehicleTypes';
 import { aiErrorMessage, aiHomeMatch } from '../services/api';
-import type { Listing } from '../types';
 
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'popular';
 
@@ -22,12 +21,6 @@ const PAGE_SIZE = 12;
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 const formatPrice = (value: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value);
-const isPublishableListing = (listing: Listing) =>
-  listing.estimatedValue > 0 &&
-  listing.title.trim().length >= 5 &&
-  listing.description.trim().length >= 30 &&
-  listing.wantedFor.trim().length >= 20 &&
-  listing.images.length > 0;
 
 export default function Listings() {
   useSEO({
@@ -70,18 +63,13 @@ export default function Listings() {
   const recentlyViewedListings = useMemo(
     () => recentlyViewed
       .map(id => listings.find(l => l.id === id))
-      .filter((l): l is NonNullable<typeof l> => Boolean(l))
-      .filter(isPublishableListing),
+      .filter((l): l is NonNullable<typeof l> => Boolean(l)),
     [recentlyViewed, listings]
   );
 
   const myListings = useMemo(
     () => listings.filter(l => l.ownerId === currentUserId),
     [listings, currentUserId]
-  );
-  const publishableCount = useMemo(
-    () => listings.filter(isPublishableListing).length,
-    [listings]
   );
 
   async function runHomeAI() {
@@ -108,7 +96,6 @@ export default function Listings() {
 
   const filtered = useMemo(() => {
     const result = listings.filter(l => {
-      if (!isPublishableListing(l)) return false;
       if (filters.category !== 'Tümü' && l.category !== filters.category) return false;
       if (filters.city && l.city !== filters.city) return false;
       if (l.estimatedValue < filters.minValue || l.estimatedValue > filters.maxValue) return false;
@@ -370,10 +357,10 @@ export default function Listings() {
                 </svg>
               </div>
               <p className="text-slate-600 dark:text-slate-300 font-semibold mb-1">
-                {publishableCount === 0 ? 'Henüz yayınlanmış ilan yok' : 'Sonuç bulunamadı'}
+                {listings.length === 0 ? 'Henüz yayınlanmış ilan yok' : 'Sonuç bulunamadı'}
               </p>
               <p className="text-slate-400 dark:text-slate-500 text-sm">
-                {publishableCount === 0 ? 'İlk kaliteli ilanı sen yayınlayabilirsin' : 'Farklı filtreler deneyin'}
+                {listings.length === 0 ? 'İlk ilanı sen yayınlayabilirsin' : 'Farklı filtreler deneyin'}
               </p>
             </div>
           ) : (
