@@ -15,6 +15,15 @@ type AdminListing = Listing & {
 
 const fmt = (n: number) => new Intl.NumberFormat('tr-TR').format(n);
 
+function adminErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Admin verisi alınamadı';
+  if (/admin_(get_stats|get_users|moderate_listing|set_user_role|ban_user).*schema cache|could not find the function/i.test(message)) {
+    return 'Admin veritabanı kurulumu eksik. Supabase admin migration dosyası uygulanmalı.';
+  }
+  if (/admin access required/i.test(message)) return 'Bu işlem için admin yetkisi doğrulanamadı.';
+  return message;
+}
+
 export default function Admin() {
   useSEO({ title: 'Admin Paneli' });
 
@@ -27,23 +36,41 @@ export default function Admin() {
   const [status, setStatus] = useState<string>('');
   const [userSearch, setUserSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  const isAdmin = ['admin', 'ADMIN', 'moderator'].includes(currentUser?.role ?? '');
+  const isAdmin = ['admin', 'moderator'].includes(currentUser?.role?.toLowerCase() ?? '');
 
   async function load() {
     setLoading(true);
+    setLoadError('');
     try {
       if (tab === 'listings') {
-        const [s, l] = await Promise.all([fetchAdminStats(), fetchAdminListings(status || undefined)]);
-        setStats(s);
-        setListings(l as AdminListing[]);
+        const [statsResult, listingsResult] = await Promise.allSettled([
+          fetchAdminStats(),
+          fetchAdminListings(status || undefined),
+        ]);
+        if (statsResult.status === 'fulfilled') setStats(statsResult.value);
+        if (listingsResult.status === 'fulfilled') setListings(listingsResult.value as AdminListing[]);
+        const failure = statsResult.status === 'rejected' ? statsResult.reason
+          : listingsResult.status === 'rejected' ? listingsResult.reason
+          : null;
+        if (failure) throw failure;
       } else {
-        const [s, u] = await Promise.all([fetchAdminStats(), fetchAdminUsers(userSearch || undefined)]);
-        setStats(s);
-        setUsers(u);
+        const [statsResult, usersResult] = await Promise.allSettled([
+          fetchAdminStats(),
+          fetchAdminUsers(userSearch || undefined),
+        ]);
+        if (statsResult.status === 'fulfilled') setStats(statsResult.value);
+        if (usersResult.status === 'fulfilled') setUsers(usersResult.value);
+        const failure = statsResult.status === 'rejected' ? statsResult.reason
+          : usersResult.status === 'rejected' ? usersResult.reason
+          : null;
+        if (failure) throw failure;
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Admin verisi alınamadı', 'error');
+      const message = adminErrorMessage(err);
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -137,7 +164,6 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Tab navigasyonu */}
       <div className="mb-4 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900 w-fit">
         {(['listings', 'users'] as const).map((t) => (
           <button
@@ -149,12 +175,21 @@ export default function Admin() {
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            {t === 'listings' ? '📋 İlanlar' : '👥 Kullanıcılar'}
+            {t === 'listings' ? 'İlanlar' : 'Kullanıcılar'}
           </button>
         ))}
       </div>
 
-      {/* ── İlan Moderasyonu ── */}
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <p className="font-semibold">Panel verileri yüklenemedi</p>
+          <p className="mt-1 break-words">{loadError}</p>
+          <button onClick={() => void load()} className="mt-2 font-semibold text-blue-700 hover:text-blue-800">
+            Yeniden dene
+          </button>
+        </div>
+      )}
+
       {tab === 'listings' && (
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
@@ -179,7 +214,7 @@ export default function Admin() {
                 const health = getListingHealth(listing);
                 const tone = toneForScore(health.score);
                 const toneClass: Record<string, string> = {
-                  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                  emerald: 'bg-blue-50 text-blue-700 border-blue-200',
                   blue:    'bg-blue-50 text-blue-700 border-blue-200',
                   amber:   'bg-amber-50 text-amber-700 border-amber-200',
                   red:     'bg-red-50 text-red-700 border-red-200',
@@ -209,8 +244,8 @@ export default function Admin() {
                       {listing.rejectionReason && <p className="mt-1 text-xs text-red-600">{listing.rejectionReason}</p>}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => setModeration(listing.id, 'pending')} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50">İncele</button>
-                      <button onClick={() => setModeration(listing.id, 'approved')} className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Onayla</button>
+                      <button onClick={() => setModeration(listing.id, 'pending')} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">İncele</button>
+                      <button onClick={() => setModeration(listing.id, 'approved')} className="rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50">Onayla</button>
                       <button onClick={() => setModeration(listing.id, 'rejected')} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Reddet</button>
                     </div>
                   </div>
@@ -224,7 +259,6 @@ export default function Admin() {
         </section>
       )}
 
-      {/* ── Kullanıcı Yönetimi ── */}
       {tab === 'users' && (
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
@@ -247,19 +281,19 @@ export default function Admin() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-slate-900 dark:text-slate-100">{user.name}</span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        user.role === 'ADMIN' ? 'bg-violet-100 text-violet-700' :
+                        user.role === 'ADMIN' ? 'bg-blue-100 text-blue-700' :
                         user.role === 'MODERATOR' ? 'bg-blue-100 text-blue-700' :
                         'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                       }`}>
                         {user.role}
                       </span>
                       {user.emailVerified
-                        ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">✓ E-posta</span>
+                        ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">E-posta doğrulandı</span>
                         : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">E-posta doğrulanmadı</span>
                       }
                     </div>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {user.email} · {user._count.listings} ilan · {user._count.sentOffers} teklif · ⭐ {user.rating.toFixed(1)}
+                      {user.email} · {user._count.listings} ilan · {user._count.sentOffers} teklif · Puan {user.rating.toFixed(1)}
                     </p>
                     <p className="text-xs text-slate-400 dark:text-slate-500">
                       Katılım: {new Date(user.createdAt).toLocaleDateString('tr-TR')}

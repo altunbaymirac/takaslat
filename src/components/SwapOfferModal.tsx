@@ -31,6 +31,14 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (sending) return;
+    if (!currentUserId) {
+      showToast('Teklif göndermek için giriş yapmalısınız', 'error');
+      return;
+    }
+    if (!message.trim()) {
+      showToast('Teklif mesajı boş bırakılamaz', 'error');
+      return;
+    }
     setSending(true);
     try {
       await sendOffer({
@@ -41,7 +49,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
         listingTitle: listing.title,
         offeredListingId: selected?.id,
         offeredListingTitle: selected?.title,
-        message,
+        message: message.trim(),
         status: 'Beklemede',
         offeredValue: Number(offeredValue) || selected?.estimatedValue,
       });
@@ -133,8 +141,8 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
 
         {sent ? (
           <div className="p-8 text-center">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-blue-700 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -187,24 +195,24 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
             {priceDiff !== null && (
               <div className={`rounded-xl px-4 py-3 flex items-center justify-between gap-2 border ${
                 priceDiff > 0
-                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900/40'
                   : priceDiff < 0
                   ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/40'
                   : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
               }`}>
                 <span className={`text-sm font-medium ${
-                  priceDiff > 0 ? 'text-emerald-700 dark:text-emerald-400'
+                  priceDiff > 0 ? 'text-blue-700 dark:text-blue-400'
                   : priceDiff < 0 ? 'text-red-600 dark:text-red-400'
                   : 'text-slate-600 dark:text-slate-400'
                 }`}>
-                  {priceDiff > 0 ? '✅ Fazla teklif' : priceDiff < 0 ? '⚠️ Eksik teklif' : '⚖️ Değer eşit'}
+                  {priceDiff > 0 ? 'Hedef değerin üzerinde' : priceDiff < 0 ? 'Hedef değerin altında' : 'Değerler eşit'}
                 </span>
                 <span className={`text-base font-bold ${
-                  priceDiff > 0 ? 'text-emerald-700 dark:text-emerald-400'
+                  priceDiff > 0 ? 'text-blue-700 dark:text-blue-400'
                   : priceDiff < 0 ? 'text-red-600 dark:text-red-400'
                   : 'text-slate-500 dark:text-slate-400'
                 }`}>
-                  {priceDiff === 0 ? '—' : `${priceDiff > 0 ? '+' : ''}${formatPrice(priceDiff)}`}
+                  {priceDiff === 0 ? 'Eşit' : `${priceDiff > 0 ? '+' : ''}${formatPrice(priceDiff)}`}
                 </span>
               </div>
             )}
@@ -227,7 +235,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
                     type="button"
                     onClick={analyzeQuality}
                     disabled={qualityLoading}
-                    className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+                    className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:border-blue-500 hover:text-blue-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                   >
                     {qualityLoading ? 'Bakıyor...' : 'Kalite ölç'}
                   </button>

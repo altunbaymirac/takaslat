@@ -35,22 +35,16 @@ export default function Toast() {
   if (!toast) return null;
 
   const color =
-    toast.type === 'success' ? 'bg-emerald-600 text-white' :
+    toast.type === 'success' ? 'bg-blue-700 text-white' :
     toast.type === 'error'   ? 'bg-red-600 text-white'     :
     'bg-slate-800 text-white';
 
-  const icon =
-    toast.type === 'success' ? '✓' :
-    toast.type === 'error'   ? '✕' :
-    'ℹ';
-
   return (
     <div
-      className={`fixed bottom-4 sm:bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-md sm:w-auto -translate-x-1/2 ${color} px-5 py-3 rounded-2xl shadow-2xl z-[100] flex items-center justify-center gap-2.5 transition-all duration-200 ease-out ${
+      className={`fixed bottom-4 sm:bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-md sm:w-auto -translate-x-1/2 ${color} px-5 py-3 rounded-lg shadow-xl z-[100] flex items-center justify-center transition-all duration-200 ease-out ${
         leaving ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0 toast-enter'
       }`}
     >
-      <span className="text-lg leading-none">{icon}</span>
       <span className="text-center text-sm font-medium break-words">{toast.message}</span>
     </div>
   );

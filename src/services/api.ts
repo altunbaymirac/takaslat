@@ -166,6 +166,28 @@ function dbToAuction(row: any): LiveAuction {
   }
 }
 
+type AdminListing = Listing & {
+  moderationStatus?: string
+  rejectionReason?: string | null
+  owner?: { id: string; name: string; email: string }
+}
+
+// Admin ekranı genel ilan modeline ek olarak moderasyon ve sahip bilgilerini kullanır.
+// Bu alanları normal ilan mapper'ından ayrı tutmak public ekranlara yönetim verisi sızmasını önler.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToAdminListing(row: any): AdminListing {
+  return {
+    ...dbToListing(row),
+    moderationStatus: row.moderation_status ?? 'approved',
+    rejectionReason: row.rejection_reason ?? null,
+    owner: row.owner ? {
+      id: row.owner_id,
+      name: row.owner.name ?? '',
+      email: row.owner.email ?? '',
+    } : undefined,
+  }
+}
+
 const LISTING_SELECT = `*, owner:profiles!owner_id(name, avatar, rating, total_swaps, email_verified, phone_verified)`
 const OFFER_SELECT   = `*, messages(*), listing:listings!listing_id(id, title, estimated_value, images, city), from_profile:profiles!from_user_id(name), to_profile:profiles!to_user_id(name)`
 const AUCTION_SELECT = `*, bids:auction_bids(*, bidder:profiles!user_id(name))`
@@ -226,6 +248,9 @@ export async function login(email: string, password: string, _twoFactorCode?: st
       avatar: profile?.avatar,
       rating: profile?.rating,
       totalSwaps: profile?.total_swaps,
+      role: profile?.role,
+      emailVerified: profile?.email_verified,
+      phoneVerified: profile?.phone_verified,
     },
     token,
   }
@@ -756,12 +781,23 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
     mockOffers.unshift(o)
     return o
   }
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('Teklif göndermek için giriş yapmalısınız')
+
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuidPattern.test(data.listingId) || !uuidPattern.test(data.toUserId)) {
+    throw new Error('İlan veya kullanıcı bilgisi geçersiz. Sayfayı yenileyip tekrar deneyin')
+  }
+  if (data.offeredListingId && !uuidPattern.test(data.offeredListingId)) {
+    throw new Error('Teklif edilen ilan bilgisi geçersiz')
+  }
+
   const { data: inserted, error } = await supabase
     .from('offers')
     .insert({
       message:               data.message,
       listing_id:            data.listingId,
-      from_user_id:          data.fromUserId,
+      from_user_id:          user.id,
       to_user_id:            data.toUserId,
       offered_value:         data.offeredValue ?? null,
       offered_listing_id:    data.offeredListingId ?? null,
@@ -1321,11 +1357,16 @@ export async function fetchAdminStats(): Promise<AdminStats> {
   }
 }
 
-export async function fetchAdminListings(_status?: string): Promise<Array<Listing & { owner?: { id: string; name: string; email: string } }>> {
-  void _status
+export async function fetchAdminListings(status?: string): Promise<Array<Listing & { owner?: { id: string; name: string; email: string } }>> {
   if (USE_MOCK) return []
-  const { data } = await supabase.from('listings').select(LISTING_SELECT).order('created_at', { ascending: false })
-  return (data ?? []).map(dbToListing)
+  let query = supabase
+    .from('listings')
+    .select('*, owner:profiles!owner_id(id, name, email, avatar, rating, total_swaps, email_verified, phone_verified)')
+    .order('created_at', { ascending: false })
+  if (status) query = query.eq('moderation_status', status)
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToAdminListing)
 }
 
 export async function moderateListing(id: string, status: 'pending' | 'approved' | 'rejected', reason?: string) {

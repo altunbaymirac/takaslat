@@ -172,7 +172,7 @@ export default function Navbar() {
                   <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
 
                   {/* Admin */}
-                  {['admin', 'ADMIN', 'moderator'].includes(currentUser.role ?? '') && (
+                  {['admin', 'moderator'].includes(currentUser.role?.toLowerCase() ?? '') && (
                     <DropItem to="/admin" icon={<IconShield />} label="Admin paneli" onClick={() => setMenuOpen(false)} />
                   )}
 

@@ -20,11 +20,11 @@ export default function ListingCard({ listing }: { listing: Listing }) {
   const isHot = (listing.viewCount ?? 0) >= 5 && ageMs < 7 * 86_400_000;
 
   const badge = boosted
-    ? { text: 'Öne Çıkan', color: 'bg-amber-500' }
+    ? { text: 'Öne Çıkan', color: 'bg-blue-700' }
     : isHot
-    ? { text: 'Popüler', color: 'bg-orange-500' }
+    ? { text: 'Popüler', color: 'bg-blue-600' }
     : isNew
-    ? { text: 'Yeni', color: 'bg-emerald-600' }
+    ? { text: 'Yeni', color: 'bg-slate-700' }
     : null;
 
   return (
@@ -67,7 +67,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
         </div>
 
         <div className="flex items-end justify-between mt-1.5">
-          <p className="text-sm sm:text-base font-extrabold text-amber-600 dark:text-amber-400 tracking-tight">
+          <p className="text-sm sm:text-base font-extrabold text-blue-700 dark:text-blue-400 tracking-tight">
             {fmt(listing.estimatedValue)}
           </p>
           <p className="hidden sm:block max-w-[40%] text-[10px] text-slate-400 dark:text-slate-500 truncate text-right">
@@ -94,7 +94,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
           aria-label={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştırmaya ekle'}
           title={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştır'}
           className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-            isCompare ? 'text-amber-600' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500'
+            isCompare ? 'text-blue-700 dark:text-blue-400' : 'text-slate-300 dark:text-slate-600 hover:text-blue-600'
           }`}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

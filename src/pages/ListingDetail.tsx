@@ -123,7 +123,7 @@ function SwapExpectationPanel({
             </button>
             <button
               onClick={onMatch}
-              className="w-full rounded-lg border border-amber-200 bg-amber-50 py-2.5 text-sm font-bold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
+              className="w-full rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition-colors hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               AI ile uygun ilanımı bul
             </button>
@@ -134,125 +134,6 @@ function SwapExpectationPanel({
   );
 }
 
-type PartStatus = 'original' | 'painted' | 'changed' | 'unknown';
-
-const BODY_PARTS: { key: string; label: string; aliases: string[] }[] = [
-  { key: 'frontBumper', label: 'Ön tampon', aliases: ['on tampon', 'ön tampon'] },
-  { key: 'hood', label: 'Kaput', aliases: ['kaput', 'on kaput', 'ön kaput'] },
-  { key: 'roof', label: 'Tavan', aliases: ['tavan'] },
-  { key: 'trunk', label: 'Bagaj', aliases: ['bagaj', 'arka kaput'] },
-  { key: 'rearBumper', label: 'Arka tampon', aliases: ['arka tampon'] },
-  { key: 'leftFrontFender', label: 'Sol ön çamurluk', aliases: ['sol on camurluk', 'sol ön çamurluk'] },
-  { key: 'leftFrontDoor', label: 'Sol ön kapı', aliases: ['sol on kapi', 'sol ön kapı'] },
-  { key: 'leftRearDoor', label: 'Sol arka kapı', aliases: ['sol arka kapi', 'sol arka kapı'] },
-  { key: 'leftRearFender', label: 'Sol arka çamurluk', aliases: ['sol arka camurluk', 'sol arka çamurluk'] },
-  { key: 'rightFrontFender', label: 'Sağ ön çamurluk', aliases: ['sag on camurluk', 'sağ ön çamurluk'] },
-  { key: 'rightFrontDoor', label: 'Sağ ön kapı', aliases: ['sag on kapi', 'sağ ön kapı'] },
-  { key: 'rightRearDoor', label: 'Sağ arka kapı', aliases: ['sag arka kapi', 'sağ arka kapı'] },
-  { key: 'rightRearFender', label: 'Sağ arka çamurluk', aliases: ['sag arka camurluk', 'sağ arka çamurluk'] },
-];
-
-function normalizeDamageText(text: string) {
-  return text
-    .toLocaleLowerCase('tr-TR')
-    .replaceAll('ı', 'i')
-    .replaceAll('ğ', 'g')
-    .replaceAll('ü', 'u')
-    .replaceAll('ş', 's')
-    .replaceAll('ö', 'o')
-    .replaceAll('ç', 'c');
-}
-
-function getPartStatuses(vehicle: NonNullable<Listing['vehicleDetails']>) {
-  const note = normalizeDamageText(vehicle.expertiseNote ?? '');
-  const statuses = new Map<string, PartStatus>();
-  for (const part of BODY_PARTS) {
-    const mentioned = part.aliases.some((alias) => note.includes(normalizeDamageText(alias)));
-    if (!mentioned) {
-      statuses.set(part.key, vehicle.hasAccidentRecord ? 'unknown' : 'original');
-      continue;
-    }
-    const windows = part.aliases
-      .map((alias) => {
-        const normalizedAlias = normalizeDamageText(alias);
-        const idx = note.indexOf(normalizedAlias);
-        return idx >= 0 ? note.slice(Math.max(0, idx - 28), idx + normalizedAlias.length + 34) : '';
-      })
-      .join(' ');
-    if (/(degisen|degismis|degisti|değişen|değişmiş)/i.test(windows)) statuses.set(part.key, 'changed');
-    else if (/(boya|boyali|boyalı|lokal)/i.test(windows)) statuses.set(part.key, 'painted');
-    else statuses.set(part.key, 'unknown');
-  }
-  return statuses;
-}
-
-function VehicleDamageSchema({ vehicle }: { vehicle: NonNullable<Listing['vehicleDetails']> }) {
-  const statuses = getPartStatuses(vehicle);
-  const tone: Record<PartStatus, string> = {
-    original: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    painted: 'border-amber-200 bg-amber-50 text-amber-700',
-    changed: 'border-red-200 bg-red-50 text-red-700',
-    unknown: 'border-slate-200 bg-slate-50 text-slate-500',
-  };
-  const text: Record<PartStatus, string> = {
-    original: 'Orijinal',
-    painted: 'Boyalı',
-    changed: 'Değişen',
-    unknown: 'Belirsiz',
-  };
-  const rows = [
-    ['frontBumper'],
-    ['hood'],
-    ['roof'],
-    ['trunk'],
-    ['rearBumper'],
-    ['leftFrontFender', 'rightFrontFender'],
-    ['leftFrontDoor', 'rightFrontDoor'],
-    ['leftRearDoor', 'rightRearDoor'],
-    ['leftRearFender', 'rightRearFender'],
-  ];
-
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Boya / Değişen Şeması</h2>
-          <p className="mt-1 text-xs text-slate-400">Ekspertiz notundan ve hasar kaydı bilgisinden okunur.</p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700">Orijinal</span>
-          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Boyalı</span>
-          <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-red-700">Değişen</span>
-        </div>
-      </div>
-      <div className="mx-auto max-w-sm rounded-[2rem] border-2 border-slate-200 bg-slate-100 p-3 dark:border-slate-700 dark:bg-slate-900">
-        <div className="space-y-1.5">
-          {rows.map((row, idx) => (
-            <div key={idx} className={`grid gap-1.5 ${row.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {row.map((key) => {
-                const part = BODY_PARTS.find((p) => p.key === key)!;
-                const status = statuses.get(key) ?? 'unknown';
-                return (
-                  <div key={key} className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold ${tone[status]}`}>
-                    <span className="block truncate">{part.label}</span>
-                    <span className="text-[10px] font-medium opacity-80">{text[status]}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-      {vehicle.expertiseNote && (
-        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-          Ekspertiz notu: {vehicle.expertiseNote}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─── Sayfa ────────────────────────────────────────────────────────────────────
 
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -700,8 +581,6 @@ export default function ListingDetail() {
 
           <SwapChainPanel listing={listing} listings={listings} />
 
-          {v && <VehicleDamageSchema vehicle={v} />}
-
           {/* Detaylı Araç Özellikleri */}
           {v && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
@@ -802,15 +681,15 @@ export default function ListingDetail() {
           )}
 
           {/* ── Kaporta Durumu ────────────────────────────────────────────── */}
-          {v && (v.paintedParts?.length || v.changedParts?.length) ? (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+          {v ? (
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 border border-slate-200 dark:border-slate-700">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1 flex items-center gap-2">
                 <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                 </svg>
                 Kaporta Durumu
               </h2>
-              <p className="text-xs text-slate-400 mb-4">
+              <p className="text-xs text-slate-500 mb-4">
                 <span className="inline-flex items-center gap-1 mr-3">
                   <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-500" /> Boyalı
                 </span>

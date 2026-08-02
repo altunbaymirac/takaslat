@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import ListingCard from '../components/ListingCard';
 import { useSEO } from '../hooks/useSEO';
+import type { Listing } from '../types';
 
 const CITIES: Record<string, [number, number]> = {
   'Adana':           [37.00, 35.32],
@@ -93,154 +94,145 @@ const CITIES: Record<string, [number, number]> = {
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
 
+type MapCategory = 'Tümü' | 'Araç' | 'Ev' | 'Arsa';
+
+function isLandListing(listing: Listing) {
+  if (listing.propertyDetails?.type) return listing.propertyDetails.type === 'Arsa';
+  const text = `${listing.title} ${listing.description} ${listing.wantedFor}`.toLocaleLowerCase('tr-TR');
+  return !listing.vehicleDetails && ['arsa', 'tarla', 'parsel', 'imar', 'bahçe'].some((term) => text.includes(term));
+}
+
 export default function MapView() {
-  useSEO({ title: 'Harita Görünümü', description: 'Türkiye genelindeki araç takas ilanlarını harita üzerinde keşfet.' });
+  useSEO({ title: 'Harita Görünümü', description: 'Türkiye genelindeki takas ilanlarını harita üzerinde filtreleyerek keşfet.' });
 
   const { listings } = useAppStore();
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [category, setCategory] = useState<MapCategory>('Tümü');
+  const [minValue, setMinValue] = useState('');
+  const [maxValue, setMaxValue] = useState('');
+  const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<L.Map | null>(null);
+  const markerLayer = useRef<L.LayerGroup | null>(null);
+
+  const filteredListings = useMemo(() => {
+    const min = Number(minValue) || 0;
+    const max = Number(maxValue) || Number.POSITIVE_INFINITY;
+    return listings.filter((listing) => {
+      const isLand = isLandListing(listing);
+      if (category === 'Araç' && (listing.category !== 'Araç' || isLand)) return false;
+      if (category === 'Ev' && (listing.category !== 'Gayrimenkul' || isLand)) return false;
+      if (category === 'Arsa' && !isLand) return false;
+      return listing.estimatedValue >= min && listing.estimatedValue <= max;
+    });
+  }, [category, listings, maxValue, minValue]);
 
   const byCity = useMemo(() => {
-    const m = new Map<string, { count: number; totalValue: number }>();
-    for (const l of listings) {
-      const c = m.get(l.city) ?? { count: 0, totalValue: 0 };
-      m.set(l.city, { count: c.count + 1, totalValue: c.totalValue + l.estimatedValue });
+    const result = new Map<string, { count: number; totalValue: number }>();
+    for (const listing of filteredListings) {
+      const current = result.get(listing.city) ?? { count: 0, totalValue: 0 };
+      result.set(listing.city, {
+        count: current.count + 1,
+        totalValue: current.totalValue + listing.estimatedValue,
+      });
     }
-    return m;
-  }, [listings]);
-
-  const max = Math.max(...Array.from(byCity.values()).map((v) => v.count), 1);
+    return result;
+  }, [filteredListings]);
 
   const cityListings = useMemo(
-    () => (selectedCity ? listings.filter((l) => l.city === selectedCity) : []),
-    [listings, selectedCity]
+    () => selectedCity ? filteredListings.filter((listing) => listing.city === selectedCity) : [],
+    [filteredListings, selectedCity]
   );
 
   useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
-
-    const map = L.map(mapRef.current, {
-      center: [39.1, 35.6],
-      zoom: 6,
-      scrollWheelZoom: true,
-    });
-
+    const map = L.map(mapRef.current, { center: [39.1, 35.6], zoom: 6, scrollWheelZoom: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
-
-    Object.entries(CITIES).forEach(([city, [lat, lng]]) => {
-      const stat = byCity.get(city);
-      const count = stat?.count ?? 0;
-      const radius = count === 0 ? 5 : Math.max(10, Math.min(32, 10 + (count / max) * 22));
-
-      const circle = L.circleMarker([lat, lng], {
-        radius,
-        fillColor: count === 0 ? '#94a3b8' : '#3b82f6',
-        fillOpacity: count === 0 ? 0.4 : 0.85,
-        color: '#ffffff',
-        weight: 2,
-      }).addTo(map);
-
-      circle.bindTooltip(
-        count > 0
-          ? `<strong>${city}</strong><br/>${count} ilan · ${fmt(stat!.totalValue)}`
-          : `<strong>${city}</strong><br/>İlan yok`,
-        { direction: 'top', className: 'leaflet-tooltip-custom' }
-      );
-
-      if (count > 0) {
-        circle.on('click', () => {
-          setSelectedCity((prev) => (prev === city ? null : city));
-        });
-        circle.getElement()?.classList.add('cursor-pointer');
-      }
-    });
-
+    markerLayer.current = L.layerGroup().addTo(map);
     leafletMap.current = map;
-
+    setMapReady(true);
     return () => {
       map.remove();
+      markerLayer.current = null;
       leafletMap.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Seçili şehrin marker rengini güncelle
   useEffect(() => {
-    if (!leafletMap.current) return;
-    leafletMap.current.eachLayer((layer) => {
-      if (layer instanceof L.CircleMarker) {
-        const ll = layer.getLatLng();
-        const city = Object.entries(CITIES).find(
-          ([, [lat, lng]]) => Math.abs(ll.lat - lat) < 0.01 && Math.abs(ll.lng - lng) < 0.01
-        )?.[0];
-        if (!city) return;
-        const count = byCity.get(city)?.count ?? 0;
-        if (count === 0) return;
-        layer.setStyle({
-          fillColor: selectedCity === city ? '#1d4ed8' : '#3b82f6',
-          fillOpacity: 0.85,
-        });
-      }
-    });
-  }, [selectedCity, byCity]);
+    if (!mapReady || !markerLayer.current) return;
+    markerLayer.current.clearLayers();
+    const maxCount = Math.max(...Array.from(byCity.values()).map((value) => value.count), 1);
+
+    for (const [city, stat] of byCity) {
+      const coordinates = CITIES[city];
+      if (!coordinates) continue;
+      const radius = Math.max(10, Math.min(28, 10 + (stat.count / maxCount) * 18));
+      const circle = L.circleMarker(coordinates, {
+        radius,
+        fillColor: selectedCity === city ? '#1e40af' : '#2563eb',
+        fillOpacity: 0.86,
+        color: '#ffffff',
+        weight: 2,
+      }).addTo(markerLayer.current);
+      circle.bindTooltip(`<strong>${city}</strong><br/>${stat.count} ilan · ${fmt(stat.totalValue)}`, {
+        direction: 'top',
+        className: 'leaflet-tooltip-custom',
+      });
+      circle.on('click', () => setSelectedCity((current) => current === city ? null : city));
+    }
+  }, [byCity, mapReady, selectedCity]);
+
+  const resetFilters = () => {
+    setCategory('Tümü');
+    setMinValue('');
+    setMaxValue('');
+    setSelectedCity(null);
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <header className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <span>🗺️</span> Harita Görünümü
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Türkiye genelinde ilan dağılımı — şehre tıkla, ilanları gör.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Harita Görünümü</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Konuma, kategoriye ve değere göre aktif ilanları inceleyin.</p>
         </div>
-        <Link to="/" className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">
-          ← Liste görünümü
-        </Link>
+        <Link to="/listings" className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400">Liste görünümü</Link>
       </header>
 
-      {/* Harita */}
-      <div
-        ref={mapRef}
-        className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm mb-6"
-        style={{ height: 480 }}
-      />
+      <section className="mb-4 border-y border-slate-200 bg-white py-3 dark:border-slate-700 dark:bg-slate-900">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[180px_1fr_1fr_auto_auto]">
+          <select value={category} onChange={(event) => { setCategory(event.target.value as MapCategory); setSelectedCity(null); }} className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+            <option>Tümü</option>
+            <option>Araç</option>
+            <option>Ev</option>
+            <option>Arsa</option>
+          </select>
+          <input type="number" min="0" value={minValue} onChange={(event) => { setMinValue(event.target.value); setSelectedCity(null); }} placeholder="Minimum değer" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950" />
+          <input type="number" min="0" value={maxValue} onChange={(event) => { setMaxValue(event.target.value); setSelectedCity(null); }} placeholder="Maksimum değer" className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950" />
+          <div className="flex h-10 items-center whitespace-nowrap px-2 text-sm font-semibold text-slate-600 dark:text-slate-300">{filteredListings.length} ilan</div>
+          <button type="button" onClick={resetFilters} className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:text-slate-300">Sıfırla</button>
+        </div>
+      </section>
 
-      {/* Seçilen şehir ilanları */}
-      {selectedCity && (
+      <div ref={mapRef} className="mb-6 h-[420px] overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700 sm:h-[520px]" />
+
+      {selectedCity ? (
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              📍 {selectedCity}
-              <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
-                — {cityListings.length} ilan
-                {byCity.get(selectedCity) && ` · Toplam: ${fmt(byCity.get(selectedCity)!.totalValue)}`}
-              </span>
-            </h2>
-            <button
-              onClick={() => setSelectedCity(null)}
-              className="text-sm text-slate-400 hover:text-red-500 transition-colors"
-            >
-              ✕ Kapat
-            </button>
-          </div>
-          {cityListings.length === 0 ? (
-            <p className="text-sm text-slate-400 dark:text-slate-500">Bu şehirde aktif ilan yok.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {cityListings.map((l) => <ListingCard key={l.id} listing={l} />)}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950 dark:text-white">{selectedCity}</h2>
+              <p className="text-sm text-slate-500">{cityListings.length} ilan · {fmt(byCity.get(selectedCity)?.totalValue ?? 0)}</p>
             </div>
-          )}
+            <button type="button" onClick={() => setSelectedCity(null)} className="text-sm font-semibold text-slate-600 hover:text-blue-700 dark:text-slate-300">Kapat</button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {cityListings.map((listing) => <ListingCard key={listing.id} listing={listing} />)}
+          </div>
         </section>
-      )}
-
-      {!selectedCity && (
-        <p className="text-center text-sm text-slate-400 dark:text-slate-500">
-          Mavi noktaya tıkla, o şehirdeki ilanları gör.
-        </p>
+      ) : (
+        <p className="text-center text-sm text-slate-500">İlanları görmek için haritadaki bir şehri seçin.</p>
       )}
     </div>
   );

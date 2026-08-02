@@ -391,11 +391,15 @@ export const useAppStore = create<AppState>()(
       },
 
       updateProfile: async (patch) => {
-        const updated = (await updateMe(patch) as unknown) as AuthUser;
-        set({
-          currentUser:     updated,
-          currentUserId:   updated.id,
-          currentUserName: updated.name,
+        await updateMe(patch);
+        set((state) => {
+          if (!state.currentUser) return state;
+          const updated = { ...state.currentUser, ...patch };
+          return {
+            currentUser: updated,
+            currentUserId: updated.id,
+            currentUserName: updated.name,
+          };
         });
       },
 
