@@ -11,7 +11,6 @@ import ListingQASection from '../components/ListingQASection';
 import ListingCard from '../components/ListingCard';
 import VideoEmbed from '../components/VideoEmbed';
 import ListingAIInsights from '../components/ListingAIInsights';
-import VehiclePassport from '../components/VehiclePassport';
 import SwapChainPanel from '../components/SwapChainPanel';
 import { showToast } from '../components/Toast';
 import { getListingHealth } from '../lib/listingHealth';
@@ -431,7 +430,7 @@ export default function ListingDetail() {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Galeri */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="relative aspect-video bg-slate-100">
               <img
                 src={listing.images[activeImage]}
@@ -487,6 +486,22 @@ export default function ListingDetail() {
             )}
           </div>
 
+          <nav className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="İlan bölümleri">
+            {[
+              ['#aciklama', 'Açıklama'],
+              ['#ozellikler', 'Özellikler'],
+              ['#konum', 'Konum'],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className="shrink-0 border-b-2 border-transparent px-5 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-blue-600 hover:text-blue-700 dark:text-slate-300"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+
           <div className="lg:hidden">
             <SwapExpectationPanel
               wantedFor={listing.wantedFor}
@@ -498,18 +513,24 @@ export default function ListingDetail() {
             />
           </div>
 
+          <section id="aciklama" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+            <h2 className="text-base font-bold text-slate-950 dark:text-white">İlan açıklaması</h2>
+            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{listing.description}</p>
+          </section>
+
           {/* Hızlı özellikler */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
+          <section id="ozellikler" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="text-base font-bold text-slate-950 dark:text-white">Temel bilgiler</h2>
             {/* Hızlı araç özellikleri (bar) */}
             {v && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
+              <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 dark:border-slate-700 dark:bg-slate-700 sm:grid-cols-4">
                 {[
                   { icon: '📅', label: 'Model Yılı', value: v.year?.toString() ?? '—' },
                   { icon: '🛣️', label: 'Kilometre',  value: `${(v.km ?? 0).toLocaleString('tr-TR')} km` },
                   { icon: fuelIcon[v.fuel ?? ''] ?? '⛽', label: 'Yakıt', value: v.fuel ?? '—' },
                   { icon: '⚙️', label: 'Şanzıman',   value: v.transmission ?? '—' },
                 ].map(({ label, value }) => (
-                  <div key={label} className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl py-3 px-2 text-center">
+                  <div key={label} className="flex min-h-20 flex-col items-center justify-center bg-white px-2 py-3 text-center dark:bg-slate-900">
                     <span className="text-xs text-slate-400 mb-0.5">{label}</span>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</span>
                   </div>
@@ -519,14 +540,14 @@ export default function ListingDetail() {
 
             {/* Hızlı elektronik özellikleri (bar) */}
             {e && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+              <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 dark:border-slate-700 dark:bg-slate-700 sm:grid-cols-4">
                 {[
                   { icon: '📱', label: 'Tür',       value: e.type },
                   { icon: '💾', label: 'Depolama',  value: e.storage ?? '—' },
                   { icon: '🛡️', label: 'Garanti',  value: e.warranty ?? '—' },
                   { icon: '🔋', label: 'Batarya',   value: e.batteryHealth ? `%${e.batteryHealth}` : '—' },
                 ].map(({ label, value }) => (
-                  <div key={label} className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl py-3 px-2 text-center">
+                  <div key={label} className="flex min-h-20 flex-col items-center justify-center bg-white px-2 py-3 text-center dark:bg-slate-900">
                     <span className="text-xs text-slate-400 mb-0.5">{label}</span>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</span>
                   </div>
@@ -536,14 +557,14 @@ export default function ListingDetail() {
 
             {/* Hızlı gayrimenkul özellikleri (bar) */}
             {p && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+              <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 dark:border-slate-700 dark:bg-slate-700 sm:grid-cols-4">
                 {[
                   { icon: '📐', label: 'Net m²',     value: p.netSqm?.toString() ?? '—' },
                   { icon: '🚪', label: 'Oda',        value: p.rooms ?? '—' },
                   { icon: '🏢', label: 'Kat',        value: p.floor ?? '—' },
                   { icon: '🏗️', label: 'Bina Yaşı', value: p.buildingAge !== undefined ? `${p.buildingAge} yıl` : '—' },
                 ].map(({ label, value }) => (
-                  <div key={label} className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl py-3 px-2 text-center">
+                  <div key={label} className="flex min-h-20 flex-col items-center justify-center bg-white px-2 py-3 text-center dark:bg-slate-900">
                     <span className="text-xs text-slate-400 mb-0.5">{label}</span>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</span>
                   </div>
@@ -561,7 +582,7 @@ export default function ListingDetail() {
                 ))}
               </div>
             )}
-          </div>
+          </section>
 
           {/* Öne Çıkan Özellikler */}
           {highlights.length > 0 && (
@@ -574,12 +595,6 @@ export default function ListingDetail() {
               </div>
             </div>
           )}
-
-          <ListingAIInsights listing={listing} />
-
-          {v && <VehiclePassport listing={listing} />}
-
-          <SwapChainPanel listing={listing} listings={listings} />
 
           {/* Detaylı Araç Özellikleri */}
           {v && (
@@ -838,17 +853,15 @@ export default function ListingDetail() {
           {/* Video Embed */}
           {listing.videoUrl && <VideoEmbed url={listing.videoUrl} />}
 
-          {/* Açıklama */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Açıklama</h2>
-            <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line text-sm">{listing.description}</p>
-          </div>
+          <ListingAIInsights listing={listing} />
+
+          <SwapChainPanel listing={listing} listings={listings} />
 
           {/* ── Soru-Cevap ── */}
           <ListingQASection listingId={listing.id} ownerId={listing.ownerId} />
 
           {/* Konum */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div id="konum" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Konum</h2>
             <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl h-32 flex items-center justify-center border border-slate-100">
               <div className="text-center">

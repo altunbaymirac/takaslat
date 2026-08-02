@@ -77,7 +77,7 @@ export default function ListingAIInsights({ listing }: { listing: Listing }) {
 
       setDescription(descriptionRes);
       setScore(scoreRes);
-      showToast('AI araç özeti güncellendi', 'success');
+      showToast('AI ilan özeti güncellendi', 'success');
     } catch (err) {
       showToast(aiErrorMessage(err), 'error');
     } finally {
@@ -87,6 +87,13 @@ export default function ListingAIInsights({ listing }: { listing: Listing }) {
 
   const suggestions = score?.suggestions.slice(0, 3) ?? [];
   const highlights = buildHighlights(listing);
+  const isVehicle = Boolean(listing.vehicleDetails);
+  const analysisDescription = isVehicle
+    ? 'Araç özellikleri, kullanım profili ve takas uyumu.'
+    : 'İlan bilgileri, takas beklentisi ve uygun eşleşmeler.';
+  const emptyDescription = isVehicle
+    ? 'AI; model, kilometre, kullanım profili ve takas beklentisini birlikte değerlendirir.'
+    : 'AI; ilan açıklamasını, değerini ve takas beklentisini birlikte değerlendirir.';
 
   return (
     <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm dark:border-blue-900/40 dark:bg-slate-800">
@@ -96,7 +103,7 @@ export default function ListingAIInsights({ listing }: { listing: Listing }) {
             AI İlan Analizi
           </h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Aracın genel karakteri, öne çıkan özellikleri ve takas uyumu.
+            {analysisDescription}
           </p>
         </div>
         <button
@@ -111,14 +118,14 @@ export default function ListingAIInsights({ listing }: { listing: Listing }) {
 
       {!description && !score && (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          AI bu ilanı nasıl bir araç olduğu, kullanım profili, model-kilometre dengesi ve takas uyumu açısından özetler.
+          {emptyDescription}
         </div>
       )}
 
       {description && (
         <div className="mb-4 space-y-3">
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-blue-900 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-100">
-            <p className="text-xs font-bold uppercase tracking-wide opacity-70">Araç özeti</p>
+            <p className="text-xs font-bold uppercase tracking-wide opacity-70">İlan özeti</p>
             <p className="mt-2 text-sm leading-relaxed">{description.description}</p>
             {description.basedOnSimilar > 0 && (
               <p className="mt-2 text-[11px] font-semibold opacity-70">
