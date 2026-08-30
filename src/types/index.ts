@@ -81,6 +81,7 @@ export interface ListingAttachment {
   id: string;
   name: string;
   url: string;
+  storagePath?: string;
   mimeType: string;
   kind: 'image' | 'expertise' | 'document';
   size: number;

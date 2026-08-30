@@ -8,6 +8,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { mockListings, mockOffers } from '../data/mockListings'
 import type { LiveAuction, Listing, ListingAttachment, ListingVerification, Notification, SwapOffer } from '../types'
+import { validateListingDraft, validateListingValue } from '../lib/listingValidation'
+import { trackProductEvent } from '../lib/analytics'
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
@@ -30,9 +32,12 @@ export function getToken(): string | null {
 export function setToken(t: string) {
   localStorage.setItem('takaslat_token', t)
 }
-export function clearToken() {
+export function removeToken() {
   localStorage.removeItem('takaslat_token')
-  if (!USE_MOCK) supabase.auth.signOut()
+}
+export function clearToken() {
+  removeToken()
+  if (!USE_MOCK) void supabase.auth.signOut()
 }
 
 const delay = (ms = 250) => new Promise(r => setTimeout(r, ms))
@@ -133,6 +138,36 @@ function dbToOffer(row: any): SwapOffer {
   }
 }
 
+function attachmentsForStorage(attachments: ListingAttachment[] | undefined) {
+  return attachments?.map((attachment) => (
+    attachment.storagePath ? { ...attachment, url: '' } : attachment
+  )) ?? null
+}
+
+async function signPrivateAttachments(listings: Listing[]): Promise<Listing[]> {
+  const paths = [...new Set(
+    listings.flatMap((listing) => listing.attachments ?? [])
+      .map((attachment) => attachment.storagePath)
+      .filter((path): path is string => Boolean(path)),
+  )]
+  if (paths.length === 0) return listings
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return listings
+
+  const { data, error } = await supabase.storage.from('documents').createSignedUrls(paths, 15 * 60)
+  if (error || !data) return listings
+  const signedByPath = new Map(data.map((item) => [item.path, item.signedUrl]))
+
+  return listings.map((listing) => ({
+    ...listing,
+    attachments: listing.attachments?.map((attachment) => ({
+      ...attachment,
+      url: attachment.storagePath ? signedByPath.get(attachment.storagePath) ?? '' : attachment.url,
+    })),
+  }))
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dbToAuction(row: any): LiveAuction {
   return {
@@ -214,6 +249,7 @@ export async function register(payload: { name: string; email: string; password:
 
   const token = data.session?.access_token ?? ''
   if (token) setToken(token)
+  trackProductEvent('sign_up', { method: 'email' })
   return { user: { id: data.user.id, name: payload.name, email: payload.email }, token }
 }
 
@@ -406,7 +442,7 @@ export async function fetchListings(filters: ListingFilters = {}): Promise<Listi
 
   const { data, error } = await q
   if (error) throw new Error(error.message)
-  return (data ?? []).map(dbToListing)
+  return signPrivateAttachments((data ?? []).map(dbToListing))
 }
 
 export async function fetchListingPage(filters: ListingFilters = {}): Promise<ListingPage> {
@@ -437,7 +473,7 @@ export async function fetchListingPage(filters: ListingFilters = {}): Promise<Li
   const { data, error, count } = await q
   if (error) throw new Error(error.message)
   const total = count ?? 0
-  return { listings: (data ?? []).map(dbToListing), total, page, limit, hasMore: from + limit < total }
+  return { listings: await signPrivateAttachments((data ?? []).map(dbToListing)), total, page, limit, hasMore: from + limit < total }
 }
 
 export interface PublicUser {
@@ -457,7 +493,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
   const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('id', id).single()
   if (!data) return null
   void supabase.rpc('increment_listing_view', { p_listing_id: id })
-  return dbToListing(data)
+  return (await signPrivateAttachments([dbToListing(data)]))[0] ?? null
 }
 
 export async function fetchListingVerification(listingId: string): Promise<ListingVerification | null> {
@@ -483,15 +519,18 @@ export async function fetchListingVerification(listingId: string): Promise<Listi
 export async function fetchListingByCode(code: string): Promise<Listing | null> {
   if (USE_MOCK) { await delay(100); return mockListings.find(l => l.listingCode?.toUpperCase() === code.toUpperCase()) ?? null }
   const { data } = await supabase.from('listings').select(LISTING_SELECT).ilike('listing_code', code).single()
-  return data ? dbToListing(data) : null
+  return data ? (await signPrivateAttachments([dbToListing(data)]))[0] ?? null : null
 }
 
 export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Promise<Listing> {
+  const validationError = validateListingDraft(data)
+  if (validationError) throw new Error(validationError)
   if (USE_MOCK) {
     await delay(400)
     const num = Math.floor(Math.random() * 9_000_000) + 1_000_000
     const l: Listing = { ...data, id: `lst-${Date.now()}`, listingCode: `TKS-${num}`, createdAt: new Date().toISOString() }
     mockListings.unshift(l)
+    trackProductEvent('listing_published', { category: data.category, value: data.estimatedValue })
     return l
   }
   const { data: { user } } = await supabase.auth.getUser()
@@ -510,7 +549,7 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
     condition: data.condition,
     tags: data.tags,
     video_url: data.videoUrl ?? null,
-    attachments: data.attachments ?? null,
+    attachments: attachmentsForStorage(data.attachments),
     owner_id: user.id,
     brand:              data.vehicleDetails?.brand ?? null,
     model:              data.vehicleDetails?.model ?? null,
@@ -536,10 +575,16 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
   }
   const { data: inserted, error } = await supabase.from('listings').insert(row).select(LISTING_SELECT).single()
   if (error) throw new Error(error.message)
-  return dbToListing(inserted)
+  const listing = (await signPrivateAttachments([dbToListing(inserted)]))[0]
+  trackProductEvent('listing_published', { category: data.category, value: data.estimatedValue })
+  return listing
 }
 
 export async function updateListingApi(id: string, patch: Partial<Listing>): Promise<Listing> {
+  if (patch.estimatedValue !== undefined) {
+    const valueError = validateListingValue(patch.estimatedValue)
+    if (valueError) throw new Error(valueError)
+  }
   if (USE_MOCK) {
     const current = mockListings.find((l) => l.id === id)
     if (!current) throw new Error('İlan bulunamadi')
@@ -601,17 +646,19 @@ export async function uploadFile(file: File, kind: ListingAttachment['kind'] = '
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Belge yüklemek için giriş yapmalısın')
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-  const path = `${user.id}/documents/${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage.from('images').upload(path, file, {
+  const path = `${user.id}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('documents').upload(path, file, {
     upsert: false,
     contentType: file.type,
   })
   if (error) throw new Error(error.message)
-  const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path)
+  const { data: signed, error: signError } = await supabase.storage.from('documents').createSignedUrl(path, 15 * 60)
+  if (signError) throw new Error(signError.message)
   return {
     id: crypto.randomUUID(),
     name: file.name,
-    url: publicUrl,
+    url: signed.signedUrl,
+    storagePath: path,
     mimeType: file.type,
     kind,
     size: file.size,
@@ -625,6 +672,10 @@ export async function uploadImages(files: File[]): Promise<string[]> {
   if (!user) throw new Error('Görsel yüklemek için giriş yapmalısın')
   const urls: string[] = []
   for (const file of files) {
+    if (file.size > 8 * 1024 * 1024) throw new Error('Görsel boyutu 8 MB sınırını aşıyor')
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      throw new Error('Yalnızca JPG, PNG veya WEBP görsel yükleyebilirsin')
+    }
     const ext  = file.name.split('.').pop() ?? 'jpg'
     const path = `${user.id}/listings/${crypto.randomUUID()}.${ext}`
     const { error } = await supabase.storage.from('images').upload(path, file, { upsert: false })
@@ -779,6 +830,7 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
     await delay(300)
     const o: SwapOffer = { ...data, id: `offer-${Date.now()}`, createdAt: new Date().toISOString() }
     mockOffers.unshift(o)
+    trackProductEvent('offer_sent', { has_listing: Boolean(data.offeredListingId), has_cash: Boolean(data.offeredValue) })
     return o
   }
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -806,6 +858,7 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
     .select(OFFER_SELECT)
     .single()
   if (error) throw new Error(error.message)
+  trackProductEvent('offer_sent', { has_listing: Boolean(data.offeredListingId), has_cash: Boolean(data.offeredValue) })
   return dbToOffer(inserted)
 }
 
@@ -836,11 +889,14 @@ export async function confirmOfferComplete(offerId: string): Promise<SwapOffer> 
     const o = mockOffers.find(x => x.id === offerId)
     if (!o) throw new Error('Teklif bulunamadi')
     o.status = 'Tamamlandı'
+    trackProductEvent('swap_completed')
     return o
   }
   const { error } = await supabase.rpc('confirm_offer_complete', { p_offer_id: offerId })
   if (error) throw new Error(error.message)
-  return fetchOfferById(offerId)
+  const offer = await fetchOfferById(offerId)
+  if (offer.status === 'Tamamlandı') trackProductEvent('swap_completed')
+  return offer
 }
 
 export async function rateOffer(offerId: string, score: number, comment?: string): Promise<{ success: boolean; newRating: number }> {
@@ -880,6 +936,11 @@ export async function sendMessage(offerId: string, text: string) {
   if (!user) throw new Error('Oturum acik degil')
   const { data, error } = await supabase.from('messages').insert({ offer_id: offerId, from_user_id: user.id, text }).select().single()
   if (error) throw new Error(error.message)
+  const conversationKey = `takaslat-conversation-started:${offerId}`
+  if (!sessionStorage.getItem(conversationKey)) {
+    sessionStorage.setItem(conversationKey, '1')
+    trackProductEvent('conversation_started')
+  }
   return { id: data.id, text: data.text, createdAt: data.created_at }
 }
 

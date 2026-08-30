@@ -1,5 +1,12 @@
 -- Admin panel backend. Safe to run repeatedly after the base schema.
 
+ALTER TABLE public.listings
+  ADD COLUMN IF NOT EXISTS moderation_status TEXT DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
+ALTER TABLE public.listings
+  ALTER COLUMN moderation_status SET DEFAULT 'pending';
+
 CREATE OR REPLACE FUNCTION public.is_platform_admin()
 RETURNS BOOLEAN
 LANGUAGE sql

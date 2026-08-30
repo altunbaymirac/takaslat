@@ -23,10 +23,14 @@ import {
   updateMe,
   getToken,
   setToken,
+  removeToken,
   clearToken,
   supabase,
   USE_MOCK,
 } from '../services/api';
+import { trackProductEvent } from '../lib/analytics';
+
+let authListenerReady = false;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -308,32 +312,59 @@ export const useAppStore = create<AppState>()(
       initAuth: async () => {
         try {
           if (!USE_MOCK) {
-            // Supabase: mevcut session'ı kontrol et
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
+            const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+              if (!session) {
+                removeToken();
+                set({
+                  token: null,
+                  currentUser: null,
+                  currentUserId: '',
+                  currentUserName: 'Kullanıcı',
+                  offers: [],
+                  notifications: [],
+                });
+                return;
+              }
+
               setToken(session.access_token);
               const user = await getMe() as AuthUser | null;
-              if (user) {
-                set({
-                  token:           session.access_token,
-                  currentUser:     user,
-                  currentUserId:   user.id,
-                  currentUserName: user.name,
-                });
-                await get().loadOffers();
-                await get().loadNotifications();
-              }
-              // Token yenileme: session değişince store'u güncelle
-              supabase.auth.onAuthStateChange(async (event, newSession) => {
-                if (event === 'SIGNED_OUT' || !newSession) {
-                  clearToken();
-                  set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı', offers: [], notifications: [] });
-                } else if (event === 'TOKEN_REFRESHED' && newSession) {
-                  setToken(newSession.access_token);
-                  set({ token: newSession.access_token });
-                }
+              if (!user) throw new Error('Kullanıcı profili yüklenemedi');
+
+              set({
+                token: session.access_token,
+                currentUser: user,
+                currentUserId: user.id,
+                currentUserName: user.name,
               });
+              const createdAt = Date.parse(session.user.created_at);
+              const isNewOAuthUser = session.user.app_metadata.provider === 'google'
+                && Number.isFinite(createdAt)
+                && Date.now() - createdAt < 60_000;
+              const signupKey = `takaslat-google-signup:${session.user.id}`;
+              if (isNewOAuthUser && !sessionStorage.getItem(signupKey)) {
+                sessionStorage.setItem(signupKey, '1');
+                trackProductEvent('sign_up', { method: 'google' });
+              }
+              await Promise.all([get().loadListings(), get().loadOffers(), get().loadNotifications()]);
+            };
+
+            // OAuth dönüşünde SIGNED_IN, getSession çağrısından sonra gelebilir.
+            // Listener her zaman kurulmalı ve callback içinde Supabase çağrısı bekletilmemeli.
+            if (!authListenerReady) {
+              supabase.auth.onAuthStateChange((event, newSession) => {
+                if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) return;
+                window.setTimeout(() => {
+                  void syncSession(newSession).catch(() => {
+                    removeToken();
+                    set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
+                  });
+                }, 0);
+              });
+              authListenerReady = true;
             }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            await syncSession(session);
             return;
           }
           // Mock mod — token varsa restore, yoksa da offer'ları yükle (currentUserId default 'current-user')
@@ -349,8 +380,8 @@ export const useAppStore = create<AppState>()(
           await get().loadOffers();
           await get().loadNotifications();
         } catch {
-          clearToken();
-          set({ token: null, currentUser: null });
+          removeToken();
+          set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
         }
       },
 

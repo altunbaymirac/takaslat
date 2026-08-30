@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { Listing } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { showToast } from './Toast';
+import { MAX_LISTING_VALUE, MIN_LISTING_VALUE, validateListingDraft } from '../lib/listingValidation';
 
 interface Props {
   listing: Listing;
@@ -26,7 +27,8 @@ export default function EditListingModal({ listing, onClose }: Props) {
       return;
     }
 
-    const patch: Partial<Listing> = {
+    const nextListing: Listing = {
+      ...listing,
       title,
       estimatedValue: Number(estimatedValue),
       description,
@@ -34,6 +36,13 @@ export default function EditListingModal({ listing, onClose }: Props) {
       city,
       videoUrl: videoUrl.trim() || undefined,
     };
+    const validationError = validateListingDraft(nextListing);
+    if (validationError) {
+      showToast(validationError, 'error');
+      return;
+    }
+
+    const patch: Partial<Listing> = nextListing;
 
     if (listing.vehicleDetails && km) {
       patch.vehicleDetails = { ...listing.vehicleDetails, km: Number(km) };
@@ -81,7 +90,9 @@ export default function EditListingModal({ listing, onClose }: Props) {
                 value={estimatedValue}
                 onChange={(e) => setEstimatedValue(e.target.value)}
                 required
-                min={0}
+                min={MIN_LISTING_VALUE}
+                max={MAX_LISTING_VALUE}
+                step={1000}
                 className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

@@ -49,6 +49,7 @@ import { setSoundEnabled } from './lib/sound';
 import { subscribeAuctionStream, subscribeNotificationStream } from './services/api';
 import { Link } from 'react-router-dom';
 import { usePriceDropAlerts } from './hooks/usePriceDropAlerts';
+import CookieConsent from './components/CookieConsent';
 
 function AppInner() {
   const { pathname } = useLocation();
@@ -184,6 +185,7 @@ function AppInner() {
       </Routes>
 
       <Toast />
+      <CookieConsent />
     </div>
   );
 }

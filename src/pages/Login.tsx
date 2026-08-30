@@ -80,7 +80,7 @@ export default function Login() {
           {/* E-posta gönderildi ekranı */}
           {mode === 'sent' && (
             <div className="py-4 text-center space-y-4">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-3xl">📬</div>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">E-posta</div>
               <p className="text-sm text-slate-600">
                 <strong>{email}</strong> adresine şifre sıfırlama bağlantısı gönderdik.
               </p>
@@ -147,10 +147,10 @@ export default function Login() {
                   {loading ? '…' : mode === 'login' ? 'Giriş Yap' : 'Sıfırlama Bağlantısı Gönder'}
                 </button>
                 {remaining <= 2 && remaining > 0 && (
-                  <p className="text-center text-xs text-amber-600">⚠️ {remaining} deneme hakkın kaldı</p>
+                  <p className="text-center text-xs text-amber-600">{remaining} deneme hakkın kaldı</p>
                 )}
                 {remaining === 0 && (
-                  <p className="text-center text-xs text-red-600 font-medium">🔒 Çok fazla deneme — bir süre bekle</p>
+                  <p className="text-center text-xs text-red-600 font-medium">Çok fazla deneme, bir süre bekle</p>
                 )}
               </form>
             </>
@@ -165,7 +165,13 @@ export default function Login() {
               </div>
               <button
                 type="button"
-                onClick={async () => { try { await signInWithGoogle(); } catch { showToast('Google ile giriş başarısız', 'error'); } }}
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                  } catch (err) {
+                    showToast(err instanceof Error ? err.message : 'Google ile giriş başarısız', 'error');
+                  }
+                }}
                 className="w-full flex items-center justify-center gap-3 border border-slate-200 rounded-xl py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <svg viewBox="0 0 24 24" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">

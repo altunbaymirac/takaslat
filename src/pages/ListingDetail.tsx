@@ -18,9 +18,12 @@ import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
 import { fetchListingById, fetchListingVerification } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
 import type { Listing, ListingVerification } from '../types';
+import { trackProductEvent } from '../lib/analytics';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
+
+type DetailTab = 'description' | 'swap' | 'features' | 'location';
 
 // ─── Küçük yardımcı: özellik satırı ─────────────────────────────────────────
 
@@ -151,6 +154,7 @@ export default function ListingDetail() {
   const [forecastOpen,      setForecastOpen]      = useState(false);
   const [lightboxOpen,      setLightboxOpen]      = useState(false);
   const [verification,      setVerification]      = useState<ListingVerification | null>(null);
+  const [activeDetailTab,   setActiveDetailTab]   = useState<DetailTab>('description');
 
   // ── Store'da yoksa API'den yükle ──────────────────────────────────────────
   const storeMatch = listings.find((l) => l.id === id);
@@ -167,7 +171,13 @@ export default function ListingDetail() {
   }, [id, storeMatch]);
 
   useEffect(() => {
-    if (id) recordView(id);
+    if (!id) return;
+    recordView(id);
+    const key = `takaslat-viewed-listing:${id}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1');
+      trackProductEvent('view_listing');
+    }
   }, [id, recordView]);
 
   useEffect(() => {
@@ -242,6 +252,12 @@ export default function ListingDetail() {
   function handleFavoriteClick(listingId: string, wasFav: boolean) {
     toggleFavorite(listingId);
     showToast(wasFav ? 'Favorilerden çıkarıldı' : 'Favorilere eklendi', 'success');
+  }
+  const listingCategory = listing.category;
+
+  function handleOfferStart() {
+    trackProductEvent('offer_started', { category: listingCategory });
+    setOfferModalOpen(true);
   }
 
   async function handleDelete() {
@@ -486,40 +502,63 @@ export default function ListingDetail() {
             )}
           </div>
 
-          <nav className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="İlan bölümleri">
-            {[
-              ['#aciklama', 'Açıklama'],
-              ['#ozellikler', 'Özellikler'],
-              ['#konum', 'Konum'],
-            ].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="shrink-0 border-b-2 border-transparent px-5 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-blue-600 hover:text-blue-700 dark:text-slate-300"
+          <nav
+            className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            aria-label="İlan bölümleri"
+            role="tablist"
+          >
+            {([
+              ['description', 'Açıklama'],
+              ['swap', 'Takas için istenen'],
+              ['features', 'Özellikler'],
+              ['location', 'Konum'],
+            ] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={activeDetailTab === tab}
+                aria-controls={`listing-tab-${tab}`}
+                onClick={() => setActiveDetailTab(tab)}
+                className={`shrink-0 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+                  activeDetailTab === tab
+                    ? 'border-blue-600 text-blue-700 dark:text-blue-300'
+                    : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
+                }`}
               >
                 {label}
-              </a>
+              </button>
             ))}
           </nav>
 
-          <div className="lg:hidden">
-            <SwapExpectationPanel
-              wantedFor={listing.wantedFor}
-              estimatedValue={listing.estimatedValue}
-              isOwner={isOwner}
-              onOffer={() => setOfferModalOpen(true)}
-              onMatch={() => openAIPanel(listing.id)}
-              onEdit={() => setEditModalOpen(true)}
-            />
-          </div>
+          {activeDetailTab === 'swap' && <section id="listing-tab-swap" role="tabpanel">
+            <div className="lg:hidden">
+              <SwapExpectationPanel
+                wantedFor={listing.wantedFor}
+                estimatedValue={listing.estimatedValue}
+                isOwner={isOwner}
+                onOffer={handleOfferStart}
+                onMatch={() => openAIPanel(listing.id)}
+                onEdit={() => setEditModalOpen(true)}
+              />
+            </div>
+            <div className="hidden rounded-lg border border-amber-200 bg-white p-6 shadow-sm dark:border-amber-900/60 dark:bg-slate-800 lg:block">
+              <p className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-400">Takas için istenen</p>
+              <h2 className="mt-2 text-base font-bold text-slate-950 dark:text-white">Satıcının takas beklentisi</h2>
+              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">
+                {listing.wantedFor.trim() || 'Satıcı takas beklentisini belirtmemiş.'}
+              </p>
+            </div>
+          </section>}
 
-          <section id="aciklama" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+          {activeDetailTab === 'description' && <section id="listing-tab-description" role="tabpanel" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
             <h2 className="text-base font-bold text-slate-950 dark:text-white">İlan açıklaması</h2>
             <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{listing.description}</p>
-          </section>
+          </section>}
 
           {/* Hızlı özellikler */}
-          <section id="ozellikler" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          {activeDetailTab === 'features' && <>
+          <section id="listing-tab-features" role="tabpanel" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="text-base font-bold text-slate-950 dark:text-white">Temel bilgiler</h2>
             {/* Hızlı araç özellikleri (bar) */}
             {v && (
@@ -825,62 +864,78 @@ export default function ListingDetail() {
             </div>
           )}
 
-          {listing.attachments && listing.attachments.length > 0 && (
+          {listing.attachments?.some((file) => file.kind !== 'image') && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Belgeler ve Ekspertiz</h2>
               <div className="space-y-2">
-                {listing.attachments.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 hover:border-blue-300 dark:hover:border-blue-700"
-                  >
+                {listing.attachments.filter((file) => file.kind !== 'image').map((file) => {
+                  const content = (
+                    <>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {file.kind === 'expertise' ? 'Ekspertiz' : file.kind === 'image' ? 'Fotoğraf' : 'Belge'} · {Math.round(file.size / 1024)} KB
+                        {file.kind === 'expertise' ? 'Ekspertiz' : 'Belge'} · {Math.round(file.size / 1024)} KB
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">Aç</span>
-                  </a>
-                ))}
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">
+                      {file.url ? 'Aç' : 'Giriş gerekli'}
+                    </span>
+                    </>
+                  );
+                  const className = "flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2";
+                  return file.url ? (
+                    <a key={file.id} href={file.url} target="_blank" rel="noreferrer" className={`${className} hover:border-blue-300 dark:hover:border-blue-700`}>
+                      {content}
+                    </a>
+                  ) : (
+                    <div key={file.id} className={className} title="Belgeyi görüntülemek için giriş yapın">
+                      {content}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Video Embed */}
           {listing.videoUrl && <VideoEmbed url={listing.videoUrl} />}
+          </>}
 
-          <ListingAIInsights listing={listing} />
+          {activeDetailTab === 'location' && (
+            <section id="listing-tab-location" role="tabpanel" className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <h2 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">Konum</h2>
+              <div className="flex h-40 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+                <div className="text-center">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">{listing.city}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Güvenlik nedeniyle yaklaşık konum gösterilmektedir.</p>
+                </div>
+              </div>
+            </section>
+          )}
 
-          <SwapChainPanel listing={listing} listings={listings} />
+          <details className="border-y border-slate-200 py-4 dark:border-slate-700">
+            <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-slate-100">
+              Akıllı eşleşme araçları
+            </summary>
+            <div className="mt-4 space-y-5">
+              <ListingAIInsights listing={listing} />
+              <SwapChainPanel listing={listing} listings={listings} />
+            </div>
+          </details>
 
           {/* ── Soru-Cevap ── */}
           <ListingQASection listingId={listing.id} ownerId={listing.ownerId} />
-
-          {/* Konum */}
-          <div id="konum" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Konum</h2>
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl h-32 flex items-center justify-center border border-slate-100">
-              <div className="text-center">
-                <p className="text-slate-700 font-semibold">{listing.city}</p>
-                <p className="text-slate-400 text-xs mt-0.5">Yaklaşık konum gösterilmektedir</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* ── Sağ: Sidebar ── */}
-        <div className="space-y-4 print:hidden">
+        <div className="space-y-4 print:hidden lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
 
-          <div className="hidden lg:block lg:sticky lg:top-20 lg:z-10">
+          <div className="hidden lg:block">
             <SwapExpectationPanel
               wantedFor={listing.wantedFor}
               estimatedValue={listing.estimatedValue}
               isOwner={isOwner}
-              onOffer={() => setOfferModalOpen(true)}
+              onOffer={handleOfferStart}
               onMatch={() => openAIPanel(listing.id)}
               onEdit={() => setEditModalOpen(true)}
             />
@@ -918,22 +973,7 @@ export default function ListingDetail() {
               </div>
             )}
 
-            {!isOwner ? (
-              <div className="space-y-2.5">
-                <button
-                  onClick={() => setOfferModalOpen(true)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-                >
-                  Takas Teklifi Gönder
-                </button>
-                <button
-                  onClick={() => openAIPanel(listing.id)}
-                  className="w-full bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-amber-200 dark:border-amber-900/40"
-                >
-                  AI ile Eşleştir
-                </button>
-              </div>
-            ) : (
+            {isOwner ? (
               <div className="space-y-2.5">
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center border border-blue-100 dark:border-blue-900/40">
                   <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">Bu sizin ilanınız</p>
@@ -1040,6 +1080,10 @@ export default function ListingDetail() {
                   İlanı Kaldır
                 </button>
               </div>
+            ) : (
+              <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Takas beklentisini inceleyip üstteki teklif panelinden kendi ilanını ve nakit farkını seçebilirsin.
+              </p>
             )}
           </div>
 

@@ -17,6 +17,8 @@ import { VEHICLE_COLORS } from '../data/vehicleModels';
 import { ELECTRONIC_BRANDS, getBrandsForVehicleGroup } from '../data/brands';
 import { getModelsFromDB, getTrimsFromDB } from '../data/vehicleDatabase';
 import { describeVehicleModelDefaults, getVehicleModelDefaults } from '../data/vehicleModelDefaults';
+import { MAX_LISTING_VALUE, MIN_LISTING_VALUE, validateListingValue } from '../lib/listingValidation';
+import { trackProductEvent } from '../lib/analytics';
 import BrandPicker from '../components/BrandPicker';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
 
@@ -175,6 +177,13 @@ export default function CreateListing() {
     previewImages: [],
     attachments: [],
   });
+
+  useEffect(() => {
+    const key = 'takaslat-listing-started';
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    trackProductEvent('listing_started');
+  }, []);
 
   // Giriş yoksa hemen login'e yönlendir (son adımda değil)
   useEffect(() => {
@@ -494,18 +503,6 @@ export default function CreateListing() {
         ...permanentUrls,
       ].slice(0, 5));
 
-      // Ek olarak attachment listesine de ekle
-      const attachments = files.map((f, i): ListingAttachment => ({
-        id:        `img-${Date.now()}-${i}`,
-        name:      f.name,
-        url:       permanentUrls[i] ?? URL.createObjectURL(f),
-        mimeType:  f.type,
-        kind:      'image',
-        size:      f.size,
-        createdAt: new Date().toISOString(),
-      }));
-      update('attachments', [...form.attachments, ...attachments]);
-
       // AI görsel analizi (ilk fotoğraf)
       if (files[0]) {
         const note = await aiVisualDescription({ fileName: files[0].name, mimeType: files[0].type, size: files[0].size });
@@ -562,8 +559,9 @@ export default function CreateListing() {
     autoTitle = autoTitle.trim().replace(/\s+/g, ' ');
 
     const estimatedValue = Number(form.estimatedValue);
-    if (!Number.isFinite(estimatedValue) || estimatedValue <= 0) {
-      showToast('Geçerli bir tahmini değer gir', 'error');
+    const valueError = validateListingValue(estimatedValue);
+    if (valueError) {
+      showToast(valueError, 'error');
       return;
     }
     if (autoTitle.length < 5 || !/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(autoTitle)) {
@@ -1395,6 +1393,9 @@ export default function CreateListing() {
                 <input
                   required
                   type="number"
+                  min={MIN_LISTING_VALUE}
+                  max={MAX_LISTING_VALUE}
+                  step="1000"
                   placeholder="850000"
                   value={form.estimatedValue}
                   onChange={(e) => update('estimatedValue', e.target.value)}
@@ -1406,6 +1407,7 @@ export default function CreateListing() {
                   ≈ {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(Number(form.estimatedValue))}
                 </p>
               )}
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Minimum ilan değeri ₺1.000</p>
               {valueHint && (
                 <div className="mt-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
                   <p className="font-semibold text-emerald-800 mb-0.5">AI Değer Aralığı ({valueHint.basedOn} ilan)</p>

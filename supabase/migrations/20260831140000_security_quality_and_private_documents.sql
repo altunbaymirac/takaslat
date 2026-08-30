@@ -710,7 +710,13 @@ SET file_size_limit = 8388608,
 WHERE id = 'images';
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('documents', 'documents', FALSE, 10485760, ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+VALUES (
+  'documents',
+  'documents',
+  FALSE,
+  10485760,
+  ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+)
 ON CONFLICT (id) DO UPDATE SET
   public = FALSE,
   file_size_limit = EXCLUDED.file_size_limit,
@@ -722,7 +728,10 @@ DROP POLICY IF EXISTS "Kullanıcı kendi belgesini siler" ON storage.objects;
 
 CREATE POLICY "Kullanıcı kendi belgesini yükler"
   ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+  WITH CHECK (
+    bucket_id = 'documents'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
 
 CREATE POLICY "Giriş yapmış kullanıcı belgeleri görüntüler"
   ON storage.objects FOR SELECT TO authenticated
@@ -730,4 +739,7 @@ CREATE POLICY "Giriş yapmış kullanıcı belgeleri görüntüler"
 
 CREATE POLICY "Kullanıcı kendi belgesini siler"
   ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+  USING (
+    bucket_id = 'documents'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );

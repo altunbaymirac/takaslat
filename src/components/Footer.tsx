@@ -23,6 +23,13 @@ export default function Footer() {
             <Link to="/" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">İlanlar</Link>
             <Link to="/trends" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Trendler</Link>
             <Link to="/settings" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Ayarlar</Link>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('takaslat:open-consent'))}
+              className="transition-colors hover:text-slate-900 dark:hover:text-slate-200"
+            >
+              Çerez tercihleri
+            </button>
           </nav>
 
           {/* Copyright */}

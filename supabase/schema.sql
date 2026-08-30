@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS public.listings (
   video_url           TEXT,
   view_count          INTEGER     DEFAULT 0,
   is_active           BOOLEAN     DEFAULT TRUE,
-  moderation_status   TEXT        DEFAULT 'approved', -- 'pending' | 'approved' | 'rejected'
+  moderation_status   TEXT        NOT NULL DEFAULT 'pending' CHECK (moderation_status IN ('pending', 'approved', 'rejected')),
   rejection_reason    TEXT,
   -- Araç alanları
   brand               TEXT,

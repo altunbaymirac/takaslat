@@ -20,6 +20,9 @@ function adminErrorMessage(error: unknown) {
   if (/admin_(get_stats|get_users|moderate_listing|set_user_role|ban_user).*schema cache|could not find the function/i.test(message)) {
     return 'Admin veritabanı kurulumu eksik. Supabase admin migration dosyası uygulanmalı.';
   }
+  if (/column .* of relation .* does not exist/i.test(message)) {
+    return 'Admin veritabanı şeması güncel değil. Son Supabase migration dosyası uygulanmalı.';
+  }
   if (/admin access required/i.test(message)) return 'Bu işlem için admin yetkisi doğrulanamadı.';
   return message;
 }
@@ -86,8 +89,8 @@ export default function Admin() {
       await moderateListing(id, next, reason);
       showToast('Moderasyon güncellendi', 'success');
       await load();
-    } catch {
-      showToast('Moderasyon güncellenemedi', 'error');
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
     }
   }
 
@@ -96,8 +99,8 @@ export default function Admin() {
       await setUserRole(userId, role);
       showToast(`Rol güncellendi: ${role}`, 'success');
       void load();
-    } catch {
-      showToast('Rol güncellenemedi', 'error');
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
     }
   }
 
@@ -107,8 +110,8 @@ export default function Admin() {
       await banUser(userId);
       showToast('Kullanıcı banlandı, ilanları kaldırıldı', 'success');
       void load();
-    } catch {
-      showToast('Ban işlemi başarısız', 'error');
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
     }
   }
 
