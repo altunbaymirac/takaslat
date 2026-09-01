@@ -5,7 +5,7 @@ export default function Footer() {
 
   return (
     <footer className="mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-10 sm:px-6 md:py-10 lg:px-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-between">
 
           {/* Marka */}
@@ -20,9 +20,14 @@ export default function Footer() {
 
           {/* Linkler */}
           <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
-            <Link to="/" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">İlanlar</Link>
+            <Link to="/listings" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">İlanlar</Link>
+            <Link to="/arac-takas" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Araç takas</Link>
+            <Link to="/ev-takas" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Ev takas</Link>
+            <Link to="/arsa-takas" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Arsa takas</Link>
             <Link to="/trends" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Trendler</Link>
             <Link to="/settings" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Ayarlar</Link>
+            <Link to="/gizlilik" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Gizlilik</Link>
+            <Link to="/kullanim-kosullari" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Kullanım Koşulları</Link>
             <button
               type="button"
               onClick={() => window.dispatchEvent(new Event('takaslat:open-consent'))}

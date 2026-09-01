@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+@theme {
+  --color-blue-50: #eff5ff;
+  --color-blue-100: #dbe8ff;
+  --color-blue-200: #b8d1ff;
+  --color-blue-300: #8ab1ff;
+  --color-blue-400: #5689f4;
+  --color-blue-500: #2f67e8;
+  --color-blue-600: #1b4fd8;
+  --color-blue-700: #163faa;
+  --color-blue-800: #15368a;
+  --color-blue-900: #142f70;
+  --color-blue-950: #0f214f;
+
+  --color-amber-300: #ffd966;
+  --color-amber-400: #f5b400;
+  --color-amber-500: #d99a00;
+  --color-amber-600: #b77b00;
+}
+
 /* ─── Tailwind v4 dark mode variant ───────────────────────────────────────── */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -12,7 +31,7 @@ body {
   font-optical-sizing: auto;
   font-synthesis: none;
   letter-spacing: 0;
-  background: #f6f7f9;
+  background: #f3f6fa;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

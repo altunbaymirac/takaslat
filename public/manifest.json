@@ -1,7 +1,7 @@
 {
   "name": "Takaslat — Akıllı Takas Platformu",
   "short_name": "Takaslat",
-  "description": "Araç, elektronik, gayrimenkul ve daha fazlası için akıllı takas platformu",
+  "description": "Araç, ev ve arsa için akıllı takas platformu",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1220",

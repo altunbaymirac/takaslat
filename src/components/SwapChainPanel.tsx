@@ -9,16 +9,16 @@ export default function SwapChainPanel({ listing, listings }: { listing: Listing
   const chains = findSwapChains(listings, listing.id);
 
   return (
-    <section className="rounded-2xl border border-cyan-100 bg-white p-6 shadow-sm dark:border-cyan-900/40 dark:bg-slate-800">
+    <section className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm dark:border-blue-900/40 dark:bg-slate-800">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Takas Zinciri</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">Takas Zinciri</p>
           <h2 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">Karşılıklı eşleşme motoru</h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             İki veya üç ilan arasında herkesin istediği aracı bulur.
           </p>
         </div>
-        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 dark:border-cyan-900/50 dark:bg-cyan-900/20 dark:text-cyan-300">
+        <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
           {chains.length} aday
         </span>
       </div>
@@ -35,7 +35,7 @@ export default function SwapChainPanel({ listing, listings }: { listing: Listing
           {chains.map((chain) => (
             <div key={chain.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-xs font-black text-cyan-700 dark:text-cyan-300">
+                <span className="text-xs font-black text-blue-700 dark:text-blue-300">
                   {chain.kind === 'direct' ? 'Doğrudan eşleşme' : 'Üçlü takas'}
                 </span>
                 <span className="text-[11px] font-semibold text-slate-400">
@@ -47,14 +47,14 @@ export default function SwapChainPanel({ listing, listings }: { listing: Listing
                   <div key={item.id} className="contents">
                     <Link
                       to={`/listing/${item.id}`}
-                      className="max-w-[180px] truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-cyan-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                      className="max-w-[180px] truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                     >
                       {item.title}
                     </Link>
-                    {index < chain.listings.length - 1 && <span className="font-bold text-cyan-500">→</span>}
+                    {index < chain.listings.length - 1 && <span className="font-bold text-blue-500">→</span>}
                   </div>
                 ))}
-                <span className="font-bold text-cyan-500">→</span>
+                <span className="font-bold text-blue-500">→</span>
                 <span className="text-xs font-bold text-slate-500">Başa dön</span>
               </div>
             </div>

@@ -7,8 +7,9 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { mockListings, mockOffers } from '../data/mockListings'
-import type { LiveAuction, Listing, ListingAttachment, ListingVerification, Notification, SwapOffer } from '../types'
+import type { LiveAuction, Listing, ListingAttachment, ListingQA, ListingReport, ListingVerification, Notification, SwapOffer } from '../types'
 import { validateListingDraft, validateListingValue } from '../lib/listingValidation'
+import { validateOfferDraft } from '../lib/offerValidation'
 import { trackProductEvent } from '../lib/analytics'
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
@@ -57,9 +58,12 @@ function dbToListing(row: any): Listing {
     description: row.description,
     wantedFor: row.wanted_for,
     city: row.city,
+    district: row.extra_details?.location?.district ?? undefined,
     images: Array.isArray(row.images) ? row.images : [],
     condition: row.condition,
     tags: Array.isArray(row.tags) ? row.tags : [],
+    isActive: row.is_active ?? true,
+    moderationStatus: row.moderation_status ?? undefined,
     viewCount: row.view_count ?? 0,
     createdAt: row.created_at,
     videoUrl: row.video_url ?? undefined,
@@ -173,6 +177,7 @@ function dbToAuction(row: any): LiveAuction {
   return {
     id: row.id,
     listingId: row.listing_id,
+    ownerId: row.owner_id,
     title: row.title,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -562,7 +567,8 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
     body_type:          data.vehicleDetails?.bodyType ?? null,
     engine_cc:          data.vehicleDetails?.engineCC ?? null,
     // Elektronik/Gayrimenkul detayları JSON olarak — dbToListing bunları okur
-    extra_details: (data.vehicleDetails || data.electronicDetails || data.propertyDetails) ? {
+    extra_details: (data.vehicleDetails || data.electronicDetails || data.propertyDetails || data.district) ? {
+      location: data.district ? { district: data.district } : null,
       vehicleDetails: data.vehicleDetails ? {
         hasExpertise: data.vehicleDetails.hasExpertise ?? null,
         expertiseFirm: data.vehicleDetails.expertiseFirm ?? null,
@@ -612,16 +618,27 @@ export async function updateListingApi(id: string, patch: Partial<Listing>): Pro
     row.body_type           = patch.vehicleDetails.bodyType
     row.engine_cc           = patch.vehicleDetails.engineCC
   }
-  if (patch.vehicleDetails || patch.electronicDetails || patch.propertyDetails) {
+  if (patch.vehicleDetails || patch.electronicDetails || patch.propertyDetails || patch.district !== undefined) {
+    const { data: current } = await supabase
+      .from('listings')
+      .select('extra_details')
+      .eq('id', id)
+      .single()
+    const currentExtra = current?.extra_details ?? {}
     row.extra_details = {
+      ...currentExtra,
+      location: patch.district !== undefined
+        ? { ...(currentExtra.location ?? {}), district: patch.district || null }
+        : currentExtra.location ?? null,
       vehicleDetails: patch.vehicleDetails ? {
+        ...(currentExtra.vehicleDetails ?? {}),
         hasExpertise: patch.vehicleDetails.hasExpertise ?? null,
         expertiseFirm: patch.vehicleDetails.expertiseFirm ?? null,
         expertiseDate: patch.vehicleDetails.expertiseDate ?? null,
         expertiseNote: patch.vehicleDetails.expertiseNote ?? null,
-      } : null,
-      electronicDetails: patch.electronicDetails ?? null,
-      propertyDetails:   patch.propertyDetails ?? null,
+      } : currentExtra.vehicleDetails ?? null,
+      electronicDetails: patch.electronicDetails ?? currentExtra.electronicDetails ?? null,
+      propertyDetails:   patch.propertyDetails ?? currentExtra.propertyDetails ?? null,
     }
   }
   const { data, error } = await supabase.from('listings').update(row).eq('id', id).select(LISTING_SELECT).single()
@@ -751,6 +768,7 @@ export async function placeAuctionBidApi(
     await delay(100)
     const auction = mockAuctions.find((item) => item.id === auctionId)
     if (!auction) throw new Error('Mezat bulunamadı')
+    if (auction.ownerId === mockBidder.id) throw new Error('Kendi mezadınıza teklif veremezsiniz')
     const minimumBid = auction.currentBid + auction.bidIncrement
     if (auction.status === 'ended' || Date.now() >= new Date(auction.endsAt).getTime()) {
       throw new Error('Bu mezat sona erdi')
@@ -826,7 +844,18 @@ async function fetchOfferById(offerId: string): Promise<SwapOffer> {
 }
 
 export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Promise<SwapOffer> {
+  const validate = (actorId: string | undefined) => validateOfferDraft({
+    actorId,
+    targetOwnerId: data.toUserId,
+    targetListingId: data.listingId,
+    offeredListingId: data.offeredListingId,
+    message: data.message,
+    offeredValue: data.offeredValue,
+  })
+
   if (USE_MOCK) {
+    const validationError = validate(data.fromUserId)
+    if (validationError) throw new Error(validationError)
     await delay(300)
     const o: SwapOffer = { ...data, id: `offer-${Date.now()}`, createdAt: new Date().toISOString() }
     mockOffers.unshift(o)
@@ -836,6 +865,9 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) throw new Error('Teklif göndermek için giriş yapmalısınız')
 
+  const validationError = validate(user.id)
+  if (validationError) throw new Error(validationError)
+
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   if (!uuidPattern.test(data.listingId) || !uuidPattern.test(data.toUserId)) {
     throw new Error('İlan veya kullanıcı bilgisi geçersiz. Sayfayı yenileyip tekrar deneyin')
@@ -844,22 +876,17 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
     throw new Error('Teklif edilen ilan bilgisi geçersiz')
   }
 
-  const { data: inserted, error } = await supabase
-    .from('offers')
-    .insert({
-      message:               data.message,
-      listing_id:            data.listingId,
-      from_user_id:          user.id,
-      to_user_id:            data.toUserId,
-      offered_value:         data.offeredValue ?? null,
-      offered_listing_id:    data.offeredListingId ?? null,
-      offered_listing_title: data.offeredListingTitle ?? null,
-    })
-    .select(OFFER_SELECT)
-    .single()
+  const { data: inserted, error } = await supabase.rpc('create_offer', {
+    p_listing_id: data.listingId,
+    p_message: data.message.trim(),
+    p_offered_value: data.offeredValue ?? null,
+    p_offered_listing_id: data.offeredListingId ?? null,
+  })
   if (error) throw new Error(error.message)
+  const insertedOffer = Array.isArray(inserted) ? inserted[0] : inserted
+  if (!insertedOffer?.id) throw new Error('Teklif oluşturulamadı')
   trackProductEvent('offer_sent', { has_listing: Boolean(data.offeredListingId), has_cash: Boolean(data.offeredValue) })
-  return dbToOffer(inserted)
+  return fetchOfferById(insertedOffer.id)
 }
 
 export async function updateOfferStatus(offerId: string, status: SwapOffer['status'], meetingNote?: string): Promise<SwapOffer> {
@@ -910,7 +937,101 @@ export async function rateOffer(offerId: string, score: number, comment?: string
   return { success: true, newRating: Number(data) }
 }
 
+export async function createListingReport(
+  listingId: string,
+  reason: string,
+  details?: string,
+): Promise<ListingReport> {
+  if (USE_MOCK) {
+    return {
+      id: `rep-${Date.now()}`,
+      listingId,
+      reason,
+      details,
+      createdAt: new Date().toISOString(),
+    }
+  }
+  const cleanDetails = details?.trim() || undefined
+  if (!listingId || !reason || (cleanDetails?.length ?? 0) > 1000) {
+    throw new Error('Geçersiz şikayet bilgisi')
+  }
+  const { data, error } = await supabase.rpc('create_listing_report', {
+    p_listing_id: listingId,
+    p_reason: reason,
+    p_details: cleanDetails ?? null,
+  })
+  if (error) throw new Error(error.message)
+  return {
+    id: data.id,
+    listingId: data.listing_id,
+    reason: data.reason,
+    details: data.details ?? undefined,
+    createdAt: data.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToListingQA(row: any): ListingQA {
+  const user = row.user ?? {}
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    userId: row.user_id,
+    userName: user.name ?? 'Kullanıcı',
+    question: row.question,
+    answer: row.answer ?? undefined,
+    answeredAt: row.answered_at ?? undefined,
+    createdAt: row.created_at,
+  }
+}
+
+export async function fetchListingQuestions(listingId: string): Promise<ListingQA[]> {
+  if (USE_MOCK) return []
+  const { data, error } = await supabase
+    .from('listing_questions')
+    .select('id, listing_id, user_id, question, answer, answered_at, created_at, user:profiles!user_id(name)')
+    .eq('listing_id', listingId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToListingQA)
+}
+
+export async function createListingQuestion(listingId: string, question: string): Promise<void> {
+  const cleanQuestion = question.trim()
+  if (cleanQuestion.length < 5 || cleanQuestion.length > 500) {
+    throw new Error('Soru 5 ile 500 karakter arasında olmalıdır')
+  }
+  if (USE_MOCK) return
+  const { error } = await supabase.rpc('create_listing_question', {
+    p_listing_id: listingId,
+    p_question: cleanQuestion,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function answerListingQuestion(questionId: string, answer: string): Promise<void> {
+  const cleanAnswer = answer.trim()
+  if (cleanAnswer.length < 2 || cleanAnswer.length > 1000) {
+    throw new Error('Yanıt 2 ile 1000 karakter arasında olmalıdır')
+  }
+  if (USE_MOCK) return
+  const { error } = await supabase.rpc('answer_listing_question', {
+    p_question_id: questionId,
+    p_answer: cleanAnswer,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteListingQuestion(questionId: string): Promise<void> {
+  if (USE_MOCK) return
+  const { error } = await supabase.rpc('delete_listing_question', { p_question_id: questionId })
+  if (error) throw new Error(error.message)
+}
+
 export async function reviseOfferApi(offerId: string, patch: { offeredValue?: number; offeredListingId?: string; offeredListingTitle?: string }): Promise<SwapOffer> {
+  if (patch.offeredValue !== undefined && (!Number.isSafeInteger(patch.offeredValue) || patch.offeredValue < 0 || patch.offeredValue > 2_000_000_000)) {
+    throw new Error('Teklif değeri geçersiz')
+  }
   if (USE_MOCK) {
     await delay(200)
     const o = mockOffers.find(x => x.id === offerId)
@@ -931,17 +1052,22 @@ export async function reviseOfferApi(offerId: string, patch: { offeredValue?: nu
 // ─── Messages ─────────────────────────────────────────────────────────────────
 
 export async function sendMessage(offerId: string, text: string) {
-  if (USE_MOCK) { await delay(150); return { id: `msg-${Date.now()}`, text, createdAt: new Date().toISOString() } }
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Oturum acik degil')
-  const { data, error } = await supabase.from('messages').insert({ offer_id: offerId, from_user_id: user.id, text }).select().single()
+  const cleanText = text.trim()
+  if (cleanText.length < 1 || cleanText.length > 4000) throw new Error('Mesaj 1 ile 4000 karakter arasında olmalıdır')
+  if (USE_MOCK) { await delay(150); return { id: `msg-${Date.now()}`, text: cleanText, createdAt: new Date().toISOString() } }
+  const { data, error } = await supabase.rpc('send_offer_message', {
+    p_offer_id: offerId,
+    p_text: cleanText,
+  })
   if (error) throw new Error(error.message)
+  const message = Array.isArray(data) ? data[0] : data
+  if (!message?.id) throw new Error('Mesaj gönderilemedi')
   const conversationKey = `takaslat-conversation-started:${offerId}`
   if (!sessionStorage.getItem(conversationKey)) {
     sessionStorage.setItem(conversationKey, '1')
     trackProductEvent('conversation_started')
   }
-  return { id: data.id, text: data.text, createdAt: data.created_at }
+  return { id: message.id, text: message.text, createdAt: message.created_at }
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -1412,7 +1538,7 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     listings: Number(stats?.listings ?? 0),
     pendingListings: Number(stats?.pending_listings ?? 0),
     offers: Number(stats?.offers ?? 0),
-    reports: 0,
+    reports: Number(stats?.reports ?? 0),
     notifications: Number(stats?.notifications ?? 0),
     recentListings: (recent ?? []).map(dbToListing),
   }
@@ -1420,12 +1546,9 @@ export async function fetchAdminStats(): Promise<AdminStats> {
 
 export async function fetchAdminListings(status?: string): Promise<Array<Listing & { owner?: { id: string; name: string; email: string } }>> {
   if (USE_MOCK) return []
-  let query = supabase
-    .from('listings')
-    .select('*, owner:profiles!owner_id(id, name, email, avatar, rating, total_swaps, email_verified, phone_verified)')
-    .order('created_at', { ascending: false })
-  if (status) query = query.eq('moderation_status', status)
-  const { data, error } = await query
+  const { data, error } = await supabase.rpc('admin_get_listings', {
+    p_status: status || null,
+  })
   if (error) throw new Error(error.message)
   return (data ?? []).map(dbToAdminListing)
 }

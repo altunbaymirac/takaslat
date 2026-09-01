@@ -10,7 +10,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Takaslat'a hoş geldin!",
-    body:  'Burada araç, elektronik, gayrimenkul ve daha fazlasını saniyeler içinde takas edebilirsin. Sana hızlıca platform turu atalım.',
+    body:  'Burada araç, ev ve arsa ilanlarını inceleyip takas teklifleri gönderebilirsin. Sana hızlıca platform turu atalım.',
     hint:  'Sadece 6 adım — 1 dakika sürer',
   },
   {

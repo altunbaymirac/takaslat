@@ -45,8 +45,9 @@ function isLandListing(listing: Listing) {
 
 export default function Listings() {
   useSEO({
-    title: 'İlanlar — Araç, Elektronik, Gayrimenkul Takası',
-    description: 'Türkiye genelindeki araç takas ilanlarını keşfet. Filtrele, karşılaştır, teklif ver.',
+    title: 'İlanlar | Araç, Ev ve Arsa Takası',
+    description: 'Türkiye genelindeki araç, ev ve arsa takas ilanlarını keşfet. Filtrele, karşılaştır ve teklif ver.',
+    url: '/listings',
   });
 
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ export default function Listings() {
   const [sortBy, setSortBy]       = useState<SortOption>('newest');
   const [sortOpen, setSortOpen]   = useState(false);
   const [page, setPage]           = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'search' | 'ai'>(
     searchParams.get('tab') === 'ai' ? 'ai' : 'search'
   );
@@ -70,6 +72,27 @@ export default function Listings() {
   const [aiCashAmount, setAiCashAmount]           = useState('');
   const [aiLoading, setAiLoading]   = useState(false);
   const [aiError, setAiError]       = useState<string | null>(null);
+
+  useEffect(() => {
+    const query = searchParams.get('q')?.trim();
+    if (query && query !== filters.searchQuery) setFilters({ searchQuery: query });
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!mobileFiltersOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileFiltersOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileFiltersOpen]);
 
   useEffect(() => {
     const q = filters.searchQuery.trim();
@@ -182,15 +205,15 @@ export default function Listings() {
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
 
       {/* ── Tab switcher ── */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-950 dark:text-slate-100">İlanlar</h1>
           <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Aradığın ilanı filtrele veya AI eşleştirmesini kullan.</p>
         </div>
-        <div className="flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
+        <div className="grid w-full grid-cols-2 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800 sm:w-auto">
         <button
           onClick={() => setActiveTab('search')}
-          className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
             activeTab === 'search'
               ? 'bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
@@ -203,7 +226,7 @@ export default function Listings() {
         </button>
         <button
           onClick={() => setActiveTab('ai')}
-          className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
             activeTab === 'ai'
               ? 'bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
@@ -219,7 +242,73 @@ export default function Listings() {
 
       {/* ── Tab content ── */}
       {activeTab === 'search' ? (
-        <FilterBar onFilterChange={() => setPage(1)} />
+        <>
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            className="flex min-h-12 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 md:hidden"
+          >
+            <span className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m-15 0h1.5m4.5 6h9m-15 0h1.5m4.5 6h9m-15 0h1.5M7.5 3.75v4.5m0 1.5v4.5m0 1.5v4.5" />
+              </svg>
+              Filtrele
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{filtered.length} ilan</span>
+          </button>
+
+          <div className="hidden md:block">
+            <FilterBar onFilterChange={() => setPage(1)} />
+          </div>
+
+          {mobileFiltersOpen && (
+            <div className="fixed inset-0 z-[70] md:hidden">
+              <button
+                type="button"
+                aria-label="Filtreleri kapat"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="absolute inset-0 h-full w-full bg-slate-950/45"
+              />
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="mobile-filter-title"
+                className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl dark:bg-slate-900"
+              >
+                <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
+                  <div>
+                    <h2 id="mobile-filter-title" className="text-base font-bold text-slate-950 dark:text-white">İlanları filtrele</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{filtered.length} sonuç bulundu</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen(false)}
+                    aria-label="Kapat"
+                    className="flex h-10 w-10 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <FilterBar embedded onFilterChange={() => setPage(1)} />
+                </div>
+
+                <div className="shrink-0 border-t border-slate-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:border-slate-700 dark:bg-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="min-h-12 w-full rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                  >
+                    {filtered.length} İlanı Göster
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
+        </>
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
           <textarea

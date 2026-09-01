@@ -17,8 +17,11 @@ const fmt = (n: number) => new Intl.NumberFormat('tr-TR').format(n);
 
 function adminErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : 'Admin verisi alınamadı';
+  if (/admin_get_listings.*schema cache|could not find the function public\.admin_get_listings/i.test(message)) {
+    return 'İlan moderasyonu servisi hazır değil. Admin onarım migration dosyası uygulanmalı.';
+  }
   if (/admin_(get_stats|get_users|moderate_listing|set_user_role|ban_user).*schema cache|could not find the function/i.test(message)) {
-    return 'Admin veritabanı kurulumu eksik. Supabase admin migration dosyası uygulanmalı.';
+    return 'Admin servis kurulumu eksik. Son admin migration dosyası uygulanmalı.';
   }
   if (/column .* of relation .* does not exist/i.test(message)) {
     return 'Admin veritabanı şeması güncel değil. Son Supabase migration dosyası uygulanmalı.';
@@ -71,6 +74,7 @@ export default function Admin() {
         if (failure) throw failure;
       }
     } catch (err) {
+      console.error('[Admin] Panel verileri yüklenemedi', err);
       const message = adminErrorMessage(err);
       setLoadError(message);
       showToast(message, 'error');

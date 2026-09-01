@@ -16,7 +16,7 @@ import { showToast } from '../components/Toast';
 import { getListingHealth } from '../lib/listingHealth';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
 import { fetchListingById, fetchListingVerification } from '../services/api';
-import { useSEO } from '../hooks/useSEO';
+import { useSEO, useJsonLd } from '../hooks/useSEO';
 import type { Listing, ListingVerification } from '../types';
 import { trackProductEvent } from '../lib/analytics';
 
@@ -218,8 +218,59 @@ export default function ListingDetail() {
       ? `${pendingListing.title} · ${new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(pendingListing.estimatedValue)} · ${pendingListing.city}. Takaslat'ta takas teklifleri verin.`
       : undefined,
     image:       pendingListing?.images?.[0],
+    url:         pendingListing ? `/listing/${pendingListing.id}` : undefined,
     type:        'product',
   });
+
+  const listingJsonLd = useMemo(() => {
+    if (!pendingListing) return null;
+    const url = `https://www.takaslat.com/listing/${pendingListing.id}`;
+    const images = pendingListing.images
+      .filter(Boolean)
+      .map((image) => /^https?:\/\//i.test(image) ? image : `https://www.takaslat.com${image.startsWith('/') ? image : `/${image}`}`);
+    const additionalProperty = [
+      { '@type': 'PropertyValue', name: 'Şehir', value: pendingListing.city },
+      pendingListing.district ? { '@type': 'PropertyValue', name: 'İlçe', value: pendingListing.district } : null,
+      pendingListing.wantedFor ? { '@type': 'PropertyValue', name: 'Takasta istenen', value: pendingListing.wantedFor } : null,
+    ].filter(Boolean);
+
+    return {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Product',
+          name: pendingListing.title,
+          description: pendingListing.description,
+          image: images,
+          category: pendingListing.category,
+          url,
+          ...(pendingListing.vehicleDetails?.brand ? { brand: { '@type': 'Brand', name: pendingListing.vehicleDetails.brand } } : {}),
+          ...(pendingListing.vehicleDetails?.model ? { model: pendingListing.vehicleDetails.model } : {}),
+          itemCondition: 'https://schema.org/UsedCondition',
+          additionalProperty,
+          offers: {
+            '@type': 'Offer',
+            price: pendingListing.estimatedValue,
+            priceCurrency: 'TRY',
+            availability: pendingListing.isActive === false
+              ? 'https://schema.org/OutOfStock'
+              : 'https://schema.org/InStock',
+            url,
+            seller: { '@type': 'Person', name: pendingListing.ownerName },
+          },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Takaslat', item: 'https://www.takaslat.com/' },
+            { '@type': 'ListItem', position: 2, name: 'İlanlar', item: 'https://www.takaslat.com/listings' },
+            { '@type': 'ListItem', position: 3, name: pendingListing.title, item: url },
+          ],
+        },
+      ],
+    };
+  }, [pendingListing]);
+  useJsonLd('listing-jsonld', listingJsonLd);
 
   // ── Derived values (non-hook, can be after conditional returns) ───────────
   const baseListing = storeMatch ?? apiFetched;
@@ -253,9 +304,31 @@ export default function ListingDetail() {
     toggleFavorite(listingId);
     showToast(wasFav ? 'Favorilerden çıkarıldı' : 'Favorilere eklendi', 'success');
   }
+  function handleReportStart() {
+    if (!currentUserId) {
+      showToast('Şikayet için giriş yapmalısınız', 'error');
+      navigate('/login');
+      return;
+    }
+    if (isOwner) {
+      showToast('Kendi ilanınızı şikayet edemezsiniz', 'error');
+      return;
+    }
+    setReportModalOpen(true);
+  }
   const listingCategory = listing.category;
 
   function handleOfferStart() {
+    if (!listing) return;
+    if (!currentUserId) {
+      showToast('Teklif göndermek için giriş yapmalısınız', 'error');
+      navigate('/login');
+      return;
+    }
+    if (listing.ownerId === currentUserId) {
+      showToast('Kendi ilanınıza teklif veremezsiniz', 'error');
+      return;
+    }
     trackProductEvent('offer_started', { category: listingCategory });
     setOfferModalOpen(true);
   }
@@ -274,6 +347,8 @@ export default function ListingDetail() {
   const v  = listing.vehicleDetails;
   const e  = listing.electronicDetails;
   const p  = listing.propertyDetails;
+  const expertiseFiles = listing.attachments?.filter((file) => file.kind === 'expertise') ?? [];
+  const documentFiles = listing.attachments?.filter((file) => file.kind === 'document') ?? [];
   const isOwner = listing.ownerId === currentUserId;
   const listingHealth = getListingHealth(listing);
   const trustToneClass: Record<string, string> = {
@@ -308,9 +383,9 @@ export default function ListingDetail() {
   if (v) {
     if (!v.hasAccidentRecord)       highlights.push({ icon: '✅', text: 'Hasar Kaydı Yok',        color: 'bg-emerald-50 text-emerald-700' });
     if ((v.km ?? 0) < 50_000)       highlights.push({ icon: '🏃', text: 'Düşük Kilometre',         color: 'bg-blue-50 text-blue-700'     });
-    if ((v.year ?? 0) >= 2021)      highlights.push({ icon: '✨', text: `${v.year} Model`,          color: 'bg-violet-50 text-violet-700' });
-    if (v.fuel === 'Hibrit')        highlights.push({ icon: '⚡', text: 'Hibrit',                  color: 'bg-teal-50 text-teal-700'     });
-    if (v.fuel === 'Elektrik')      highlights.push({ icon: '⚡', text: 'Elektrikli',              color: 'bg-teal-50 text-teal-700'     });
+    if ((v.year ?? 0) >= 2021)      highlights.push({ icon: '✨', text: `${v.year} Model`,          color: 'bg-blue-50 text-blue-700' });
+    if (v.fuel === 'Hibrit')        highlights.push({ icon: '⚡', text: 'Hibrit',                  color: 'bg-blue-50 text-blue-700'     });
+    if (v.fuel === 'Elektrik')      highlights.push({ icon: '⚡', text: 'Elektrikli',              color: 'bg-blue-50 text-blue-700'     });
     if (v.transmission === 'Otomatik') highlights.push({ icon: '🕹️', text: 'Otomatik Vites',    color: 'bg-slate-100 text-slate-600'  });
     if (v.hasAccidentRecord)        highlights.push({ icon: '⚠️', text: 'Hasar Kaydı Var',        color: 'bg-red-50 text-red-600'       });
   }
@@ -319,7 +394,7 @@ export default function ListingDetail() {
     if ((e.batteryHealth ?? 0) >= 90)       highlights.push({ icon: '🔋', text: `Batarya %${e.batteryHealth}`, color: 'bg-emerald-50 text-emerald-700' });
     else if (e.batteryHealth && e.batteryHealth < 80) highlights.push({ icon: '🪫', text: `Batarya %${e.batteryHealth}`, color: 'bg-amber-50 text-amber-700' });
     if ((e.accessories?.length ?? 0) >= 3)  highlights.push({ icon: '📦', text: 'Tam aksesuarlı',            color: 'bg-blue-50 text-blue-700' });
-    if (e.accessories?.includes('Orijinal kutu')) highlights.push({ icon: '🎁', text: 'Orijinal kutusunda',  color: 'bg-violet-50 text-violet-700' });
+    if (e.accessories?.includes('Orijinal kutu')) highlights.push({ icon: '🎁', text: 'Orijinal kutusunda',  color: 'bg-blue-50 text-blue-700' });
   }
   if (p) {
     if (p.balcony)                          highlights.push({ icon: '🌿', text: 'Balkonlu',          color: 'bg-emerald-50 text-emerald-700' });
@@ -327,7 +402,7 @@ export default function ListingDetail() {
     if (p.parking)                          highlights.push({ icon: '🅿️', text: 'Otoparklı',        color: 'bg-blue-50 text-blue-700' });
     if (p.furnished)                        highlights.push({ icon: '🛋️', text: 'Eşyalı',            color: 'bg-amber-50 text-amber-700' });
     if (p.titleDeed === 'Kat Mülkiyetli')   highlights.push({ icon: '📜', text: 'Kat Mülkiyetli',    color: 'bg-emerald-50 text-emerald-700' });
-    if ((p.buildingAge ?? 99) <= 5)         highlights.push({ icon: '🏗️', text: 'Yeni Bina',         color: 'bg-violet-50 text-violet-700' });
+    if ((p.buildingAge ?? 99) <= 5)         highlights.push({ icon: '🏗️', text: 'Yeni Bina',         color: 'bg-blue-50 text-blue-700' });
   }
   // Yakıt ikonu
   const fuelIcon: Record<string, string> = {
@@ -380,7 +455,7 @@ export default function ListingDetail() {
           <button
             onClick={() => setForecastOpen(true)}
             title="12 aylık değer projeksiyonu"
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-slate-600 dark:text-slate-300 hover:text-violet-600 flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-600 dark:text-slate-300 hover:text-blue-600 flex items-center justify-center transition-colors"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V9m6 10V5m6 14v-7m4 7H2" />
@@ -401,7 +476,7 @@ export default function ListingDetail() {
           {/* Şikayet (sahibi değilse) */}
           {!isOwner && (
             <button
-              onClick={() => setReportModalOpen(true)}
+              onClick={handleReportStart}
               title="Bu ilanı şikayet et"
               className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-600 dark:text-slate-300 hover:text-red-600 flex items-center justify-center transition-colors"
             >
@@ -422,7 +497,7 @@ export default function ListingDetail() {
             </div>
             <h1 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white sm:text-3xl">{listing.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-              <span>{listing.city}</span>
+              <span>{listing.city}{listing.district ? ` / ${listing.district}` : ''}</span>
               <span aria-hidden="true">·</span>
               <span>{new Date(listing.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               {typeof listing.viewCount === 'number' && (
@@ -551,10 +626,26 @@ export default function ListingDetail() {
             </div>
           </section>}
 
-          {activeDetailTab === 'description' && <section id="listing-tab-description" role="tabpanel" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
-            <h2 className="text-base font-bold text-slate-950 dark:text-white">İlan açıklaması</h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{listing.description}</p>
-          </section>}
+          {activeDetailTab === 'description' && (
+            <div id="listing-tab-description" role="tabpanel" className="space-y-5">
+              <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+                <h2 className="text-base font-bold text-slate-950 dark:text-white">İlan açıklaması</h2>
+                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{listing.description}</p>
+              </section>
+
+              <details className="border-y border-slate-200 py-4 dark:border-slate-700">
+                <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Akıllı eşleşme araçları
+                </summary>
+                <div className="mt-4 space-y-5">
+                  <ListingAIInsights listing={listing} />
+                  <SwapChainPanel listing={listing} listings={listings} />
+                </div>
+              </details>
+
+              <ListingQASection listingId={listing.id} ownerId={listing.ownerId} />
+            </div>
+          )}
 
           {/* Hızlı özellikler */}
           {activeDetailTab === 'features' && <>
@@ -864,17 +955,71 @@ export default function ListingDetail() {
             </div>
           )}
 
-          {listing.attachments?.some((file) => file.kind !== 'image') && (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Belgeler ve Ekspertiz</h2>
+          {(v?.hasExpertise || expertiseFiles.length > 0) && (
+            <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Ekspertiz</h2>
+              {(v?.expertiseFirm || v?.expertiseDate || v?.expertiseNote) && (
+                <div className="mt-3 grid gap-3 border-y border-slate-100 py-3 text-sm dark:border-slate-700 sm:grid-cols-2">
+                  {v.expertiseFirm && (
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Firma / Servis</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">{v.expertiseFirm}</p>
+                    </div>
+                  )}
+                  {v.expertiseDate && (
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Tarih</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">{new Date(v.expertiseDate).toLocaleDateString('tr-TR')}</p>
+                    </div>
+                  )}
+                  {v.expertiseNote && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Sonuç / Not</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">{v.expertiseNote}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {expertiseFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {expertiseFiles.map((file) => {
+                    const content = (
+                      <>
+                        {file.mimeType.startsWith('image/') && file.url ? (
+                          <img src={file.url} alt="" className="h-11 w-11 shrink-0 rounded-md object-cover" />
+                        ) : (
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-200 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200">PDF</span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Ekspertiz raporu · {Math.round(file.size / 1024)} KB</p>
+                        </div>
+                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">{file.url ? 'Aç' : 'Giriş gerekli'}</span>
+                      </>
+                    );
+                    const className = 'flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
+                    return file.url ? (
+                      <a key={file.id} href={file.url} target="_blank" rel="noreferrer" className={`${className} hover:border-blue-300 dark:hover:border-blue-700`}>{content}</a>
+                    ) : (
+                      <div key={file.id} className={className} title="Ekspertiz raporunu görüntülemek için giriş yapın">{content}</div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {documentFiles.length > 0 && (
+            <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <h2 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">Diğer Belgeler</h2>
               <div className="space-y-2">
-                {listing.attachments.filter((file) => file.kind !== 'image').map((file) => {
+                {documentFiles.map((file) => {
                   const content = (
                     <>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {file.kind === 'expertise' ? 'Ekspertiz' : 'Belge'} · {Math.round(file.size / 1024)} KB
+                        Belge · {Math.round(file.size / 1024)} KB
                       </p>
                     </div>
                     <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">
@@ -894,7 +1039,7 @@ export default function ListingDetail() {
                   );
                 })}
               </div>
-            </div>
+            </section>
           )}
 
           {/* Video Embed */}
@@ -906,25 +1051,15 @@ export default function ListingDetail() {
               <h2 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">Konum</h2>
               <div className="flex h-40 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
                 <div className="text-center">
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">{listing.city}</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {listing.city}{listing.district ? ` / ${listing.district}` : ''}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Güvenlik nedeniyle yaklaşık konum gösterilmektedir.</p>
                 </div>
               </div>
             </section>
           )}
 
-          <details className="border-y border-slate-200 py-4 dark:border-slate-700">
-            <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-slate-100">
-              Akıllı eşleşme araçları
-            </summary>
-            <div className="mt-4 space-y-5">
-              <ListingAIInsights listing={listing} />
-              <SwapChainPanel listing={listing} listings={listings} />
-            </div>
-          </details>
-
-          {/* ── Soru-Cevap ── */}
-          <ListingQASection listingId={listing.id} ownerId={listing.ownerId} />
         </div>
 
         {/* ── Sağ: Sidebar ── */}
@@ -984,7 +1119,7 @@ export default function ListingDetail() {
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { icon: '👁️', label: 'Görüntülenme', value: ownerStats.views,    color: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300' },
+                        { icon: '👁️', label: 'Görüntülenme', value: ownerStats.views,    color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' },
                         { icon: '🤝', label: 'Toplam Teklif', value: ownerStats.offers,   color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' },
                         { icon: '⏳', label: 'Bekleyen',       value: ownerStats.pending,  color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' },
                         { icon: '✅', label: 'Tamamlanan',     value: ownerStats.accepted, color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' },
@@ -1010,7 +1145,7 @@ export default function ListingDetail() {
                                   <div className="flex-1 w-full flex items-end">
                                     <div
                                       className={`w-full rounded-t transition-all ${
-                                        d.count > 0 ? 'bg-violet-500 dark:bg-violet-400 group-hover:bg-violet-600' : 'bg-slate-200 dark:bg-slate-700'
+                                        d.count > 0 ? 'bg-blue-500 dark:bg-blue-400 group-hover:bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
                                       }`}
                                       style={{ height: `${Math.max(4, pct)}%` }}
                                       title={`${d.day}: ${d.count} görüntülenme`}
@@ -1038,12 +1173,12 @@ export default function ListingDetail() {
                       boostListing(listing.id);
                       showToast('İlan 7 gün boyunca öne çıkarıldı', 'success');
                     }}
-                    className="w-full bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-violet-200 dark:border-violet-900/40"
+                    className="w-full bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-blue-200 dark:border-blue-900/40"
                   >
                     Öne Çıkar (7 gün)
                   </button>
                 ) : (
-                  <div className="w-full bg-violet-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
+                  <div className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
                     Öne Çıkarıldı
                   </div>
                 )}

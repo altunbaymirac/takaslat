@@ -46,7 +46,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f2d6e] via-[#1B4FD8] to-[#1e40af] flex items-center justify-center px-4">
+    <div className="flex min-h-screen items-center justify-center bg-blue-950 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

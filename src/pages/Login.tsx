@@ -5,6 +5,7 @@ import { forgotPassword, signInWithGoogle } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
 import { checkRateLimit, resetRateLimit, getRemainingAttempts } from '../lib/rateLimit';
+import { normalizeInternalRedirect } from '../lib/navigation';
 
 type Mode = 'login' | 'forgot' | 'sent';
 
@@ -13,7 +14,7 @@ export default function Login() {
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/';
+  const redirectTo = normalizeInternalRedirect(searchParams.get('redirect'));
   const loginUser = useAppStore((s) => s.loginUser);
 
   const [mode,          setMode]         = useState<Mode>('login');
@@ -52,7 +53,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f2d6e] via-[#1B4FD8] to-[#1e40af] flex items-center justify-center px-4">
+    <div className="flex min-h-screen items-center justify-center bg-blue-950 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

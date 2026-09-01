@@ -1,63 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://www.takaslat.com/</loc>
-    <lastmod>2026-08-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.takaslat.com/listings</loc>
-    <lastmod>2026-08-30</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.takaslat.com/arac-takas</loc>
+  </url>
+  <url>
+    <loc>https://www.takaslat.com/ev-takas</loc>
+  </url>
+  <url>
+    <loc>https://www.takaslat.com/arsa-takas</loc>
   </url>
   <url>
     <loc>https://www.takaslat.com/trends</loc>
-    <lastmod>2026-08-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://www.takaslat.com/map</loc>
-    <lastmod>2026-08-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.takaslat.com/register</loc>
-    <lastmod>2026-08-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <loc>https://www.takaslat.com/auctions</loc>
+  </url>
+  <url>
+    <loc>https://www.takaslat.com/gizlilik</loc>
+  </url>
+  <url>
+    <loc>https://www.takaslat.com/kullanim-kosullari</loc>
   </url>
   <url>
     <loc>https://www.takaslat.com/listing/badb5ebc-ba2e-4f95-9c9f-a16e0e8d520c</loc>
-    <lastmod>2026-08-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-08-01T21:07:21.177Z</lastmod>
+    <image:image><image:loc>https://kozvhbepwboaxpksgqaj.supabase.co/storage/v1/object/public/images/bc81d251-41cb-42a5-8fc5-38a4bf0ece41/listings/b0a68a4b-728f-47dd-a1f0-24ea25739c08.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://www.takaslat.com/listing/8c82feaa-0a4c-46c3-ad87-542c24f72b2f</loc>
-    <lastmod>2026-07-12</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-07-12T09:56:33.429Z</lastmod>
+    <image:image><image:loc>https://kozvhbepwboaxpksgqaj.supabase.co/storage/v1/object/public/images/listings/1783850141723-cyvbw5phj86.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://www.takaslat.com/listing/c9c07e13-5bcf-4821-ba37-8972eff55a3d</loc>
-    <lastmod>2026-06-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-06-30T19:30:15.767Z</lastmod>
+    <image:image><image:loc>https://kozvhbepwboaxpksgqaj.supabase.co/storage/v1/object/public/images/listings/1782842562310-kbxh99jjs5d.jpeg</image:loc></image:image>
   </url>
   <url>
     <loc>https://www.takaslat.com/listing/373c2a01-44c9-4d36-8654-93c12d40ad04</loc>
-    <lastmod>2026-07-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-07-04T19:19:00.783Z</lastmod>
+    <image:image><image:loc>https://kozvhbepwboaxpksgqaj.supabase.co/storage/v1/object/public/images/listings/1782577944657-20sa29glh0zk.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://www.takaslat.com/listing/6a3c2123-2b38-4856-a1e6-dd0f748bbd87</loc>
-    <lastmod>2026-06-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-06-28T00:09:49.649Z</lastmod>
+    <image:image><image:loc>https://kozvhbepwboaxpksgqaj.supabase.co/storage/v1/object/public/images/listings/1782577374521-tverpcg0dri.jpg</image:loc></image:image>
   </url>
 </urlset>

@@ -113,7 +113,7 @@ export default function Profile() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       {/* ── Profil başlık kartı ── */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-6 sm:p-8 mb-8 text-white relative overflow-hidden">
+      <div className="relative mb-8 overflow-hidden rounded-2xl bg-blue-700 p-6 text-white sm:p-8">
         <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-amber-400/20 blur-3xl" />
 

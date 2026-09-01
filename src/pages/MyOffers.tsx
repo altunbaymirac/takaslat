@@ -27,7 +27,7 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {isIncoming ? (
-              <span className="text-xs font-medium bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">Gelen Teklif</span>
+              <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Gelen Teklif</span>
             ) : (
               <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Gönderilen Teklif</span>
             )}
@@ -165,7 +165,7 @@ export default function MyOffers() {
       {/* Incoming */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-purple-500 rounded-full" />
+          <span className="w-2 h-2 bg-blue-500 rounded-full" />
           Gelen Teklifler
           {incoming.length > 0 && (
             <span className="text-sm font-normal text-slate-400">({incoming.length})</span>

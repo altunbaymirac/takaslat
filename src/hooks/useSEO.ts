@@ -6,14 +6,23 @@ interface SEOOptions {
   image?: string;
   url?: string;
   type?: 'website' | 'article' | 'product';
+  noIndex?: boolean;
 }
 
-const DEFAULT_TITLE       = 'Takaslat — Araç Takasının En Akıllı Adresi';
-const DEFAULT_DESCRIPTION = 'Aracını akıllıca takas et. Türkiye\'nin en kapsamlı araç takas platformu.';
-const DEFAULT_IMAGE       = '/og-image.svg';
-// Canonical/og:url her zaman gerçek domaini göstersin — vercel.app veya
-// localhost'tan açılsa bile Google'a tek doğru adres bildirilir (kopya index önlenir).
+const DEFAULT_TITLE       = 'Takaslat | Araç, Ev ve Arsa Takas Platformu';
+const DEFAULT_DESCRIPTION = 'Araç, ev ve arsa takas ilanlarını keşfet. Ücretsiz ilan ver, teklif al ve güvenle takas yap.';
+const DEFAULT_IMAGE       = '/pwa-512.png';
 const PROD_ORIGIN         = 'https://www.takaslat.com';
+const PRIVATE_PATH_PREFIXES = [
+  '/admin', '/dashboard', '/settings', '/conversations', '/offers',
+  '/favorites', '/compare', '/wishlist', '/achievements', '/smart-tools',
+  '/create', '/login', '/register', '/reset-password', '/ai-sonuclar', '/profile/',
+];
+
+function absoluteUrl(value: string) {
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${PROD_ORIGIN}${value.startsWith('/') ? value : `/${value}`}`;
+}
 
 function setMeta(name: string, content: string, attr: 'name' | 'property' = 'name') {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${name}"]`);
@@ -25,16 +34,22 @@ function setMeta(name: string, content: string, attr: 'name' | 'property' = 'nam
   el.content = content;
 }
 
-export function useSEO({ title, description, image, url, type = 'website' }: SEOOptions = {}) {
+export function useSEO({ title, description, image, url, type = 'website', noIndex = false }: SEOOptions = {}) {
   useEffect(() => {
     const pageTitle      = title       ? `${title} | Takaslat` : DEFAULT_TITLE;
     const pageDesc       = description ?? DEFAULT_DESCRIPTION;
-    const pageImage      = image       ?? DEFAULT_IMAGE;
-    const pageUrl        = url         ?? `${PROD_ORIGIN}${window.location.pathname}${window.location.search}`;
+    const pageImage      = absoluteUrl(image ?? DEFAULT_IMAGE);
+    const pageUrl        = absoluteUrl(url ?? window.location.pathname);
+    const isPrivatePage  = PRIVATE_PATH_PREFIXES.some((prefix) => window.location.pathname.startsWith(prefix));
+    const robotsContent  = noIndex || isPrivatePage
+      ? 'noindex, nofollow, noarchive'
+      : 'index, follow, max-image-preview:large';
 
     // Basic
     document.title = pageTitle;
     setMeta('description', pageDesc);
+    setMeta('robots', robotsContent);
+    setMeta('googlebot', robotsContent);
 
     // Open Graph
     setMeta('og:title',       pageTitle,  'property');
@@ -59,11 +74,20 @@ export function useSEO({ title, description, image, url, type = 'website' }: SEO
     }
     canonical.href = pageUrl;
 
+    let alternate = document.querySelector<HTMLLinkElement>('link[rel="alternate"][hreflang="tr-TR"]');
+    if (!alternate) {
+      alternate = document.createElement('link');
+      alternate.rel = 'alternate';
+      alternate.hreflang = 'tr-TR';
+      document.head.appendChild(alternate);
+    }
+    alternate.href = pageUrl;
+
     return () => {
       // Reset to defaults on unmount
       document.title = DEFAULT_TITLE;
     };
-  }, [title, description, image, url, type]);
+  }, [title, description, image, url, type, noIndex]);
 }
 
 // ─── JSON-LD structured data (zengin snippet / Google için) ──────────────────

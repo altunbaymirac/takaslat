@@ -142,7 +142,9 @@ export default function Auctions() {
   const nextBid = selectedAuction ? selectedAuction.currentBid + selectedAuction.bidIncrement : 0;
   const selectedStatus = selectedAuction ? getAuctionStatus(selectedAuction, now) : 'ended';
   const bidAmount = bidDraft ?? String(nextBid);
-  const canManageSelectedAuction = Boolean(currentUser && selectedListing?.ownerId === currentUser.id);
+  const canManageSelectedAuction = Boolean(
+    currentUser && (selectedAuction?.ownerId === currentUser.id || selectedListing?.ownerId === currentUser.id)
+  );
   const bidListings = listings.filter((listing) =>
     currentUser?.id === listing.ownerId && listing.id !== selectedAuction?.listingId
   );

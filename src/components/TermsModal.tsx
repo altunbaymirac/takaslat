@@ -39,7 +39,7 @@ export default function TermsModal() {
           <section>
             <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">1. Platform Hakkında</h3>
             <p>
-              Takaslat, kullanıcıların araç, elektronik, gayrimenkul ve diğer varlıklarını birbiriyle takas etmesini
+              Takaslat, kullanıcıların araç ve gayrimenkul ilanları üzerinden takas görüşmesi yapmasını
               kolaylaştıran bir aracı platformdur. Takaslat, yapılan hiçbir takas işleminin tarafı değildir;
               alıcı ve satıcı/takas eden taraflar arasındaki sözleşmenin tarafları yalnızca ilgili kullanıcılardır.
             </p>

@@ -24,7 +24,7 @@ function WishCard({ wish, matched }: { wish: WishItem; matched: ReturnType<typeo
             {wish.city     && <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">📍 {wish.city}</span>}
             {wish.maxValue && <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">💰 {fmt(wish.maxValue)}</span>}
             {(wish.minYear || wish.maxYear) && (
-              <span className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
                 📅 {wish.minYear ?? '*'} – {wish.maxYear ?? '*'}
               </span>
             )}

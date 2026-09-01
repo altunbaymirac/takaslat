@@ -7,6 +7,7 @@ import { checkPasswordStrength } from '../lib/sanitize';
 import { signInWithGoogle } from '../services/api';
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
+import { normalizeInternalRedirect } from '../lib/navigation';
 
 export default function Register() {
   useSEO({ title: 'Kayıt Ol', description: 'Takaslat\'a ücretsiz kayıt ol ve araç takasına hemen başla.' });
@@ -27,7 +28,7 @@ export default function Register() {
   const remaining = getRemainingAttempts('register', 'global');
   const [searchParams] = useSearchParams();
   const refId = searchParams.get('ref');
-  const redirectTo = searchParams.get('redirect') || '/';
+  const redirectTo = normalizeInternalRedirect(searchParams.get('redirect'));
 
   useEffect(() => {
     if (refId) {
@@ -56,7 +57,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f2d6e] via-[#1B4FD8] to-[#1e40af] flex items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-blue-950 px-4 py-10">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -76,11 +77,11 @@ export default function Register() {
           <h1 className="text-xl font-bold text-slate-900 mb-6">Yeni hesap oluştur</h1>
 
           {refId && (
-            <div className="mb-4 px-4 py-3 bg-pink-50 border border-pink-200 rounded-xl flex items-center gap-2">
+            <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2">
               <span className="text-xl">🎁</span>
               <div>
-                <p className="text-xs font-bold text-pink-700">Davet ile geliyorsun!</p>
-                <p className="text-[11px] text-pink-600">Hoş geldin bonusu kazanacaksın</p>
+                <p className="text-xs font-bold text-blue-700">Davet ile geliyorsun!</p>
+                <p className="text-[11px] text-blue-600">Hoş geldin bonusu kazanacaksın</p>
               </div>
             </div>
           )}

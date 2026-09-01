@@ -36,6 +36,10 @@ const SmartTools    = lazy(() => import('./pages/SmartTools'));
 const Admin         = lazy(() => import('./pages/Admin'));
 const TrustCenter   = lazy(() => import('./pages/TrustCenter'));
 const Auctions      = lazy(() => import('./pages/Auctions'));
+const Privacy       = lazy(() => import('./pages/Privacy'));
+const Terms         = lazy(() => import('./pages/Terms'));
+const CategoryLanding = lazy(() => import('./pages/CategoryLanding'));
+const NotFound      = lazy(() => import('./pages/NotFound'));
 
 function PageLoader() {
   return (
@@ -62,7 +66,6 @@ function AppInner() {
     currentUser,
     darkMode,
     soundEnabled,
-    accentColor,
     compareList,
     bundleCart,
   } = useAppStore();
@@ -111,11 +114,6 @@ function AppInner() {
   // Ses ayarını sync et
   useEffect(() => { setSoundEnabled(soundEnabled); }, [soundEnabled]);
 
-  // Accent color CSS variable
-  useEffect(() => {
-    document.documentElement.setAttribute('data-accent', accentColor);
-  }, [accentColor]);
-
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors">
       <Routes>
@@ -145,12 +143,15 @@ function AppInner() {
                   </Link>
                 </div>
               )}
-              <main className={compareList.length > 0 || bundleCart.length > 0 ? 'pb-36 sm:pb-28' : undefined}>
+              <main className={compareList.length > 0 || bundleCart.length > 0 ? 'pb-52 md:pb-28' : 'pb-20 md:pb-0'}>
                 <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     <Route path="/"              element={<Home />} />
                     <Route path="/listings"      element={<Listings />} />
+                    <Route path="/arac-takas"    element={<CategoryLanding kind="vehicle" />} />
+                    <Route path="/ev-takas"      element={<CategoryLanding kind="home" />} />
+                    <Route path="/arsa-takas"    element={<CategoryLanding kind="land" />} />
                     <Route path="/ai-sonuclar"   element={<AIResults />} />
                     <Route path="/listing/:id"   element={<ListingDetail />} />
                     <Route path="/create"        element={<CreateListing />} />
@@ -169,6 +170,9 @@ function AppInner() {
                     <Route path="/auctions"      element={<Auctions />} />
                     <Route path="/trust"         element={<TrustCenter />} />
                     <Route path="/admin"         element={<Admin />} />
+                    <Route path="/gizlilik"      element={<Privacy />} />
+                    <Route path="/kullanim-kosullari" element={<Terms />} />
+                    <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
                 </ErrorBoundary>

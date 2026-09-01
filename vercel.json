@@ -28,7 +28,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://picsum.photos https://images.unsplash.com https://ui-avatars.com https://kozvhbepwboaxpksgqaj.supabase.co https://*.tile.openstreetmap.org https://www.facebook.com; connect-src 'self' https://kozvhbepwboaxpksgqaj.supabase.co wss://realtime.supabase.co wss://kozvhbepwboaxpksgqaj.supabase.co https://*.tile.openstreetmap.org https://www.google-analytics.com https://analytics.google.com https://www.facebook.com; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+          "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://picsum.photos https://images.unsplash.com https://ui-avatars.com https://kozvhbepwboaxpksgqaj.supabase.co https://*.tile.openstreetmap.org https://www.facebook.com; connect-src 'self' https://kozvhbepwboaxpksgqaj.supabase.co wss://realtime.supabase.co wss://kozvhbepwboaxpksgqaj.supabase.co https://*.tile.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.facebook.com; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
         }
       ]
     }

@@ -49,15 +49,41 @@ function addScript(id: string, src: string) {
   document.head.appendChild(script);
 }
 
+function clearMeasurementCookies(prefixes: string[]) {
+  document.cookie.split(';').forEach((cookie) => {
+    const name = cookie.split('=')[0]?.trim();
+    if (!name || !prefixes.some((prefix) => name.startsWith(prefix))) return;
+    document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+  });
+}
+
 export function applyConsentPreferences(preferences: ConsentPreferences) {
   const browserWindow = window as AnalyticsWindow;
   const googleTagId = import.meta.env.VITE_GOOGLE_TAG_ID as string | undefined;
   const metaPixelId = import.meta.env.VITE_META_PIXEL_ID as string | undefined;
 
+  browserWindow.gtag?.('consent', 'update', {
+    analytics_storage: preferences.analytics ? 'granted' : 'denied',
+    ad_storage: preferences.marketing ? 'granted' : 'denied',
+    ad_user_data: preferences.marketing ? 'granted' : 'denied',
+    ad_personalization: preferences.marketing ? 'granted' : 'denied',
+  });
+  if (!preferences.analytics) clearMeasurementCookies(['_ga', '_gid']);
+  if (!preferences.marketing) {
+    browserWindow.fbq?.('consent', 'revoke');
+    clearMeasurementCookies(['_fbp', '_fbc']);
+  }
+
   if (preferences.analytics && googleTagId) {
     browserWindow.dataLayer ??= [];
     browserWindow.gtag ??= (...args: unknown[]) => { browserWindow.dataLayer?.push(args); };
     browserWindow.gtag('js', new Date());
+    browserWindow.gtag('consent', 'update', {
+      analytics_storage: 'granted',
+      ad_storage: preferences.marketing ? 'granted' : 'denied',
+      ad_user_data: preferences.marketing ? 'granted' : 'denied',
+      ad_personalization: preferences.marketing ? 'granted' : 'denied',
+    });
     browserWindow.gtag('config', googleTagId, { anonymize_ip: true });
     addScript('takaslat-google-tag', `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(googleTagId)}`);
   }
@@ -74,6 +100,7 @@ export function applyConsentPreferences(preferences: ConsentPreferences) {
       browserWindow.fbq = fbq;
     }
     browserWindow.fbq?.('init', metaPixelId);
+    browserWindow.fbq?.('consent', 'grant');
     browserWindow.fbq?.('track', 'PageView');
     addScript('takaslat-meta-pixel', 'https://connect.facebook.net/en_US/fbevents.js');
   }

@@ -114,7 +114,7 @@ export default function ValueForecastModal({ listingId, onClose }: Props) {
               </div>
 
               {/* Tavsiye + faktörler */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/20">
                 <p className="text-sm font-bold text-blue-900 dark:text-blue-200 mb-2">{data.recommendation}</p>
                 {data.factors.length > 0 && (
                   <ul className="space-y-1 mt-2">

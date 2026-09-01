@@ -55,7 +55,7 @@ export default function Achievements() {
       </header>
 
       {/* Genel ilerleme barı */}
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-5 mb-6 shadow-lg">
+      <div className="mb-6 rounded-2xl bg-blue-700 p-5 text-white shadow-lg">
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-sm opacity-90">İlerleme</p>

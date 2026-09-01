@@ -110,7 +110,7 @@ export default function NegotiationSimulator({ listingId, listingTitle, onClose 
 
               {/* Genel skor + ton */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white">
+                <div className="rounded-2xl bg-blue-600 p-4 text-white">
                   <div className="text-xs opacity-90 mb-1">Genel Skor</div>
                   <div className="text-3xl font-bold">{result.analysis.overallScore}<span className="text-base opacity-75">/100</span></div>
                   <div className="text-xs opacity-90 mt-1">{result.analysis.length.note}</div>

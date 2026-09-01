@@ -7,6 +7,7 @@
     "dev": "vite",
     "prebuild": "node scripts/generate-sitemap.mjs",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/generate-static-seo-pages.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

@@ -13,7 +13,13 @@ const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 const VEHICLE_GROUP_KEYS = Object.keys(VEHICLE_GROUPS);
 type CategoryChoice = 'Tümü' | 'Araç' | 'Ev' | 'Arsa';
 
-export default function FilterBar({ onFilterChange }: { onFilterChange?: () => void } = {}) {
+export default function FilterBar({
+  onFilterChange,
+  embedded = false,
+}: {
+  onFilterChange?: () => void;
+  embedded?: boolean;
+} = {}) {
   const { filters, setFilters: _setFilters, resetFilters: _resetFilters, listings } = useAppStore();
   const navigate = useNavigate();
 
@@ -122,32 +128,47 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
-        <span className="mr-1 text-xs font-bold uppercase tracking-wide text-slate-400">Kategori</span>
-        {(['Tümü', 'Araç', 'Ev', 'Arsa'] as CategoryChoice[]).map(category => (
-          <button
-            key={category}
-            onClick={() => pickCategory(category)}
-            className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
-              categoryChoice === category
-                ? 'border-blue-600 bg-blue-600 text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-            }`}
-          >
-            {category}
-          </button>
-        ))}
+    <div className={embedded
+      ? 'bg-white p-4 dark:bg-slate-900'
+      : 'rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800'
+    }>
+      <div className="border-b border-slate-100 pb-3 dark:border-slate-700">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Kategori</span>
+            <div className="mt-2 grid grid-cols-4 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+              {(['Tümü', 'Araç', 'Ev', 'Arsa'] as CategoryChoice[]).map((category, index) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => pickCategory(category)}
+                  className={`min-h-11 border-slate-200 px-2 text-sm font-semibold transition-colors dark:border-slate-700 ${
+                    index > 0 ? 'border-l' : ''
+                  } ${
+                    categoryChoice === category
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <div className="relative ml-auto" ref={codeRef}>
+          <div className="relative w-full lg:w-52" ref={codeRef}>
+            <label htmlFor="listing-code-search" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-400">
+              İlan kodu
+            </label>
           <input
+            id="listing-code-search"
             type="text"
-            placeholder="TKS-XXXXXXX ilan kodu"
+            placeholder="TKS-XXXXXXX"
             value={codeQuery}
             onChange={(e) => { setCodeQuery(e.target.value); setCodeOpen(true); }}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCodeSearch(); }}
             disabled={codeSearching}
-            className="h-8 w-44 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            className="h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           />
           {codeOpen && LISTING_CODE_RE.test(codeQuery.trim()) && (
             <button
@@ -158,6 +179,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
               {codeSearching ? 'Aranıyor…' : `"${codeQuery.trim()}" ilanına git`}
             </button>
           )}
+          </div>
         </div>
       </div>
 
@@ -190,12 +212,12 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
         </div>
       )}
 
-      <div className={`grid gap-2 pt-3 ${
+      <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 pt-3 ${
         isVehicle
           ? 'lg:grid-cols-[1fr_1fr_180px_230px_auto_auto]'
           : 'lg:grid-cols-[minmax(180px,1fr)_minmax(230px,1fr)_auto]'
       }`}>
-        {isVehicle && <div className="relative">
+        {isVehicle && <div className="relative min-w-0">
           <select
             value={selectedBrand}
             onChange={e => pickBrand(e.target.value)}
@@ -209,7 +231,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           </svg>
         </div>}
 
-        {isVehicle && <div className="relative">
+        {isVehicle && <div className="relative min-w-0">
           <select
             value={filters.model}
             onChange={e => pickModel(e.target.value)}
@@ -224,7 +246,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           </svg>
         </div>}
 
-        <div className="relative">
+        <div className="relative min-w-0">
           <select
             value={filters.city}
             onChange={e => setFilters({ city: e.target.value })}
@@ -238,7 +260,7 @@ export default function FilterBar({ onFilterChange }: { onFilterChange?: () => v
           </svg>
         </div>
 
-        <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex h-10 min-w-0 items-center rounded-md border border-slate-200 bg-slate-50 px-3 transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900">
           <span className="mr-2 select-none text-sm font-bold text-slate-400">₺</span>
           <input
             type="number"

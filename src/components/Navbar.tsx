@@ -209,8 +209,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile bottom nav — sahibinden tarzı ikon + etiket */}
-      <nav className="md:hidden flex items-stretch border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+      {/* Mobile bottom navigation */}
+      <nav
+        aria-label="Mobil ana navigasyon"
+        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(15,23,42,0.08)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 md:hidden"
+      >
         {NAV.map(({ to, label }) => {
           const isCreate = to === '/create';
           const active   = pathname === to;
@@ -230,7 +233,7 @@ export default function Navbar() {
             <Link
               key={to}
               to={to}
-              className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ${
+              className={`relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
                 isCreate
                   ? 'text-blue-600'
                   : active

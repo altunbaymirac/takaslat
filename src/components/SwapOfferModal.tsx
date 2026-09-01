@@ -3,6 +3,7 @@ import type { Listing } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { aiAutoMessage, aiOfferQuality, type OfferQualityResult } from '../services/api';
 import { getOfferTone } from '../lib/listingHealth';
+import { MAX_OFFER_MESSAGE_LENGTH, MAX_OFFER_VALUE, validateOfferDraft } from '../lib/offerValidation';
 import { showToast } from './Toast';
 
 interface Props {
@@ -21,22 +22,33 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
   const [sending, setSending] = useState(false);
   const [quality, setQuality] = useState<OfferQualityResult | null>(null);
 
-  const myListings = listings.filter((l) => l.ownerId === currentUserId);
+  const myListings = listings.filter((l) =>
+    l.ownerId === currentUserId
+    && l.id !== listing.id
+    && l.isActive !== false
+    && l.moderationStatus !== 'pending'
+    && l.moderationStatus !== 'rejected'
+  );
   const selected = myListings.find((l) => l.id === selectedListing);
   const localTone = getOfferTone(message);
 
-  const effectiveOfferedValue = Number(offeredValue) || selected?.estimatedValue || 0;
+  const parsedOfferedValue = offeredValue.trim() === '' ? selected?.estimatedValue : Number(offeredValue);
+  const effectiveOfferedValue = parsedOfferedValue ?? 0;
   const priceDiff = effectiveOfferedValue > 0 ? effectiveOfferedValue - listing.estimatedValue : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (sending) return;
-    if (!currentUserId) {
-      showToast('Teklif göndermek için giriş yapmalısınız', 'error');
-      return;
-    }
-    if (!message.trim()) {
-      showToast('Teklif mesajı boş bırakılamaz', 'error');
+    const validationError = validateOfferDraft({
+      actorId: currentUserId,
+      targetOwnerId: listing.ownerId,
+      targetListingId: listing.id,
+      offeredListingId: selected?.id,
+      message,
+      offeredValue: parsedOfferedValue,
+    });
+    if (validationError) {
+      showToast(validationError, 'error');
       return;
     }
     setSending(true);
@@ -51,7 +63,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
         offeredListingTitle: selected?.title,
         message: message.trim(),
         status: 'Beklemede',
-        offeredValue: Number(offeredValue) || selected?.estimatedValue,
+        offeredValue: parsedOfferedValue,
       });
       setSent(true);
     } catch (error) {
@@ -94,7 +106,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
         message,
         listingId: listing.id,
         offeredListingId: selected?.id,
-        offeredValue: Number(offeredValue) || selected?.estimatedValue,
+        offeredValue: parsedOfferedValue,
       });
       setQuality(res);
       showToast('Teklif kalitesi analiz edildi', 'success');
@@ -185,6 +197,9 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
               </label>
               <input
                 type="number"
+                min={0}
+                max={MAX_OFFER_VALUE}
+                step={1000}
                 placeholder="Örn: 850000"
                 value={offeredValue}
                 onChange={(e) => setOfferedValue(e.target.value)}
@@ -243,6 +258,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
               </div>
               <textarea
                 required
+                maxLength={MAX_OFFER_MESSAGE_LENGTH}
                 rows={4}
                 placeholder="Takas teklifinizi açıklayın. Hangi aracı veya ürünü teklif ediyorsunuz? Nakit fark ödeyecek misiniz?"
                 value={message}

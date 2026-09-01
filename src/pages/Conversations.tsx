@@ -16,7 +16,7 @@ import { showToast } from '../components/Toast';
 const STATUS: Record<OfferStatus, { label: string; dot: string; badge: string }> = {
   Beklemede:    { label: 'Beklemede',    dot: 'bg-amber-400',  badge: 'bg-amber-50  text-amber-700  border-amber-200'  },
   Görüşülüyor:  { label: 'Görüşülüyor',  dot: 'bg-blue-500',   badge: 'bg-blue-50   text-blue-700   border-blue-200'   },
-  Onaylandı:    { label: 'Onaylandı',    dot: 'bg-violet-500', badge: 'bg-violet-50 text-violet-700 border-violet-200' },
+  Onaylandı:    { label: 'Onaylandı',    dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
   Tamamlandı:   { label: 'Tamamlandı',   dot: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-700 border-emerald-200'},
   Reddedildi:   { label: 'Reddedildi',   dot: 'bg-red-400',    badge: 'bg-red-50    text-red-700    border-red-200'    },
 };
@@ -57,7 +57,7 @@ function ConvItem({
     >
       <div className="flex items-start gap-3">
         {/* avatar placeholder */}
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5">
+        <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
           {(isIncoming ? offer.fromUserName : 'S')[0]}
         </div>
 
@@ -157,7 +157,13 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
 
   const relatedListing = listings.find(l => l.id === offer.listingId);
   const offeredListing = listings.find(l => l.id === offer.offeredListingId);
-  const myListings = listings.filter(l => l.ownerId === currentUserId);
+  const myListings = listings.filter((listing) =>
+    listing.ownerId === currentUserId
+    && listing.id !== offer.listingId
+    && listing.isActive !== false
+    && listing.moderationStatus !== 'pending'
+    && listing.moderationStatus !== 'rejected'
+  );
   const selectedRevisionListing = myListings.find(l => l.id === revisionListingId);
 
   // ── Real-time: listen for incoming messages & status changes via SSE ──
@@ -192,14 +198,23 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
 
   async function submitRevision(e: React.FormEvent) {
     e.preventDefault();
+    if (isIncoming) {
+      showToast('Yalnızca teklifi gönderen kişi teklifi revize edebilir', 'error');
+      return;
+    }
+    const hasValue = revisionValue.trim() !== '';
     const value = Number(revisionValue);
-    if (!value && !selectedRevisionListing) {
+    if (hasValue && (!Number.isSafeInteger(value) || value < 0 || value > 2_000_000_000)) {
+      showToast('Teklif değeri geçersiz', 'error');
+      return;
+    }
+    if (!hasValue && !selectedRevisionListing) {
       showToast('Revizyon için değer veya teklif edilecek ilan seçin', 'error');
       return;
     }
     try {
       await reviseOffer(offer.id, {
-        offeredValue: value || selectedRevisionListing?.estimatedValue,
+        offeredValue: hasValue ? value : selectedRevisionListing?.estimatedValue,
         offeredListingId: selectedRevisionListing?.id,
         offeredListingTitle: selectedRevisionListing?.title,
       });
@@ -365,7 +380,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
               {offer.offeredValue && <span className="ml-2 text-blue-600 dark:text-blue-300">{fmt(offer.offeredValue)}</span>}
             </p>
           </div>
-          {offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
+          {!isIncoming && offer.status !== 'Tamamlandı' && offer.status !== 'Reddedildi' && (
             <button
               type="button"
               onClick={() => setRevisionOpen(true)}
@@ -511,7 +526,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
                 <button
                   onClick={() => void handleStatusChange('Onaylandı')}
                   disabled={isIncoming ? offer.toAccepted : offer.fromAccepted}
-                  className="flex-1 text-xs font-semibold bg-violet-50 hover:bg-violet-100 disabled:opacity-60 text-violet-700 border border-violet-200 py-2 rounded-xl transition-colors"
+                  className="flex-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 disabled:opacity-60 text-blue-700 border border-blue-200 py-2 rounded-xl transition-colors"
                 >
                   {(isIncoming ? offer.toAccepted : offer.fromAccepted)
                     ? 'Onayın alındı, karşı taraf bekleniyor'
@@ -728,6 +743,9 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
                 <span className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">Yeni teklif değeri</span>
                 <input
                   type="number"
+                  min={0}
+                  max={2_000_000_000}
+                  step={1000}
                   value={revisionValue}
                   onChange={(e) => setRevisionValue(e.target.value)}
                   placeholder="Örn: 850000"

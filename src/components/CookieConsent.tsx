@@ -34,7 +34,7 @@ export default function CookieConsent() {
   return (
     <>
       {analyticsEnabled && <Analytics />}
-      {visible && <section className="fixed inset-x-3 bottom-3 z-[10000] mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900" aria-label="Çerez tercihleri">
+      {visible && <section className="fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-[10000] mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 md:bottom-3" aria-label="Çerez tercihleri">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-sm font-bold text-slate-950 dark:text-white">Çerez tercihleri</h2>

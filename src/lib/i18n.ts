@@ -42,7 +42,7 @@ const TR: Dictionary = {
 
   // Hero
   'hero.title':         'Akıllı Takas Platformu',
-  'hero.subtitle':      'Aracını, elektroniğini, gayrimenkulünü saniyeler içinde takas et — yapay zeka ile en iyi eşleşmeyi bul.',
+  'hero.subtitle':      'Aracın, evin veya arsan için yapay zeka ile en uygun takas eşleşmesini bul.',
   'hero.cta':           'İlanları Keşfet',
   'hero.ai':            '✦ AI ile Eşleştir',
 

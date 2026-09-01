@@ -5,19 +5,10 @@ import { requestEmailVerification } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
 
-const ACCENT_OPTIONS: { id: string; name: string; bgClass: string }[] = [
-  { id: 'blue',    name: 'Mavi',    bgClass: 'bg-blue-600'    },
-  { id: 'emerald', name: 'Yeşil',   bgClass: 'bg-emerald-600' },
-  { id: 'violet',  name: 'Mor',     bgClass: 'bg-violet-600'  },
-  { id: 'orange',  name: 'Turuncu', bgClass: 'bg-orange-600'  },
-  { id: 'pink',    name: 'Pembe',   bgClass: 'bg-pink-600'    },
-  { id: 'teal',    name: 'Turkuaz', bgClass: 'bg-teal-600'    },
-];
-
 export default function Settings() {
-  useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.' });
+  useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.', noIndex: true });
 
-  const { darkMode, toggleDarkMode, soundEnabled, toggleSound, accentColor, setAccentColor, resetOnboarding, currentUser } = useAppStore();
+  const { darkMode, toggleDarkMode, soundEnabled, toggleSound, resetOnboarding, currentUser } = useAppStore();
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
 
@@ -67,7 +58,7 @@ export default function Settings() {
           </h2>
 
           {/* Dark mode */}
-          <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between py-3">
             <div>
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Karanlık Mod</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">Göz yormayan koyu tema</p>
@@ -84,32 +75,6 @@ export default function Settings() {
             </button>
           </div>
 
-          {/* Accent color */}
-          <div className="py-3 border-b border-slate-100 dark:border-slate-700">
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-100 mb-1">Vurgu Rengi</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Butonlar, linkler ve seçimler bu rengi kullanır</p>
-            <div className="flex flex-wrap gap-2">
-              {ACCENT_OPTIONS.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setAccentColor(c.id)}
-                  className={`w-10 h-10 rounded-full ${c.bgClass} relative transition-transform hover:scale-110 ${
-                    accentColor === c.id ? 'ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-slate-900 dark:ring-white' : ''
-                  }`}
-                  title={c.name}
-                >
-                  {accentColor === c.id && (
-                    <svg className="absolute inset-0 m-auto w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 italic">
-              💡 Şu anki vurgu: <span className="font-semibold capitalize text-slate-600 dark:text-slate-300">{ACCENT_OPTIONS.find((a) => a.id === accentColor)?.name}</span>
-            </p>
-          </div>
         </section>
 
         {/* Ses */}

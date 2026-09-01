@@ -244,7 +244,7 @@ export default function Dashboard() {
           { icon: '📋', label: 'İlanlarım',         value: myListings.length.toString(),  color: 'bg-blue-600',     link: '/profile/' + currentUserId },
           { icon: '🤝', label: 'Bekleyen Teklifler',value: pending.toString(),            color: 'bg-amber-600',    link: '/conversations' },
           { icon: '✅', label: 'Tamamlanan',        value: completed.toString(),          color: 'bg-emerald-600',  link: '/conversations' },
-          { icon: '👁️', label: 'Toplam Görüntülenme', value: totalViews.toString(),       color: 'bg-violet-600',   link: '/profile/' + currentUserId },
+          { icon: '👁️', label: 'Toplam Görüntülenme', value: totalViews.toString(),       color: 'bg-blue-600',   link: '/profile/' + currentUserId },
         ].map((s) => (
           <Link
             key={s.label}
@@ -352,7 +352,7 @@ export default function Dashboard() {
           )}
 
           {/* 🎁 Davet kartı */}
-          <div className="bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl p-5 text-white shadow-sm">
+          <div className="rounded-2xl bg-blue-700 p-5 text-white shadow-sm">
             <h3 className="text-sm font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <span>🎁</span> Arkadaşlarını Davet Et
             </h3>

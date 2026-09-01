@@ -61,7 +61,7 @@ export default function BundleBar() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 max-h-[50dvh] overflow-y-auto bg-white pb-[env(safe-area-inset-bottom)] dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-2xl">
+    <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-30 max-h-[50dvh] overflow-y-auto border-t border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800 md:bottom-0 md:pb-[env(safe-area-inset-bottom)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
 
         {/* Üst satır: özet + actions */}

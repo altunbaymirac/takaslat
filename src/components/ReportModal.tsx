@@ -3,12 +3,12 @@ import { useAppStore } from '../store/useAppStore';
 import { showToast } from './Toast';
 
 const REASONS = [
-  { id: 'fake',        label: 'Sahte ilan',           icon: '🚫' },
-  { id: 'misleading',  label: 'Yanıltıcı bilgi',      icon: '⚠️' },
-  { id: 'spam',        label: 'Spam / Tekrar eden',   icon: '🔁' },
-  { id: 'inappropriate', label: 'Uygunsuz içerik',    icon: '🔞' },
-  { id: 'scam',        label: 'Dolandırıcılık şüphesi', icon: '💀' },
-  { id: 'other',       label: 'Diğer',                icon: '❓' },
+  { id: 'fake',          label: 'Sahte ilan' },
+  { id: 'misleading',    label: 'Yanıltıcı bilgi' },
+  { id: 'spam',          label: 'Spam veya tekrar eden ilan' },
+  { id: 'inappropriate', label: 'Uygunsuz içerik' },
+  { id: 'scam',          label: 'Dolandırıcılık şüphesi' },
+  { id: 'other',         label: 'Diğer' },
 ];
 
 interface Props {
@@ -21,13 +21,21 @@ export default function ReportModal({ listingId, listingTitle, onClose }: Props)
   const addReport = useAppStore((s) => s.addReport);
   const [reason,  setReason]  = useState<string>('');
   const [details, setDetails] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!reason) return;
-    addReport(listingId, reason, details || undefined);
-    showToast('Şikayetiniz alındı — inceleme başlatıldı', 'success');
-    onClose();
+    if (!reason || loading) return;
+    setLoading(true);
+    try {
+      await addReport(listingId, reason, details || undefined);
+      showToast('Şikayetiniz alındı, inceleme başlatıldı', 'success');
+      onClose();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Şikayet gönderilemedi', 'error');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -39,9 +47,7 @@ export default function ReportModal({ listingId, listingTitle, onClose }: Props)
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>🚩</span> İlanı Şikayet Et
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">İlanı Şikayet Et</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate max-w-xs">
               {listingTitle}
             </p>
@@ -79,7 +85,6 @@ export default function ReportModal({ listingId, listingTitle, onClose }: Props)
                     onChange={(e) => setReason(e.target.value)}
                     className="sr-only"
                   />
-                  <span className="text-xl">{r.icon}</span>
                   <span className={`text-sm font-medium ${
                     reason === r.id ? 'text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'
                   }`}>
@@ -103,6 +108,7 @@ export default function ReportModal({ listingId, listingTitle, onClose }: Props)
               rows={3}
               value={details}
               onChange={(e) => setDetails(e.target.value)}
+              maxLength={1000}
               placeholder="Olayı kısaca açıklayın..."
               className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
             />
@@ -118,10 +124,10 @@ export default function ReportModal({ listingId, listingTitle, onClose }: Props)
             </button>
             <button
               type="submit"
-              disabled={!reason}
+              disabled={!reason || loading}
               className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
             >
-              Şikayet Et
+              {loading ? 'Gönderiliyor...' : 'Şikayet Et'}
             </button>
           </div>
         </form>

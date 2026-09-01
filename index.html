@@ -8,8 +8,8 @@
     <link rel="icon" href="/pwa-512.png" type="image/png" sizes="512x512" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, viewport-fit=cover" />
     <meta name="theme-color" content="#1B4FD8" />
-    <meta name="description" content="Takaslat ile araç takası yap: ilan ver, teklif al, AI ile eşleş, güvenle buluş. Türkiye'nin en kapsamlı araç, elektronik ve gayrimenkul takas platformu." />
-    <meta name="keywords" content="takas, araç takas, araba takas, takas sitesi, ikinci el takas, takaslat" />
+    <meta name="description" content="Takaslat ile araç, ev ve arsa takası yap. Ücretsiz ilan ver, teklif al, uygun takası bul ve güvenle buluş." />
+    <meta name="keywords" content="takas, araç takas, araba takas, ev takas, arsa takas, takas ilanları, takas sitesi, takaslat" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://www.takaslat.com/" />
 
@@ -17,8 +17,8 @@
     <meta property="og:type"        content="website" />
     <meta property="og:url"         content="https://www.takaslat.com/" />
     <meta property="og:site_name"   content="Takaslat" />
-    <meta property="og:title"       content="Takaslat — Araç Takas Platformu" />
-    <meta property="og:description" content="Takaslat ile araç takası yap: ilan ver, teklif al, AI ile eşleş, güvenle buluş." />
+    <meta property="og:title"       content="Takaslat | Araç, Ev ve Arsa Takas Platformu" />
+    <meta property="og:description" content="Araç, ev ve arsa takas ilanlarını keşfet. Ücretsiz ilan ver, teklif al ve güvenle takas yap." />
     <meta property="og:image"       content="https://www.takaslat.com/pwa-512.png" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
@@ -28,8 +28,8 @@
     <!-- Twitter Card -->
     <meta name="twitter:card"        content="summary" />
     <meta name="twitter:site"        content="@takaslat" />
-    <meta name="twitter:title"       content="Takaslat — Araç Takas Platformu" />
-    <meta name="twitter:description" content="Takaslat ile araç takası yap: ilan ver, teklif al, AI ile eşleş, güvenle buluş." />
+    <meta name="twitter:title"       content="Takaslat | Araç, Ev ve Arsa Takas Platformu" />
+    <meta name="twitter:description" content="Araç, ev ve arsa takas ilanlarını keşfet. Ücretsiz ilan ver, teklif al ve güvenle takas yap." />
     <meta name="twitter:image"       content="https://www.takaslat.com/pwa-512.png" />
 
     <!-- PWA -->
@@ -39,13 +39,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Takaslat" />
 
-    <title>Takaslat — Araç Takas Platformu | İlan Ver, Takas Yap</title>
+    <script id="site-jsonld" type="application/ld+json">
+      {"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Takaslat","url":"https://www.takaslat.com/","logo":"https://www.takaslat.com/pwa-512.png"},{"@type":"WebSite","name":"Takaslat","url":"https://www.takaslat.com/","inLanguage":"tr-TR","potentialAction":{"@type":"SearchAction","target":"https://www.takaslat.com/listings?q={search_term_string}","query-input":"required name=search_term_string"}}]}
+    </script>
+
+    <title>Takaslat | Araç, Ev ve Arsa Takas Platformu</title>
   </head>
   <body>
     <div id="root">
-      <!-- Google/tarayıcı JS çalıştırmadan önce görebileceği ilk içerik -->
-      <h1 style="position:absolute;left:-9999px">Takaslat — Araç Takas Platformu</h1>
-      <p style="position:absolute;left:-9999px">Türkiye'nin araç, elektronik ve gayrimenkul takas platformu. Ücretsiz ilan ver, AI ile eşleş, teklif al, güvenle takas yap.</p>
+      <main style="max-width:960px;margin:0 auto;padding:48px 20px;font-family:Arial,sans-serif;color:#0f172a">
+        <h1>Takaslat, araç, ev ve arsa takas platformu</h1>
+        <p>Türkiye genelindeki takas ilanlarını keşfet, ücretsiz ilan ver ve uygun teklifleri değerlendir.</p>
+        <nav aria-label="Takas kategorileri">
+          <a href="/arac-takas">Araç takas</a> · <a href="/ev-takas">Ev takas</a> · <a href="/arsa-takas">Arsa takas</a> · <a href="/listings">Tüm ilanlar</a>
+        </nav>
+      </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

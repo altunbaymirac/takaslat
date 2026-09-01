@@ -18,13 +18,13 @@ export default function FloatingActionButton() {
 
   const items = currentUser ? [
     { icon: '📋', label: 'Yeni İlan',    to: '/create',         color: 'bg-blue-600 hover:bg-blue-700' },
-    { icon: '✦',  label: 'TakaslAI',     onClick: () => openAIPanel(), color: 'bg-amber-500 hover:bg-amber-600' },
-    { icon: '🎯', label: 'Akıllı Araçlar', to: '/smart-tools',  color: 'bg-violet-600 hover:bg-violet-700' },
-    { icon: '❤️', label: 'Favoriler',   to: '/favorites',      color: 'bg-rose-500 hover:bg-rose-600' },
-    { icon: '🏠', label: 'Anasayfa',    to: '/',               color: 'bg-emerald-600 hover:bg-emerald-700' },
+    { icon: '✦',  label: 'TakaslAI',     onClick: () => openAIPanel(), color: 'bg-blue-600 hover:bg-blue-700' },
+    { icon: '🎯', label: 'Akıllı Araçlar', to: '/smart-tools',  color: 'bg-blue-600 hover:bg-blue-700' },
+    { icon: '❤️', label: 'Favoriler',   to: '/favorites',      color: 'bg-blue-600 hover:bg-blue-700' },
+    { icon: '🏠', label: 'Anasayfa',    to: '/',               color: 'bg-blue-600 hover:bg-blue-700' },
   ] : [
-    { icon: '✦',  label: 'TakaslAI',     onClick: () => openAIPanel(), color: 'bg-amber-500 hover:bg-amber-600' },
-    { icon: '🏠', label: 'Anasayfa',    to: '/',               color: 'bg-emerald-600 hover:bg-emerald-700' },
+    { icon: '✦',  label: 'TakaslAI',     onClick: () => openAIPanel(), color: 'bg-blue-600 hover:bg-blue-700' },
+    { icon: '🏠', label: 'Anasayfa',    to: '/',               color: 'bg-blue-600 hover:bg-blue-700' },
     { icon: '🔐', label: 'Giriş Yap',   to: '/login',          color: 'bg-blue-600 hover:bg-blue-700' },
   ];
 
@@ -73,7 +73,7 @@ export default function FloatingActionButton() {
         className={`w-14 h-14 rounded-full text-white shadow-2xl flex items-center justify-center transition-all hover:scale-110 ${
           open
             ? 'bg-slate-700 rotate-45'
-            : 'bg-gradient-to-br from-blue-600 to-indigo-700'
+            : 'bg-blue-600'
         }`}
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
