@@ -38,7 +38,7 @@ const FAQS = [
 
 export default function Home() {
   useSEO({
-    title: 'Araç, Ev ve Arsa Takas Platformu',
+    title: 'Akıllı Takas Platformu',
     description: 'Takaslat ile araç, ev ve arsa takası yap. İlan ver, AI ile eşleş, teklif al ve güvenle buluş.',
     url: '/',
   });
@@ -99,7 +99,7 @@ export default function Home() {
           </h1>
 
           <p className="text-blue-200 text-base sm:text-lg max-w-lg mx-auto mb-8 leading-relaxed">
-            Araç takasının en akıllı adresi. İlan ver, teklif al, güvenle buluş.
+            Araç, ev ve arsa takasının akıllı adresi. İlan ver, teklif al, güvenle buluş.
           </p>
 
           <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center">

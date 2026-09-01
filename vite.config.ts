@@ -14,7 +14,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'pwa-192.png'],
       manifest: {
-        name: 'Takaslat — Takas Platformu',
+        name: 'Takaslat | Akıllı Takas Platformu',
         short_name: 'Takaslat',
         description: 'Araç, elektronik ve gayrimenkul takasları için güvenli platform',
         theme_color: '#2563eb',

@@ -16,7 +16,7 @@
         fill="white" text-anchor="middle" letter-spacing="-2">takaslat</text>
   <!-- Subtitle -->
   <text x="600" y="425" font-family="system-ui,-apple-system,sans-serif" font-size="30" font-weight="400"
-        fill="rgba(255,255,255,0.75)" text-anchor="middle">Araç Takasının En Akıllı Adresi</text>
+        fill="rgba(255,255,255,0.75)" text-anchor="middle">Akıllı Takas Platformu</text>
   <!-- Bottom decoration -->
   <rect x="480" y="500" width="240" height="4" rx="2" fill="#FBBF24" opacity="0.6"/>
 </svg>
