@@ -2,10 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import SwapOfferModal from '../components/SwapOfferModal';
-import ShareMenu from '../components/ShareMenu';
-import ReportModal from '../components/ReportModal';
 import EditListingModal from '../components/EditListingModal';
-import ValueForecastModal from '../components/ValueForecastModal';
 import ImageLightbox from '../components/ImageLightbox';
 import ListingQASection from '../components/ListingQASection';
 import ListingCard from '../components/ListingCard';
@@ -140,7 +137,7 @@ function SwapExpectationPanel({
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { listings, openAIPanel, currentUserId, favorites, toggleFavorite, deleteListing, recordView, boostListing, isBoosted } = useAppStore();
+  const { listings, openAIPanel, currentUserId, deleteListing, recordView, boostListing, isBoosted } = useAppStore();
 
   // ── State — tümü koşullu return'lardan önce (Rules of Hooks) ─────────────
   const [apiFetched, setApiFetched]       = useState<Listing | null>(null);
@@ -148,10 +145,8 @@ export default function ListingDetail() {
   const [apiNotFound, setApiNotFound]     = useState(false);
   const [activeImage, setActiveImage]     = useState(0);
   const [offerModalOpen,    setOfferModalOpen]    = useState(false);
-  const [reportModalOpen,   setReportModalOpen]   = useState(false);
   const [editModalOpen,     setEditModalOpen]     = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [forecastOpen,      setForecastOpen]      = useState(false);
   const [lightboxOpen,      setLightboxOpen]      = useState(false);
   const [verification,      setVerification]      = useState<ListingVerification | null>(null);
   const [activeDetailTab,   setActiveDetailTab]   = useState<DetailTab>('description');
@@ -300,22 +295,6 @@ export default function ListingDetail() {
   }
 
   // ── Event handlers (non-hook — safe after conditional returns) ───────────
-  function handleFavoriteClick(listingId: string, wasFav: boolean) {
-    toggleFavorite(listingId);
-    showToast(wasFav ? 'Favorilerden çıkarıldı' : 'Favorilere eklendi', 'success');
-  }
-  function handleReportStart() {
-    if (!currentUserId) {
-      showToast('Şikayet için giriş yapmalısınız', 'error');
-      navigate('/login');
-      return;
-    }
-    if (isOwner) {
-      showToast('Kendi ilanınızı şikayet edemezsiniz', 'error');
-      return;
-    }
-    setReportModalOpen(true);
-  }
   const listingCategory = listing.category;
 
   function handleOfferStart() {
@@ -373,11 +352,6 @@ export default function ListingDetail() {
     accepted: offersOnThis.filter((o) => o.status === 'Tamamlandı').length,
   } : null;
   // viewsByDay is computed above (before conditional returns)
-  const isFav = favorites.includes(listing.id);
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/listing/${listing.id}`
-    : `/listing/${listing.id}`;
-
   // Otomatik öne çıkan özellikler
   const highlights: { icon: string; text: string; color: string }[] = [];
   if (v) {
@@ -433,58 +407,6 @@ export default function ListingDetail() {
             </span>
           )}
 
-          {/* Favori */}
-          <button
-            onClick={() => handleFavoriteClick(listing.id, isFav)}
-            title={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
-              isFav
-                ? 'bg-red-500 border-red-500 text-white shadow-md'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-red-500'
-            }`}
-          >
-            <svg className="w-4 h-4" fill={isFav ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </button>
-
-          {/* Paylaş */}
-          <ShareMenu url={shareUrl} title={listing.title} />
-
-          {/* Değer Tahmini */}
-          <button
-            onClick={() => setForecastOpen(true)}
-            title="12 aylık değer projeksiyonu"
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-600 dark:text-slate-300 hover:text-blue-600 flex items-center justify-center transition-colors"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V9m6 10V5m6 14v-7m4 7H2" />
-            </svg>
-          </button>
-
-          {/* Yazdır / PDF */}
-          <button
-            onClick={() => window.print()}
-            title="İlanı yazdır / PDF olarak kaydet"
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-600 dark:text-slate-300 hover:text-blue-600 flex items-center justify-center transition-colors print:hidden"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-          </button>
-
-          {/* Şikayet (sahibi değilse) */}
-          {!isOwner && (
-            <button
-              onClick={handleReportStart}
-              title="Bu ilanı şikayet et"
-              className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-600 dark:text-slate-300 hover:text-red-600 flex items-center justify-center transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
 
@@ -1305,25 +1227,10 @@ export default function ListingDetail() {
         <SwapOfferModal listing={listing} onClose={() => setOfferModalOpen(false)} />
       )}
 
-      {reportModalOpen && (
-        <ReportModal
-          listingId={listing.id}
-          listingTitle={listing.title}
-          onClose={() => setReportModalOpen(false)}
-        />
-      )}
-
       {editModalOpen && (
         <EditListingModal
           listing={listing}
           onClose={() => setEditModalOpen(false)}
-        />
-      )}
-
-      {forecastOpen && (
-        <ValueForecastModal
-          listingId={listing.id}
-          onClose={() => setForecastOpen(false)}
         />
       )}
 

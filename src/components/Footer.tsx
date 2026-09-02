@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
+import { isPlatformAdmin } from '../lib/roles';
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const currentUser = useAppStore((s) => s.currentUser);
+  const isAdmin = isPlatformAdmin(currentUser?.role);
 
   return (
     <footer className="mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
@@ -24,7 +28,7 @@ export default function Footer() {
             <Link to="/arac-takas" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Araç takas</Link>
             <Link to="/ev-takas" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Ev takas</Link>
             <Link to="/arsa-takas" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Arsa takas</Link>
-            <Link to="/trends" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Trendler</Link>
+            {isAdmin && <Link to="/trends" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Trendler</Link>}
             <Link to="/settings" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Ayarlar</Link>
             <Link to="/gizlilik" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Gizlilik</Link>
             <Link to="/kullanim-kosullari" className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors">Kullanım Koşulları</Link>

@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import NotificationBell from './NotificationBell';
+import { isPlatformAdmin } from '../lib/roles';
 
 const NAV = [
   { to: '/listings',      label: 'İlanlar'    },
   { to: '/favorites',     label: 'Favoriler'  },
   { to: '/conversations', label: 'Görüşmeler' },
   { to: '/auctions',      label: 'Mezat'       },
-  { to: '/trends',        label: 'Trendler'   },
   { to: '/create',        label: 'İlan ver'   },
 ];
 
@@ -25,6 +25,8 @@ function IconHeartSm()    { return <svg className="w-5 h-5" fill="none" viewBox=
 function IconMessagesSm() { return <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" /></svg>; }
 function IconChart()      { return <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>; }
 function IconPlus()       { return <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>; }
+function IconUserSm()     { return <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>; }
+function IconClose()      { return <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>; }
 
 export default function Navbar() {
   const { pathname }  = useLocation();
@@ -35,6 +37,7 @@ export default function Navbar() {
   } = useAppStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pending = offers.filter(
     (o) => o.toUserId === currentUserId && o.status === 'Beklemede'
@@ -50,6 +53,15 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    if (!mobileInfoOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileInfoOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [mobileInfoOpen]);
+
   function handleLogout() {
     logoutUser();
     setMenuOpen(false);
@@ -62,6 +74,9 @@ export default function Navbar() {
     .slice(0, 2)
     .join('')
     .toUpperCase() ?? '?';
+  const mobileInfoActive = pathname.startsWith('/profile/') || [
+    '/dashboard', '/favorites', '/conversations', '/offers', '/settings',
+  ].includes(pathname);
 
   return (
     <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
@@ -129,7 +144,7 @@ export default function Navbar() {
           </button>
 
           {currentUser ? (
-            <div className="relative" ref={menuRef}>
+            <div className="relative hidden md:block" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -172,8 +187,11 @@ export default function Navbar() {
                   <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
 
                   {/* Admin */}
-                  {['admin', 'moderator'].includes(currentUser.role?.toLowerCase() ?? '') && (
-                    <DropItem to="/admin" icon={<IconShield />} label="Admin paneli" onClick={() => setMenuOpen(false)} />
+                  {isPlatformAdmin(currentUser.role) && (
+                    <>
+                      <DropItem to="/trends" icon={<IconChart />} label="Trendler" onClick={() => setMenuOpen(false)} />
+                      <DropItem to="/admin" icon={<IconShield />} label="Admin paneli" onClick={() => setMenuOpen(false)} />
+                    </>
                   )}
 
                   <DropItem to="/settings" icon={<IconSettings />} label="Ayarlar" onClick={() => setMenuOpen(false)} />
@@ -191,7 +209,7 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               <Link
                 to="/login"
                 className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -209,52 +227,153 @@ export default function Navbar() {
         </div>
       </div>
 
+      {mobileInfoOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Bilgilerim menüsünü kapat"
+            onClick={() => setMobileInfoOpen(false)}
+            className="fixed inset-0 z-40 bg-slate-950/35 md:hidden"
+          />
+          <section
+            id="mobile-info-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-info-title"
+            className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[60] mx-auto max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 md:hidden"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+              <div className="min-w-0">
+                <h2 id="mobile-info-title" className="text-base font-bold text-slate-950 dark:text-white">Bilgilerim</h2>
+                {currentUser && <p className="truncate text-xs text-slate-500 dark:text-slate-400">{currentUser.name}</p>}
+              </div>
+              <button
+                type="button"
+                aria-label="Kapat"
+                onClick={() => setMobileInfoOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <IconClose />
+              </button>
+            </div>
+
+            {currentUser ? (
+              <>
+                <p className="truncate px-4 pt-3 text-xs text-slate-400 dark:text-slate-500">{currentUser.email}</p>
+                <nav aria-label="Bilgilerim bağlantıları" className="mt-3 grid grid-cols-2 gap-px bg-slate-100 dark:bg-slate-800">
+                  <MobileInfoItem to={`/profile/${currentUser.id}`} icon={<IconUserSm />} label="Profilim" onClick={() => setMobileInfoOpen(false)} />
+                  <MobileInfoItem to="/dashboard" icon={<IconDashboard />} label="İlanlarım" onClick={() => setMobileInfoOpen(false)} />
+                  <MobileInfoItem to="/favorites" icon={<IconHeartSm />} label="Favoriler" badge={favorites.length || undefined} onClick={() => setMobileInfoOpen(false)} />
+                  <MobileInfoItem to="/conversations" icon={<IconMessagesSm />} label="Görüşmeler" badge={pending || undefined} onClick={() => setMobileInfoOpen(false)} />
+                  <MobileInfoItem to="/auctions" icon={<IconChart />} label="Canlı Mezat" onClick={() => setMobileInfoOpen(false)} />
+                  <MobileInfoItem to="/map" icon={<IconMap />} label="Harita" onClick={() => setMobileInfoOpen(false)} />
+                  <MobileInfoItem to="/settings" icon={<IconSettings />} label="Ayarlar" onClick={() => setMobileInfoOpen(false)} />
+                  {isPlatformAdmin(currentUser.role) && (
+                    <>
+                      <MobileInfoItem to="/trends" icon={<IconChart />} label="Trendler" onClick={() => setMobileInfoOpen(false)} />
+                      <MobileInfoItem to="/admin" icon={<IconShield />} label="Admin paneli" onClick={() => setMobileInfoOpen(false)} />
+                    </>
+                  )}
+                </nav>
+                <button
+                  type="button"
+                  onClick={() => { setMobileInfoOpen(false); handleLogout(); }}
+                  className="flex min-h-14 w-full items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-red-600 dark:border-slate-800 dark:text-red-400"
+                >
+                  <IconLogout />
+                  Çıkış yap
+                </button>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 p-4">
+                <Link to="/login" onClick={() => setMobileInfoOpen(false)} className="rounded-md border border-slate-300 px-4 py-3 text-center text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">Giriş yap</Link>
+                <Link to="/register" onClick={() => setMobileInfoOpen(false)} className="rounded-md bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-blue-700">Kayıt ol</Link>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
       {/* Mobile bottom navigation */}
       <nav
         aria-label="Mobil ana navigasyon"
-        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(15,23,42,0.08)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(15,23,42,0.08)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 md:hidden"
       >
-        {NAV.map(({ to, label }) => {
-          const isCreate = to === '/create';
-          const active   = pathname === to;
-          const icon =
-            to === '/listings'      ? <IconList /> :
-            to === '/favorites'     ? <IconHeartSm /> :
-            to === '/conversations' ? <IconMessagesSm /> :
-            to === '/auctions'      ? <IconChart /> :
-            to === '/trends'        ? <IconChart /> :
-            <IconPlus />;
-          const badge =
-            to === '/favorites'     ? favorites.length :
-            to === '/conversations' ? pending :
-            0;
+        <MobileNavItem to="/favorites" label="Favoriler" icon={<IconHeartSm />} active={pathname === '/favorites'} />
+        <MobileNavItem to="/listings" label="İlanlar" icon={<IconList />} active={pathname === '/listings'} />
 
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={`relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
-                isCreate
-                  ? 'text-blue-600'
-                  : active
-                    ? 'bg-slate-50 text-blue-600 dark:bg-slate-800'
-                    : 'text-slate-400 dark:text-slate-500'
-              }`}
-            >
-              <span className="relative">
-                {icon}
-                {badge > 0 && (
-                  <span className="absolute -top-1 -right-2 inline-flex items-center justify-center w-3.5 h-3.5 text-[8px] font-bold bg-red-500 text-white rounded-full">
-                    {badge}
-                  </span>
-                )}
+        <Link
+          to="/create"
+          aria-label="İlan ver"
+          className="relative flex min-h-16 min-w-0 flex-col items-center justify-center text-[10px] font-bold text-blue-700 dark:text-blue-300"
+        >
+          <span className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg ring-4 ring-white transition-colors hover:bg-blue-700 dark:ring-slate-900">
+            <IconPlus />
+          </span>
+          <span className="mt-1 text-[9px] leading-none">İlan ver</span>
+        </Link>
+
+        <MobileNavItem to="/auctions" label="Açık artırma" icon={<IconChart />} active={pathname === '/auctions'} />
+
+        <button
+          type="button"
+          aria-expanded={mobileInfoOpen}
+          aria-controls="mobile-info-menu"
+          onClick={() => setMobileInfoOpen((open) => !open)}
+          className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+            mobileInfoOpen || mobileInfoActive
+              ? 'bg-slate-50 text-blue-600 dark:bg-slate-800'
+              : 'text-slate-400 dark:text-slate-500'
+          }`}
+        >
+          <span className="relative">
+            <IconUserSm />
+            {favorites.length + pending > 0 && (
+              <span className="absolute -right-2 -top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-bold text-white">
+                {favorites.length + pending > 9 ? '9+' : favorites.length + pending}
               </span>
-              {label}
-            </Link>
-          );
-        })}
+            )}
+          </span>
+          <span className="text-[9px] font-semibold leading-none">Bilgilerim</span>
+        </button>
       </nav>
     </header>
+  );
+}
+
+function MobileNavItem({
+  to, label, icon, active,
+}: { to: string; label: string; icon: React.ReactNode; active: boolean }) {
+  return (
+    <Link
+      to={to}
+      className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+        active
+          ? 'bg-slate-50 text-blue-600 dark:bg-slate-800'
+          : 'text-slate-400 dark:text-slate-500'
+      }`}
+    >
+      {icon}
+      <span className="text-[9px] font-semibold leading-none">{label}</span>
+    </Link>
+  );
+}
+
+function MobileInfoItem({
+  to, icon, label, badge, onClick,
+}: { to: string; icon: React.ReactNode; label: string; badge?: number; onClick: () => void }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="flex min-h-16 items-center gap-3 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:text-blue-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:text-blue-300"
+    >
+      <span className="text-slate-400">{icon}</span>
+      <span>{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{badge}</span>
+      )}
+    </Link>
   );
 }
 

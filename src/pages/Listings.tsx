@@ -61,7 +61,6 @@ export default function Listings() {
   const [sortBy, setSortBy]       = useState<SortOption>('newest');
   const [sortOpen, setSortOpen]   = useState(false);
   const [page, setPage]           = useState(1);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'search' | 'ai'>(
     searchParams.get('tab') === 'ai' ? 'ai' : 'search'
   );
@@ -77,22 +76,6 @@ export default function Listings() {
     const query = searchParams.get('q')?.trim();
     if (query && query !== filters.searchQuery) setFilters({ searchQuery: query });
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!mobileFiltersOpen) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileFiltersOpen(false);
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [mobileFiltersOpen]);
 
   useEffect(() => {
     const q = filters.searchQuery.trim();
@@ -141,11 +124,9 @@ export default function Listings() {
   const filtered = useMemo(() => {
     const result = listings.filter(l => {
       const isLand = isLandListing(l);
-      if (
-        filters.category !== 'Tümü' &&
-        l.category !== filters.category &&
-        !(filters.category === 'Gayrimenkul' && isLand)
-      ) return false;
+      const selectedCategory = filters.category === 'Tümü' ? 'Araç' : filters.category;
+      if (selectedCategory === 'Araç' && (l.category !== 'Araç' || isLand)) return false;
+      if (selectedCategory === 'Gayrimenkul' && l.category !== 'Gayrimenkul' && !isLand) return false;
       if (filters.propertyKind === 'Arsa' && !isLand) return false;
       if (filters.propertyKind === 'Ev' && isLand) return false;
       if (filters.city && l.city !== filters.city) return false;
@@ -242,73 +223,7 @@ export default function Listings() {
 
       {/* ── Tab content ── */}
       {activeTab === 'search' ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen(true)}
-            className="flex min-h-12 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 md:hidden"
-          >
-            <span className="flex items-center gap-2">
-              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m-15 0h1.5m4.5 6h9m-15 0h1.5m4.5 6h9m-15 0h1.5M7.5 3.75v4.5m0 1.5v4.5m0 1.5v4.5" />
-              </svg>
-              Filtrele
-            </span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{filtered.length} ilan</span>
-          </button>
-
-          <div className="hidden md:block">
-            <FilterBar onFilterChange={() => setPage(1)} />
-          </div>
-
-          {mobileFiltersOpen && (
-            <div className="fixed inset-0 z-[70] md:hidden">
-              <button
-                type="button"
-                aria-label="Filtreleri kapat"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="absolute inset-0 h-full w-full bg-slate-950/45"
-              />
-              <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="mobile-filter-title"
-                className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl dark:bg-slate-900"
-              >
-                <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
-                  <div>
-                    <h2 id="mobile-filter-title" className="text-base font-bold text-slate-950 dark:text-white">İlanları filtrele</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{filtered.length} sonuç bulundu</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setMobileFiltersOpen(false)}
-                    aria-label="Kapat"
-                    className="flex h-10 w-10 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <FilterBar embedded onFilterChange={() => setPage(1)} />
-                </div>
-
-                <div className="shrink-0 border-t border-slate-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:border-slate-700 dark:bg-slate-900">
-                  <button
-                    type="button"
-                    onClick={() => setMobileFiltersOpen(false)}
-                    className="min-h-12 w-full rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition-colors hover:bg-blue-700"
-                  >
-                    {filtered.length} İlanı Göster
-                  </button>
-                </div>
-              </section>
-            </div>
-          )}
-        </>
+        <FilterBar resultCount={filtered.length} onFilterChange={() => setPage(1)} />
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
           <textarea

@@ -12,7 +12,6 @@ const staticPages = [
   '/arac-takas',
   '/ev-takas',
   '/arsa-takas',
-  '/trends',
   '/map',
   '/auctions',
   '/gizlilik',

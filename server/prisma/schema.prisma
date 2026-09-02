@@ -51,7 +51,7 @@ model Listing {
   tags           String   // JSON: string[]
   attachments    String?  // JSON: uploaded files / reports
   videoUrl       String?
-  moderationStatus String @default("approved")
+  moderationStatus String @default("pending")
   rejectionReason  String?
   isActive       Boolean  @default(true)
   viewCount      Int      @default(0)

@@ -5,6 +5,7 @@ import { seedDemoData, clearDevData } from '../services/api';
 import { showToast } from '../components/Toast';
 import { downloadCSV } from '../lib/csv';
 import { useSEO } from '../hooks/useSEO';
+import { isPlatformAdmin } from '../lib/roles';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
@@ -385,7 +386,9 @@ export default function Dashboard() {
                 { to: '/create',        label: '+ Yeni İlan Ver',   color: 'bg-blue-600 hover:bg-blue-700 text-white' },
                 { to: '/favorites',     label: '❤️ Favoriler',      color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' },
                 { to: '/conversations', label: '💬 Görüşmeler',     color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' },
-                { to: '/trends',        label: '📈 Trend Paneli',   color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' },
+                ...(isPlatformAdmin(currentUser?.role)
+                  ? [{ to: '/trends', label: '📈 Trend Paneli', color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' }]
+                  : []),
               ].map((q) => (
                 <Link
                   key={q.to}

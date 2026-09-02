@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { isPlatformAdmin } from '../lib/roles';
 
 const SHORTCUTS: Array<{ keys: string[]; label: string; section: string }> = [
   { section: 'Gezinme', keys: ['g', 'h'], label: 'İlanlara git (Home)' },
   { section: 'Gezinme', keys: ['g', 'f'], label: 'Favorilerim' },
   { section: 'Gezinme', keys: ['g', 'c'], label: 'Görüşmeler' },
   { section: 'Gezinme', keys: ['g', 'd'], label: 'Dashboard' },
-  { section: 'Gezinme', keys: ['g', 't'], label: 'Trend Paneli' },
   { section: 'Gezinme', keys: ['g', 'm'], label: 'Harita' },
   { section: 'Gezinme', keys: ['g', 'w'], label: 'İstek Listem' },
   { section: 'Gezinme', keys: ['g', 'a'], label: 'Başarımlarım' },
@@ -20,7 +20,8 @@ const SHORTCUTS: Array<{ keys: string[]; label: string; section: string }> = [
 
 export default function KeyboardShortcuts() {
   const navigate = useNavigate();
-  const { openAIPanel, toggleDarkMode } = useAppStore();
+  const { openAIPanel, toggleDarkMode, currentUser } = useAppStore();
+  const isAdmin = isPlatformAdmin(currentUser?.role);
   const [helpOpen,    setHelpOpen]    = useState(false);
   const [pendingG,    setPendingG]    = useState(false);
 
@@ -77,11 +78,11 @@ export default function KeyboardShortcuts() {
           f: '/favorites',
           c: '/conversations',
           d: '/dashboard',
-          t: '/trends',
           m: '/map',
           w: '/wishlist',
           a: '/achievements',
         };
+        if (isAdmin && e.key === 't') target.t = '/trends';
         if (target[e.key]) {
           e.preventDefault();
           navigate(target[e.key]);

@@ -99,8 +99,8 @@ router.post('/login', authRateLimit, async (req, res) => {
   }
 
   await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }).catch(() => undefined);
-  const { password, twoFactorSecret, ...safe } = user;
-  void password;
+  const { password: passwordHash, twoFactorSecret, ...safe } = user;
+  void passwordHash;
   void twoFactorSecret;
   res.json({ user: safe, token: signToken(user.id) });
 });

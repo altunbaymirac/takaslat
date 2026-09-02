@@ -16,6 +16,7 @@ export type ProductEvent =
   | 'swap_completed';
 
 const CONSENT_KEY = 'takaslat-cookie-consent-v1';
+const CONSENT_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 type AnalyticsWindow = Window & {
   dataLayer?: unknown[];
@@ -23,19 +24,59 @@ type AnalyticsWindow = Window & {
   fbq?: ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue?: unknown[]; loaded?: boolean; version?: string };
 };
 
-export function getConsentPreferences(): ConsentPreferences | null {
+function parseConsentPreferences(raw: string | null): ConsentPreferences | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(CONSENT_KEY);
-    if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ConsentPreferences>;
+    if (typeof parsed.analytics !== 'boolean' || typeof parsed.marketing !== 'boolean') return null;
     return { analytics: parsed.analytics === true, marketing: parsed.marketing === true };
   } catch {
     return null;
   }
 }
 
+function readConsentCookie() {
+  const prefix = `${CONSENT_KEY}=`;
+  const item = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(prefix));
+  if (!item) return null;
+  try {
+    return decodeURIComponent(item.slice(prefix.length));
+  } catch {
+    return null;
+  }
+}
+
+function writeConsentCookie(preferences: ConsentPreferences) {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${CONSENT_KEY}=${encodeURIComponent(JSON.stringify(preferences))}; Max-Age=${CONSENT_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secure}`;
+}
+
+export function getConsentPreferences(): ConsentPreferences | null {
+  let stored: ConsentPreferences | null = null;
+  try {
+    stored = parseConsentPreferences(localStorage.getItem(CONSENT_KEY));
+  } catch {
+    // localStorage kapalıysa aynı tercih birinci taraf çerezinden okunur.
+  }
+  if (stored) return stored;
+
+  const cookiePreferences = parseConsentPreferences(readConsentCookie());
+  if (!cookiePreferences) return null;
+  try {
+    localStorage.setItem(CONSENT_KEY, JSON.stringify(cookiePreferences));
+  } catch {
+    // Çerez tek başına tercihi kalıcı tutmaya yeterlidir.
+  }
+  return cookiePreferences;
+}
+
 export function saveConsentPreferences(preferences: ConsentPreferences) {
-  localStorage.setItem(CONSENT_KEY, JSON.stringify(preferences));
+  try {
+    localStorage.setItem(CONSENT_KEY, JSON.stringify(preferences));
+  } catch {
+    // Gizli mod veya depolama kısıtı durumunda çerez yedeği kullanılır.
+  }
+  writeConsentCookie(preferences);
   window.dispatchEvent(new CustomEvent('takaslat:consent', { detail: preferences }));
   applyConsentPreferences(preferences);
 }

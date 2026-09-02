@@ -196,7 +196,7 @@ interface AppState {
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
 const defaultFilters: FilterState = {
-  category:       'Tümü',
+  category:       'Araç',
   propertyKind:   '',
   city:           '',
   minValue:       0,

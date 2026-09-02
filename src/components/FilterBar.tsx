@@ -11,14 +11,16 @@ import { getModelsFromDB } from '../data/vehicleDatabase';
 
 const LISTING_CODE_RE = /^TKS-\d{7}$/i;
 const VEHICLE_GROUP_KEYS = Object.keys(VEHICLE_GROUPS);
-type CategoryChoice = 'Tümü' | 'Araç' | 'Ev' | 'Arsa';
+type CategoryChoice = 'Araç' | 'Ev' | 'Arsa';
 
 export default function FilterBar({
   onFilterChange,
   embedded = false,
+  resultCount,
 }: {
   onFilterChange?: () => void;
   embedded?: boolean;
+  resultCount?: number;
 } = {}) {
   const { filters, setFilters: _setFilters, resetFilters: _resetFilters, listings } = useAppStore();
   const navigate = useNavigate();
@@ -66,7 +68,7 @@ export default function FilterBar({
   }, []);
 
   const active =
-    filters.category !== 'Tümü' ||
+    filters.category !== 'Araç' ||
     filters.propertyKind !== '' ||
     filters.vehicleGroup !== '' ||
     filters.brands.length > 0 ||
@@ -76,16 +78,14 @@ export default function FilterBar({
     filters.maxValue < 5_000_000;
 
   const selectedBrand = filters.brands[0] ?? '';
-  const brandOptions = getBrandsForVehicleGroup(filters.vehicleGroup);
-  const modelOptions = selectedBrand ? getModelsFromDB(filters.vehicleGroup, selectedBrand) : [];
+  const brandOptions = Array.from(new Set(getBrandsForVehicleGroup(filters.vehicleGroup)));
+  const modelOptions = selectedBrand
+    ? Array.from(new Set(getModelsFromDB(filters.vehicleGroup, selectedBrand)))
+    : [];
   const categoryChoice: CategoryChoice =
-    filters.category === 'Tümü'
-      ? 'Tümü'
-      : filters.category === 'Araç'
-        ? 'Araç'
-        : filters.propertyKind === 'Arsa'
-          ? 'Arsa'
-          : 'Ev';
+    filters.category === 'Gayrimenkul'
+      ? filters.propertyKind === 'Arsa' ? 'Arsa' : 'Ev'
+      : 'Araç';
   const isVehicle = categoryChoice === 'Araç';
 
   function pickCategory(category: CategoryChoice) {
@@ -96,11 +96,6 @@ export default function FilterBar({
       fuels: [],
       noAccidentOnly: false,
     };
-
-    if (category === 'Tümü') {
-      setFilters({ category: 'Tümü', propertyKind: '', ...sharedVehicleReset });
-      return;
-    }
 
     if (category === 'Araç') {
       setFilters({ category: 'Araç', propertyKind: '', ...sharedVehicleReset });
@@ -130,14 +125,19 @@ export default function FilterBar({
   return (
     <div className={embedded
       ? 'bg-white p-4 dark:bg-slate-900'
-      : 'rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800'
+      : 'rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800'
     }>
+      {resultCount !== undefined && (
+        <p className="mb-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {resultCount} sonuç bulundu
+        </p>
+      )}
       <div className="border-b border-slate-100 pb-3 dark:border-slate-700">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] md:items-end">
           <div className="min-w-0 flex-1">
             <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Kategori</span>
-            <div className="mt-2 grid grid-cols-4 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
-              {(['Tümü', 'Araç', 'Ev', 'Arsa'] as CategoryChoice[]).map((category, index) => (
+            <div className="mt-2 grid grid-cols-3 overflow-hidden rounded-md border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+              {(['Araç', 'Ev', 'Arsa'] as CategoryChoice[]).map((category, index) => (
                 <button
                   key={category}
                   type="button"
@@ -156,7 +156,7 @@ export default function FilterBar({
             </div>
           </div>
 
-          <div className="relative w-full lg:w-52" ref={codeRef}>
+          <div className="relative w-full" ref={codeRef}>
             <label htmlFor="listing-code-search" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-400">
               İlan kodu
             </label>
@@ -212,10 +212,10 @@ export default function FilterBar({
         </div>
       )}
 
-      <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 pt-3 ${
+      <div className={`grid min-w-0 grid-cols-1 gap-2 pt-3 sm:grid-cols-2 ${
         isVehicle
-          ? 'lg:grid-cols-[1fr_1fr_180px_230px_auto_auto]'
-          : 'lg:grid-cols-[minmax(180px,1fr)_minmax(230px,1fr)_auto]'
+          ? 'lg:grid-cols-4'
+          : 'lg:grid-cols-2'
       }`}>
         {isVehicle && <div className="relative min-w-0">
           <select
@@ -279,8 +279,10 @@ export default function FilterBar({
           />
         </div>
 
-        {isVehicle && <AdvancedFilters />}
-        <SavedSearchesPanel />
+        <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-full">
+          {isVehicle && <AdvancedFilters />}
+          <SavedSearchesPanel />
+        </div>
       </div>
 
       {active && (
