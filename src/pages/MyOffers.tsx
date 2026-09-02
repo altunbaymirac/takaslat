@@ -76,7 +76,7 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
           </button>
           <button
             onClick={() => onStatusChange('Reddedildi')}
-            className="flex-1 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
+            className="btn-danger flex-1 text-sm font-medium py-2 rounded-lg"
           >
             Reddet
           </button>
@@ -87,7 +87,7 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
         <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
           <button
             onClick={() => onStatusChange('Onaylandı')}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+            className="btn-success flex-1 text-sm font-medium py-2 rounded-lg"
           >
             Şartları Kabul Et
           </button>

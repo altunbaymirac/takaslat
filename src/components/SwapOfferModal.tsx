@@ -311,7 +311,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
               <button
                 type="submit"
                 disabled={sending}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors"
+                className="btn-primary flex-1 font-semibold py-2.5 rounded-lg"
               >
                 {sending ? 'Gönderiliyor...' : 'Teklif Gönder'}
               </button>

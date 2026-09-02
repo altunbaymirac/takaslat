@@ -99,7 +99,7 @@ export default function Navbar() {
                 to={to}
                 className={`relative rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
                   isCreate
-                    ? 'ml-1 bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'btn-primary ml-1'
                     : isActive
                       ? 'bg-slate-100 text-slate-950 dark:bg-slate-800 dark:text-white'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
@@ -305,9 +305,9 @@ export default function Navbar() {
         <Link
           to="/create"
           aria-label="İlan ver"
-          className="relative flex min-h-16 min-w-0 flex-col items-center justify-center text-[10px] font-bold text-blue-700 dark:text-blue-300"
+          className="relative flex min-h-16 min-w-0 flex-col items-center justify-center text-[10px] font-bold text-amber-600 dark:text-amber-400"
         >
-          <span className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg ring-4 ring-white transition-colors hover:bg-blue-700 dark:ring-slate-900">
+          <span className="btn-primary -mt-7 flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-4 ring-white dark:ring-slate-900">
             <IconPlus />
           </span>
           <span className="mt-1 text-[9px] leading-none">İlan ver</span>

@@ -116,7 +116,7 @@ function SwapExpectationPanel({
           <div className="mt-4 grid gap-2">
             <button
               onClick={onOffer}
-              className="w-full rounded-lg bg-blue-600 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+              className="btn-primary w-full rounded-lg py-3 text-sm font-bold"
             >
               Bu beklentiye teklif ver
             </button>

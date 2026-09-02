@@ -519,7 +519,7 @@ export default function Auctions() {
                     <button
                       onClick={() => handleBid(0)}
                       disabled={selectedStatus !== 'live' || !currentUser || canManageSelectedAuction || pendingAction !== null}
-                      className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                      className="btn-primary w-full rounded-2xl px-4 py-3 text-sm font-black"
                     >
                       {pendingAction === 'bid' ? 'Gönderiliyor' : 'Teklif ver'}
                     </button>

@@ -1759,7 +1759,7 @@ export default function CreateListing() {
               <button
                 type="submit"
                 disabled={form.wantedFor.trim().length < 20}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
+                className="btn-primary flex-1 font-semibold py-3 rounded-xl"
               >
                 İlanı Yayınla
               </button>
