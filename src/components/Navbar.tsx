@@ -270,7 +270,6 @@ export default function Navbar() {
                   <MobileInfoItem to="/settings" icon={<IconSettings />} label="Ayarlar" onClick={() => setMobileInfoOpen(false)} />
                   {isPlatformAdmin(currentUser.role) && (
                     <>
-                      <MobileInfoItem to="/trends" icon={<IconChart />} label="Trendler" onClick={() => setMobileInfoOpen(false)} />
                       <MobileInfoItem to="/admin" icon={<IconShield />} label="Admin paneli" onClick={() => setMobileInfoOpen(false)} />
                     </>
                   )}

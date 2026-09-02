@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import SwapOfferModal from '../components/SwapOfferModal';
+import ShareMenu from '../components/ShareMenu';
+import ReportModal from '../components/ReportModal';
 import EditListingModal from '../components/EditListingModal';
 import ImageLightbox from '../components/ImageLightbox';
 import ListingQASection from '../components/ListingQASection';
@@ -60,16 +62,26 @@ function SwapExpectationPanel({
   wantedFor,
   estimatedValue,
   isOwner,
+  isFav,
+  shareUrl,
+  shareTitle,
   onOffer,
   onMatch,
   onEdit,
+  onToggleFavorite,
+  onReport,
 }: {
   wantedFor: string;
   estimatedValue: number;
   isOwner: boolean;
+  isFav: boolean;
+  shareUrl: string;
+  shareTitle: string;
   onOffer: () => void;
   onMatch: () => void;
   onEdit: () => void;
+  onToggleFavorite: () => void;
+  onReport: () => void;
 }) {
   const expectation = wantedFor.trim();
   const hasClearExpectation = expectation.length >= 20;
@@ -128,6 +140,33 @@ function SwapExpectationPanel({
             </button>
           </div>
         )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+          <button
+            onClick={onToggleFavorite}
+            className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+              isFav
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400'
+            }`}
+          >
+            <svg className="h-4 w-4" fill={isFav ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            {isFav ? 'Favorilerde' : 'Favorilere ekle'}
+          </button>
+
+          <ShareMenu url={shareUrl} title={shareTitle} variant="link" />
+
+          {!isOwner && (
+            <button
+              onClick={onReport}
+              className="ml-auto text-xs font-semibold text-slate-400 transition-colors hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400"
+            >
+              Bu ilanı bildir
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -137,7 +176,7 @@ function SwapExpectationPanel({
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { listings, openAIPanel, currentUserId, deleteListing, recordView, boostListing, isBoosted } = useAppStore();
+  const { listings, openAIPanel, currentUserId, favorites, toggleFavorite, deleteListing, recordView, boostListing, isBoosted } = useAppStore();
 
   // ── State — tümü koşullu return'lardan önce (Rules of Hooks) ─────────────
   const [apiFetched, setApiFetched]       = useState<Listing | null>(null);
@@ -145,6 +184,7 @@ export default function ListingDetail() {
   const [apiNotFound, setApiNotFound]     = useState(false);
   const [activeImage, setActiveImage]     = useState(0);
   const [offerModalOpen,    setOfferModalOpen]    = useState(false);
+  const [reportModalOpen,   setReportModalOpen]   = useState(false);
   const [editModalOpen,     setEditModalOpen]     = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [lightboxOpen,      setLightboxOpen]      = useState(false);
@@ -295,6 +335,22 @@ export default function ListingDetail() {
   }
 
   // ── Event handlers (non-hook — safe after conditional returns) ───────────
+  function handleFavoriteClick(listingId: string, wasFav: boolean) {
+    toggleFavorite(listingId);
+    showToast(wasFav ? 'Favorilerden çıkarıldı' : 'Favorilere eklendi', 'success');
+  }
+  function handleReportStart() {
+    if (!currentUserId) {
+      showToast('Şikayet için giriş yapmalısınız', 'error');
+      navigate('/login');
+      return;
+    }
+    if (isOwner) {
+      showToast('Kendi ilanınızı şikayet edemezsiniz', 'error');
+      return;
+    }
+    setReportModalOpen(true);
+  }
   const listingCategory = listing.category;
 
   function handleOfferStart() {
@@ -352,6 +408,11 @@ export default function ListingDetail() {
     accepted: offersOnThis.filter((o) => o.status === 'Tamamlandı').length,
   } : null;
   // viewsByDay is computed above (before conditional returns)
+  const isFav = favorites.includes(listing.id);
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/listing/${listing.id}`
+    : `/listing/${listing.id}`;
+
   // Otomatik öne çıkan özellikler
   const highlights: { icon: string; text: string; color: string }[] = [];
   if (v) {
@@ -534,9 +595,14 @@ export default function ListingDetail() {
                 wantedFor={listing.wantedFor}
                 estimatedValue={listing.estimatedValue}
                 isOwner={isOwner}
+                isFav={isFav}
+                shareUrl={shareUrl}
+                shareTitle={listing.title}
                 onOffer={handleOfferStart}
                 onMatch={() => openAIPanel(listing.id)}
                 onEdit={() => setEditModalOpen(true)}
+                onToggleFavorite={() => handleFavoriteClick(listing.id, isFav)}
+                onReport={handleReportStart}
               />
             </div>
             <div className="hidden rounded-lg border border-amber-200 bg-white p-6 shadow-sm dark:border-amber-900/60 dark:bg-slate-800 lg:block">
@@ -992,9 +1058,14 @@ export default function ListingDetail() {
               wantedFor={listing.wantedFor}
               estimatedValue={listing.estimatedValue}
               isOwner={isOwner}
+              isFav={isFav}
+              shareUrl={shareUrl}
+              shareTitle={listing.title}
               onOffer={handleOfferStart}
               onMatch={() => openAIPanel(listing.id)}
               onEdit={() => setEditModalOpen(true)}
+              onToggleFavorite={() => handleFavoriteClick(listing.id, isFav)}
+              onReport={handleReportStart}
             />
           </div>
 
@@ -1225,6 +1296,14 @@ export default function ListingDetail() {
 
       {offerModalOpen && (
         <SwapOfferModal listing={listing} onClose={() => setOfferModalOpen(false)} />
+      )}
+
+      {reportModalOpen && (
+        <ReportModal
+          listingId={listing.id}
+          listingTitle={listing.title}
+          onClose={() => setReportModalOpen(false)}
+        />
       )}
 
       {editModalOpen && (

@@ -1,4 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
+import { setMonitoringUser } from './lib/monitoring';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -113,6 +114,9 @@ function AppInner() {
 
   // Ses ayarını sync et
   useEffect(() => { setSoundEnabled(soundEnabled); }, [soundEnabled]);
+
+  // Hata raporlarına yalnızca kullanıcı kimliğini iliştir
+  useEffect(() => { setMonitoringUser(currentUser?.id ?? null); }, [currentUser?.id]);
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors">

@@ -1,7 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { seedDemoData, clearDevData } from '../services/api';
 import { showToast } from '../components/Toast';
 import { downloadCSV } from '../lib/csv';
 import { useSEO } from '../hooks/useSEO';
@@ -25,12 +24,10 @@ export default function Dashboard() {
 
   const {
     listings, offers, favorites, currentUser, currentUserId,
-    loadListings, loadOffers, getNotifications,
+    getNotifications,
     searchHistory, clearSearchHistory, setFilters,
   } = useAppStore();
 
-  const [seeding,  setSeeding]  = useState(false);
-  const [clearing, setClearing] = useState(false);
 
   // ── İstatistikler ───────────────────────────────────────────────────────────
 
@@ -87,20 +84,6 @@ export default function Dashboard() {
   }
 
   const unreadNotes = getNotifications().filter((n) => !n.read).length;
-
-  async function handleSeed() {
-    setSeeding(true);
-    try {
-      const res = await seedDemoData();
-      showToast(`${res.created} demo ilan eklendi (toplam: ${res.total})`, 'success');
-      await loadListings();
-      await loadOffers();
-    } catch (e) {
-      showToast((e as Error).message || 'Tohumlama başarısız', 'error');
-    } finally {
-      setSeeding(false);
-    }
-  }
 
   function exportListings() {
     downloadCSV(
@@ -169,20 +152,6 @@ export default function Dashboard() {
     showToast('Teklifler indirildi', 'success');
   }
 
-  async function handleClear() {
-    if (!confirm('TÜM ilanları, teklifleri ve mesajları silmek istediğine emin misin? Kullanıcılar korunur.')) return;
-    setClearing(true);
-    try {
-      const res = await clearDevData();
-      showToast(`Silindi: ${res.deleted.listings} ilan, ${res.deleted.offers} teklif`, 'success');
-      await loadListings();
-      await loadOffers();
-    } catch (e) {
-      showToast((e as Error).message || 'Temizlik başarısız', 'error');
-    } finally {
-      setClearing(false);
-    }
-  }
 
   // ── UI ──────────────────────────────────────────────────────────────────────
 
@@ -219,23 +188,6 @@ export default function Dashboard() {
               <span>📥</span> Teklifleri İndir
             </button>
           )}
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            title="DB'ye 15 örnek ilan yükle"
-            className="text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40 px-3 py-2 rounded-xl flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-          >
-            <span>🌱</span>
-            {seeding ? 'Yükleniyor…' : 'Demo Veri Ekle'}
-          </button>
-          <button
-            onClick={handleClear}
-            disabled={clearing}
-            className="text-xs font-semibold bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/40 px-3 py-2 rounded-xl flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-          >
-            <span>🗑️</span>
-            {clearing ? 'Siliniyor…' : 'Veriyi Temizle'}
-          </button>
         </div>
       </header>
 

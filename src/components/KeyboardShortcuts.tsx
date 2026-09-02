@@ -97,7 +97,7 @@ export default function KeyboardShortcuts() {
       document.removeEventListener('keydown', onKey);
       if (gTimer) clearTimeout(gTimer);
     };
-  }, [pendingG, navigate, openAIPanel, toggleDarkMode]);
+  }, [pendingG, navigate, openAIPanel, toggleDarkMode, isAdmin]);
 
   // Sections gruplama
   const grouped = SHORTCUTS.reduce<Record<string, typeof SHORTCUTS>>((acc, s) => {

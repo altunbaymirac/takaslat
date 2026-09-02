@@ -22,12 +22,10 @@ import {
   register    as apiRegister,
   getMe,
   updateMe,
-  getToken,
   setToken,
   removeToken,
   clearToken,
   supabase,
-  USE_MOCK,
 } from '../services/api';
 import { trackProductEvent } from '../lib/analytics';
 import { validateOfferDraft } from '../lib/offerValidation';
@@ -226,7 +224,7 @@ export const useAppStore = create<AppState>()(
       auctionSyncState:        'idle',
       token:                   null,
       currentUser:             null,
-      currentUserId:           USE_MOCK ? 'current-user' : '',
+      currentUserId:           '',
       currentUserName:         'Kullanıcı',
       filters:                 defaultFilters,
       aiPanelOpen:             false,
@@ -268,7 +266,7 @@ export const useAppStore = create<AppState>()(
       // ── Load offers (giriş yapılmışsa)
       loadOffers: async () => {
         const { token, currentUserId } = get();
-        if (!token && !USE_MOCK) {
+        if (!token) {
           set({ offers: [] });
           return;
         }
@@ -313,74 +311,60 @@ export const useAppStore = create<AppState>()(
       // ── Auth: check stored token on startup
       initAuth: async () => {
         try {
-          if (!USE_MOCK) {
-            const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
-              if (!session) {
-                removeToken();
-                set({
-                  token: null,
-                  currentUser: null,
-                  currentUserId: '',
-                  currentUserName: 'Kullanıcı',
-                  offers: [],
-                  notifications: [],
-                });
-                return;
-              }
-
-              setToken(session.access_token);
-              const user = await getMe() as AuthUser | null;
-              if (!user) throw new Error('Kullanıcı profili yüklenemedi');
-
+          const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+            if (!session) {
+              removeToken();
               set({
-                token: session.access_token,
-                currentUser: user,
-                currentUserId: user.id,
-                currentUserName: user.name,
+                token: null,
+                currentUser: null,
+                currentUserId: '',
+                currentUserName: 'Kullanıcı',
+                offers: [],
+                notifications: [],
               });
-              const createdAt = Date.parse(session.user.created_at);
-              const isNewOAuthUser = session.user.app_metadata.provider === 'google'
-                && Number.isFinite(createdAt)
-                && Date.now() - createdAt < 60_000;
-              const signupKey = `takaslat-google-signup:${session.user.id}`;
-              if (isNewOAuthUser && !sessionStorage.getItem(signupKey)) {
-                sessionStorage.setItem(signupKey, '1');
-                trackProductEvent('sign_up', { method: 'google' });
-              }
-              await Promise.all([get().loadListings(), get().loadOffers(), get().loadNotifications()]);
-            };
-
-            // OAuth dönüşünde SIGNED_IN, getSession çağrısından sonra gelebilir.
-            // Listener her zaman kurulmalı ve callback içinde Supabase çağrısı bekletilmemeli.
-            if (!authListenerReady) {
-              supabase.auth.onAuthStateChange((event, newSession) => {
-                if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) return;
-                window.setTimeout(() => {
-                  void syncSession(newSession).catch(() => {
-                    removeToken();
-                    set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
-                  });
-                }, 0);
-              });
-              authListenerReady = true;
+              return;
             }
 
-            const { data: { session } } = await supabase.auth.getSession();
-            await syncSession(session);
-            return;
-          }
-          // Mock mod — token varsa restore, yoksa da offer'ları yükle (currentUserId default 'current-user')
-          const stored = getToken();
-          if (stored) {
+            setToken(session.access_token);
             const user = await getMe() as AuthUser | null;
-            if (user) {
-              set({ token: stored, currentUser: user, currentUserId: user.id, currentUserName: user.name });
-            } else {
-              set({ token: stored });
+            if (!user) throw new Error('Kullanıcı profili yüklenemedi');
+
+            set({
+              token: session.access_token,
+              currentUser: user,
+              currentUserId: user.id,
+              currentUserName: user.name,
+            });
+            const createdAt = Date.parse(session.user.created_at);
+            const isNewOAuthUser = session.user.app_metadata.provider === 'google'
+              && Number.isFinite(createdAt)
+              && Date.now() - createdAt < 60_000;
+            const signupKey = `takaslat-google-signup:${session.user.id}`;
+            if (isNewOAuthUser && !sessionStorage.getItem(signupKey)) {
+              sessionStorage.setItem(signupKey, '1');
+              trackProductEvent('sign_up', { method: 'google' });
             }
+            await Promise.all([get().loadListings(), get().loadOffers(), get().loadNotifications()]);
+          };
+
+          // OAuth dönüşünde SIGNED_IN, getSession çağrısından sonra gelebilir.
+          // Listener her zaman kurulmalı ve callback içinde Supabase çağrısı bekletilmemeli.
+          if (!authListenerReady) {
+            supabase.auth.onAuthStateChange((event, newSession) => {
+              if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) return;
+              window.setTimeout(() => {
+                void syncSession(newSession).catch(() => {
+                  removeToken();
+                  set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
+                });
+              }, 0);
+            });
+            authListenerReady = true;
           }
-          await get().loadOffers();
-          await get().loadNotifications();
+
+          const { data: { session } } = await supabase.auth.getSession();
+          await syncSession(session);
+          return;
         } catch {
           removeToken();
           set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
@@ -441,7 +425,7 @@ export const useAppStore = create<AppState>()(
         set({
           token:           null,
           currentUser:     null,
-          currentUserId:   USE_MOCK ? 'current-user' : '',
+          currentUserId:   '',
           currentUserName: 'Kullanıcı',
           offers:          [],
           listings:        [],
@@ -503,7 +487,7 @@ export const useAppStore = create<AppState>()(
           const created = await createAuctionApi({ ...auction, ownerId });
           set((s) => ({
             auctions: [created, ...s.auctions.filter((item) => item.id !== id && item.listingId !== created.listingId)],
-            auctionSyncState: USE_MOCK ? 'local' : 'live',
+            auctionSyncState: 'live',
           }));
           return created.id;
         } catch (error) {
@@ -544,15 +528,10 @@ export const useAppStore = create<AppState>()(
           }),
         }));
         try {
-          const updated = await placeAuctionBidApi(
-            auctionId,
-            amount,
-            note,
-            { id: currentUserId, name: currentUserName },
-          );
+          const updated = await placeAuctionBidApi(auctionId, amount, note);
           set((s) => ({
             auctions: s.auctions.map((auction) => auction.id === auctionId ? updated : auction),
-            auctionSyncState: USE_MOCK ? 'local' : 'live',
+            auctionSyncState: 'live',
           }));
         } catch (error) {
           if (previous) {
@@ -576,7 +555,7 @@ export const useAppStore = create<AppState>()(
           const updated = await closeAuctionApi(auctionId);
           set((s) => ({
             auctions: s.auctions.map((auction) => auction.id === auctionId ? updated : auction),
-            auctionSyncState: USE_MOCK ? 'local' : 'live',
+            auctionSyncState: 'live',
           }));
         } catch (error) {
           const message = error instanceof Error ? error.message : '';
@@ -1017,7 +996,7 @@ export const useAppStore = create<AppState>()(
           ...current,
           token:                   p?.token        ?? null,
           currentUser:             user,
-          currentUserId:           user?.id        ?? (USE_MOCK ? 'current-user' : ''),
+          currentUserId:           user?.id ?? '',
           currentUserName:         user?.name      ?? 'Kullanıcı',
           favorites:               p?.favorites    ?? [],
           darkMode:                p?.darkMode     ?? false,

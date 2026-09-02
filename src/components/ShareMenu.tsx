@@ -4,9 +4,11 @@ import { showToast } from './Toast';
 interface Props {
   url:   string;
   title: string;
+  /** 'icon' araç çubuğundaki kare buton, 'link' metin bağlantısı. */
+  variant?: 'icon' | 'link';
 }
 
-export default function ShareMenu({ url, title }: Props) {
+export default function ShareMenu({ url, title, variant = 'icon' }: Props) {
   const [open,   setOpen]   = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -75,12 +77,15 @@ export default function ShareMenu({ url, title }: Props) {
     <div className="relative" ref={ref}>
       <button
         onClick={handleNativeShare}
-        className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors"
+        className={variant === 'link'
+          ? 'flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition-colors hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-300'
+          : 'w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors'}
         title="Paylaş"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
         </svg>
+        {variant === 'link' && <span>Paylaş</span>}
       </button>
 
       {/* QR Code Modal */}

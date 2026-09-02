@@ -1,6 +1,41 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAppStore } from '../store/useAppStore';
 import type { Listing, LiveAuction } from '../types';
+
+// Mezat uçları Supabase'e gider; testlerde bellek içi sahte bir sunucu kullanıyoruz.
+const auctionServer = vi.hoisted(() => {
+  const store = new Map<string, LiveAuction>();
+  return {
+    store,
+    create: vi.fn(async (auction: LiveAuction) => {
+      const created = { ...auction, id: auction.id || `auction-${store.size + 1}`, bids: [], currentBid: auction.startingPrice, watcherCount: 0 };
+      store.set(created.id, created);
+      return created;
+    }),
+    bid: vi.fn(async (auctionId: string, amount: number) => {
+      const current = store.get(auctionId);
+      if (!current) throw new Error('Mezat bulunamadı');
+      // Sunucudaki place_auction_bid kuralının aynısı.
+      const minimum = current.currentBid + current.bidIncrement;
+      if (amount < minimum) throw new Error(`Minimum teklif ${minimum}`);
+      const updated: LiveAuction = {
+        ...current,
+        currentBid: amount,
+        bids: [{ id: `bid-${current.bids.length + 1}`, userId: 'auction-bidder', userName: 'Teklif Veren', amount, createdAt: new Date().toISOString() }, ...current.bids],
+      };
+      store.set(auctionId, updated);
+      return updated;
+    }),
+  };
+});
+
+vi.mock('../services/api', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../services/api')>(),
+  createAuctionApi: auctionServer.create,
+  placeAuctionBidApi: auctionServer.bid,
+  fetchAuctions: vi.fn(async () => [...auctionServer.store.values()]),
+  subscribeAuctionStream: () => () => undefined,
+}));
 
 function listing(id: string, ownerId: string): Listing {
   return {

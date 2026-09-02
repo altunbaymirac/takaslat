@@ -1,6 +1,6 @@
-﻿import type { Listing, SwapOffer } from '../types';
+﻿import type { Listing, SwapOffer } from '../../types';
 
-export const mockListings: Listing[] = [
+export const sampleListings: Listing[] = [
   {
     id: 'lst-001',
     listingCode: 'TKS-1000001',
@@ -646,7 +646,7 @@ export const mockListings: Listing[] = [
   },
 ];
 
-export const mockOffers: SwapOffer[] = [
+export const sampleOffers: SwapOffer[] = [
   {
     id: 'offer-001',
     fromUserId: 'current-user',
