@@ -45,6 +45,8 @@ export interface AuthUser {
   totalSwaps?: number;
   twoFactorEnabled?: boolean;
   role?: string;
+  /** Satın alınmış ücretli özellikler (bkz. lib/entitlements). */
+  entitlements?: string[];
   emailVerified?: boolean;
   phoneVerified?: boolean;
 }

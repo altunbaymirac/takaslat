@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
-import type { Listing } from '../types';
 import type {
   Category, FuelType, TransmissionType, Condition,
   ElectronicType, ElectronicDetails, WarrantyStatus,
@@ -108,6 +107,11 @@ export default function CreateListing() {
 
   const navigate = useNavigate();
   const { addListing, currentUser } = useAppStore();
+
+  // Girişten sonra forma dönüldüğünde taslağı geri yükleyebilmek için işaret bırak.
+  function rememberDraftResume() {
+    try { localStorage.setItem('takaslat-resume-after-login', '1'); } catch { /* depolama kapalı olabilir */ }
+  }
   const [vehicleGroup, setVehicleGroup] = useState('');
   const [catalogHint, setCatalogHint] = useState('');
   const [step, setStep] = useState(1);
@@ -188,17 +192,6 @@ export default function CreateListing() {
     trackProductEvent('listing_started');
   }, []);
 
-  // Giriş yoksa hemen login'e yönlendir (son adımda değil)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!currentUser) {
-        try { localStorage.setItem('takaslat-resume-after-login', '1'); } catch { /* */ }
-        navigate('/login?redirect=/create');
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [currentUser, navigate]);
-
   useEffect(() => {
     // Sayfa ilk açıldığında: taslak var mı kontrol et
     try {
@@ -248,55 +241,6 @@ export default function CreateListing() {
     setHasDraft(false);
   }
 
-  // ── İlan çoğaltma: localStorage'tan kopyalanmış ilanı oku
-  useEffect(() => {
-    const dup = localStorage.getItem('takaslat-duplicate');
-    if (!dup) return;
-    try {
-      const src = JSON.parse(dup) as Listing;
-      queueMicrotask(() => {
-        setForm((f) => ({
-          ...f,
-          category:       src.category,
-          condition:      src.condition,
-          city:           src.city,
-          district:       src.district ?? '',
-          estimatedValue: src.estimatedValue.toString(),
-          description:    src.description,
-          wantedFor:      src.wantedFor,
-          title:          src.title + ' (Kopya)',
-          brand:        src.vehicleDetails?.brand        ?? f.brand,
-          model:        src.vehicleDetails?.model        ?? f.model,
-          year:         src.vehicleDetails?.year ? src.vehicleDetails.year.toString() : f.year,
-          km:           src.vehicleDetails?.km ? src.vehicleDetails.km.toString() : f.km,
-          fuel:         src.vehicleDetails?.fuel         ?? f.fuel,
-          transmission: src.vehicleDetails?.transmission ?? f.transmission,
-          color:        src.vehicleDetails?.color        ?? f.color,
-          bodyType:     src.vehicleDetails?.bodyType     ?? f.bodyType,
-          hasAccidentRecord: src.vehicleDetails?.hasAccidentRecord ?? f.hasAccidentRecord,
-          hasExpertise:  src.vehicleDetails?.hasExpertise  ?? f.hasExpertise,
-          expertiseFirm: src.vehicleDetails?.expertiseFirm ?? f.expertiseFirm,
-          expertiseDate: src.vehicleDetails?.expertiseDate ?? f.expertiseDate,
-          expertiseNote: src.vehicleDetails?.expertiseNote ?? f.expertiseNote,
-          elecType:  (src.electronicDetails?.type as typeof f.elecType) ?? f.elecType,
-          elecBrand: src.electronicDetails?.brand   ?? f.elecBrand,
-          elecModel: src.electronicDetails?.model   ?? f.elecModel,
-          storage:   src.electronicDetails?.storage ?? f.storage,
-          ram:       src.electronicDetails?.ram     ?? f.ram,
-          warranty:  (src.electronicDetails?.warranty as typeof f.warranty) ?? f.warranty,
-          propType:  (src.propertyDetails?.type as typeof f.propType) ?? f.propType,
-          netSqm:    src.propertyDetails?.netSqm ? src.propertyDetails.netSqm.toString() : f.netSqm,
-          rooms:     src.propertyDetails?.rooms ?? f.rooms,
-        }));
-        if (src.vehicleDetails?.bodyType) {
-          const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(src.vehicleDetails!.bodyType!))?.[0];
-          if (grp) setVehicleGroup(grp);
-        }
-      });
-      localStorage.removeItem('takaslat-duplicate');
-      showToast('Önceki ilan kopyalandı, alanları gözden geçir', 'info');
-    } catch { /* malformed */ }
-  }, []);
 
 
   async function handleAiDescribe() {
@@ -690,6 +634,45 @@ export default function CreateListing() {
       showToast(err instanceof Error ? err.message : 'İlan kaydedilemedi', 'error');
     }
   };
+
+  if (!currentUser) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <h2 className="mb-2 text-xl font-bold text-slate-900 dark:text-slate-100">İlan vermek için giriş yap</h2>
+        <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+          İlan yayınlamak ücretsiz. Hesabın yoksa bir dakikada oluşturabilirsin.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <Link
+            to="/login?redirect=/create"
+            onClick={rememberDraftResume}
+            className="btn-primary rounded-md px-6 py-3 text-sm font-bold"
+          >
+            Giriş yap
+          </Link>
+          <Link
+            to="/register?redirect=/create"
+            onClick={rememberDraftResume}
+            className="rounded-md border border-slate-300 px-6 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Kayıt ol
+          </Link>
+        </div>
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/listings'))}
+          className="mt-6 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-800 dark:hover:text-slate-200"
+        >
+          ← Geri dön
+        </button>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

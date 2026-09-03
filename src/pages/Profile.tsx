@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import ListingCard from '../components/ListingCard';
 import ProfileEditModal from '../components/ProfileEditModal';
-import BulkListingActions from '../components/BulkListingActions';
+import MyListingsQuickEdit from '../components/MyListingsQuickEdit';
 import { fetchUserById, type PublicUser } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
 
@@ -217,7 +217,7 @@ export default function Profile() {
       {/* ── Kullanıcının ilanları ── */}
       <section>
         {isSelf && userListings.length > 0 && (
-          <BulkListingActions listings={userListings} />
+          <MyListingsQuickEdit listings={userListings} />
         )}
 
         <div className="flex items-center justify-between mb-4">

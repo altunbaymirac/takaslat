@@ -81,7 +81,7 @@ export default function Listings() {
     const match = listings.find(l => l.listingCode?.toUpperCase() === q.toUpperCase());
     if (match) {
       setFilters({ searchQuery: '' });
-      navigate(`/listings/${match.id}`);
+      navigate(`/listing/${match.id}`);
     }
   }, [filters.searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 

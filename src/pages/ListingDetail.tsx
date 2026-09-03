@@ -8,6 +8,8 @@ import EditListingModal from '../components/EditListingModal';
 import ImageLightbox from '../components/ImageLightbox';
 import ListingQASection from '../components/ListingQASection';
 import ListingCard from '../components/ListingCard';
+import PaidFeatureCard from '../components/PaidFeatureCard';
+import { hasPaidFeature } from '../lib/entitlements';
 import VideoEmbed from '../components/VideoEmbed';
 import ListingAIInsights from '../components/ListingAIInsights';
 import SwapChainPanel from '../components/SwapChainPanel';
@@ -22,7 +24,7 @@ import { trackProductEvent } from '../lib/analytics';
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
 
-type DetailTab = 'description' | 'swap' | 'features' | 'location';
+type DetailTab = 'swap' | 'description' | 'features' | 'location';
 
 // ─── Küçük yardımcı: özellik satırı ─────────────────────────────────────────
 
@@ -176,7 +178,7 @@ function SwapExpectationPanel({
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { listings, openAIPanel, currentUserId, favorites, toggleFavorite, deleteListing, recordView, boostListing, isBoosted } = useAppStore();
+  const { listings, openAIPanel, currentUser, currentUserId, favorites, toggleFavorite, deleteListing, recordView } = useAppStore();
 
   // ── State — tümü koşullu return'lardan önce (Rules of Hooks) ─────────────
   const [apiFetched, setApiFetched]       = useState<Listing | null>(null);
@@ -189,7 +191,7 @@ export default function ListingDetail() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [lightboxOpen,      setLightboxOpen]      = useState(false);
   const [verification,      setVerification]      = useState<ListingVerification | null>(null);
-  const [activeDetailTab,   setActiveDetailTab]   = useState<DetailTab>('description');
+  const [activeDetailTab,   setActiveDetailTab]   = useState<DetailTab>('swap');
 
   // ── Store'da yoksa API'den yükle ──────────────────────────────────────────
   const storeMatch = listings.find((l) => l.id === id);
@@ -408,6 +410,7 @@ export default function ListingDetail() {
     accepted: offersOnThis.filter((o) => o.status === 'Tamamlandı').length,
   } : null;
   // viewsByDay is computed above (before conditional returns)
+  const canSeeAnalytics = hasPaidFeature('listing_analytics', currentUser);
   const isFav = favorites.includes(listing.id);
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/listing/${listing.id}`
@@ -566,8 +569,8 @@ export default function ListingDetail() {
             role="tablist"
           >
             {([
-              ['description', 'Açıklama'],
               ['swap', 'Takas için istenen'],
+              ['description', 'Açıklama'],
               ['features', 'Özellikler'],
               ['location', 'Konum'],
             ] as const).map(([tab, label]) => (
@@ -1107,8 +1110,9 @@ export default function ListingDetail() {
                   <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">Bu sizin ilanınız</p>
                 </div>
 
-                {/* Sahip istatistikleri */}
-                {ownerStats && (
+                {/* Sahip istatistikleri — ücretli özellik */}
+                {!canSeeAnalytics && <PaidFeatureCard feature="listing_analytics" />}
+                {canSeeAnalytics && ownerStats && (
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       {[
@@ -1159,23 +1163,6 @@ export default function ListingDetail() {
                     </div>
                   </>
                 )}
-                {/* Boost butonu */}
-                {!isBoosted(listing.id) ? (
-                  <button
-                    onClick={() => {
-                      boostListing(listing.id);
-                      showToast('İlan 7 gün boyunca öne çıkarıldı', 'success');
-                    }}
-                    className="w-full bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-blue-200 dark:border-blue-900/40"
-                  >
-                    Öne Çıkar (7 gün)
-                  </button>
-                ) : (
-                  <div className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
-                    Öne Çıkarıldı
-                  </div>
-                )}
-
                 <button
                   onClick={() => setEditModalOpen(true)}
                   className="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
@@ -1184,19 +1171,6 @@ export default function ListingDetail() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   Düzenle
-                </button>
-                <button
-                  onClick={() => {
-                    localStorage.setItem('takaslat-duplicate', JSON.stringify(listing));
-                    showToast('İlan formuna kopyalandı', 'success');
-                    navigate('/create');
-                  }}
-                  className="w-full bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Çoğalt (Yeni Kopyası)
                 </button>
                 <button
                   onClick={() => setDeleteConfirmOpen(true)}
