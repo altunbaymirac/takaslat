@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchAdminListings, fetchAdminStats, moderateListing, sendTestNotification, fetchAdminUsers, setUserRole, banUser, type AdminStats, type AdminUser } from '../services/api';
+import { fetchAdminListings, fetchAdminStats, moderateListing, sendTestNotification, fetchAdminUsers, setUserRole, banUser, fetchAuctionRequests, reviewAuctionRequest, type AdminStats, type AdminUser, type AuctionRequest } from '../services/api';
 import type { Listing } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
@@ -35,7 +35,8 @@ export default function Admin() {
 
   const currentUser = useAppStore((s) => s.currentUser);
   const pushNotification = useAppStore((s) => s.pushNotification);
-  const [tab, setTab] = useState<'listings' | 'users'>('listings');
+  const [tab, setTab] = useState<'listings' | 'users' | 'auctions'>('listings');
+  const [auctionRequests, setAuctionRequests] = useState<AuctionRequest[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [listings, setListings] = useState<AdminListing[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -61,6 +62,8 @@ export default function Admin() {
           : listingsResult.status === 'rejected' ? listingsResult.reason
           : null;
         if (failure) throw failure;
+      } else if (tab === 'auctions') {
+        setAuctionRequests(await fetchAuctionRequests());
       } else {
         const [statsResult, usersResult] = await Promise.allSettled([
           fetchAdminStats(),
@@ -92,6 +95,38 @@ export default function Admin() {
     try {
       await moderateListing(id, next, reason);
       showToast('Moderasyon güncellendi', 'success');
+      await load();
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
+    }
+  }
+
+  async function handleReviewRequest(request: AuctionRequest, approve: boolean) {
+    if (approve) {
+      const priceInput = window.prompt(
+        'Başlangıç fiyatı (₺) — boş bırakırsan başvurudaki değer kullanılır',
+        request.expectedPrice ? String(request.expectedPrice) : '',
+      );
+      if (priceInput === null) return;
+      const startingPrice = priceInput.trim() ? Number(priceInput) : undefined;
+      if (startingPrice !== undefined && (Number.isNaN(startingPrice) || startingPrice < 1_000)) {
+        showToast('Geçerli bir başlangıç fiyatı gir', 'error');
+        return;
+      }
+      try {
+        await reviewAuctionRequest({ requestId: request.id, approve: true, startingPrice });
+        showToast('Başvuru onaylandı, 7 günlük mezat açıldı', 'success');
+        await load();
+      } catch (error) {
+        showToast(adminErrorMessage(error), 'error');
+      }
+      return;
+    }
+
+    const reason = window.prompt('Red sebebi (başvuru sahibine gösterilir)') ?? undefined;
+    try {
+      await reviewAuctionRequest({ requestId: request.id, approve: false, reviewNote: reason });
+      showToast('Başvuru reddedildi', 'success');
       await load();
     } catch (error) {
       showToast(adminErrorMessage(error), 'error');
@@ -172,7 +207,7 @@ export default function Admin() {
       )}
 
       <div className="mb-4 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900 w-fit">
-        {(['listings', 'users'] as const).map((t) => (
+        {(['listings', 'auctions', 'users'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -182,7 +217,7 @@ export default function Admin() {
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            {t === 'listings' ? 'İlanlar' : 'Kullanıcılar'}
+            {t === 'listings' ? 'İlanlar' : t === 'auctions' ? 'Mezat başvuruları' : 'Kullanıcılar'}
           </button>
         ))}
       </div>
@@ -262,6 +297,69 @@ export default function Admin() {
                 <p className="p-8 text-center text-sm text-slate-400">Bu filtrede ilan yok</p>
               )}
             </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'auctions' && (
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="border-b border-slate-100 p-4 dark:border-slate-800">
+            <h2 className="font-bold text-slate-900 dark:text-slate-100">Mezat Başvuruları</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Onaylanan araçlar sahibi adına 7 günlük açık artırmaya çıkar.
+            </p>
+          </div>
+
+          {auctionRequests.length === 0 ? (
+            <p className="p-6 text-sm text-slate-500 dark:text-slate-400">Başvuru yok.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+              {auctionRequests.map((request) => (
+                <li key={request.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{request.listing?.title ?? 'İlan'}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        request.status === 'approved'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : request.status === 'rejected'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {request.status === 'approved' ? 'Onaylandı' : request.status === 'rejected' ? 'Reddedildi' : 'Bekliyor'}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      {request.owner?.name ?? '—'} · {request.listing?.city ?? '—'} · değer {fmt(request.listing?.estimatedValue ?? 0)} ₺
+                      {request.expectedPrice ? ` · beklenen başlangıç ${fmt(request.expectedPrice)} ₺` : ''}
+                    </p>
+                    {request.note && (
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">“{request.note}”</p>
+                    )}
+                    {request.reviewNote && (
+                      <p className="mt-1 text-xs text-red-600">Karar notu: {request.reviewNote}</p>
+                    )}
+                  </div>
+
+                  {request.status === 'pending' && (
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => void handleReviewRequest(request, true)}
+                        className="btn-success rounded-lg px-3 py-2 text-xs font-semibold"
+                      >
+                        Onayla ve mezata çıkar
+                      </button>
+                      <button
+                        onClick={() => void handleReviewRequest(request, false)}
+                        className="btn-danger rounded-lg px-3 py-2 text-xs font-semibold"
+                      >
+                        Reddet
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}

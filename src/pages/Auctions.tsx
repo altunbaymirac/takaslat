@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { submitAuctionRequest, fetchMyAuctionRequests, type AuctionRequest } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
+import { isPlatformAdmin } from '../lib/roles';
 import type { LiveAuction, Listing } from '../types';
 
 const money = (value: number) =>
@@ -120,6 +122,7 @@ export default function Auctions() {
     closeAuction,
   } = useAppStore();
 
+  const isAdmin = isPlatformAdmin(currentUser?.role);
   const [now, setNow] = useState(() => Date.now());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bidDraft, setBidDraft] = useState<string | null>(null);
@@ -132,12 +135,25 @@ export default function Auctions() {
   const [reserveDraft, setReserveDraft] = useState('');
   const [message, setMessage] = useState('');
   const [formMessage, setFormMessage] = useState('');
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [myRequests, setMyRequests] = useState<AuctionRequest[]>([]);
+  const [requestSending, setRequestSending] = useState(false);
+  const [requestNote, setRequestNote] = useState('');
+  const [adminMessage, setAdminMessage] = useState('');
   const [pendingAction, setPendingAction] = useState<'create' | 'bid' | 'close' | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      queueMicrotask(() => setMyRequests([]));
+      return;
+    }
+    fetchMyAuctionRequests().then(setMyRequests).catch(() => setMyRequests([]));
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortedAuctions = useMemo(
     () => [...auctions].sort((a, b) => {
@@ -213,14 +229,47 @@ export default function Auctions() {
     }
   }
 
+  async function handleSubmitRequest() {
+    if (!currentUser) return;
+    const listing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
+    if (!listing) {
+      setFormMessage('Önce mezata çıkarmak istediğin ilanı seç.');
+      return;
+    }
+    const expected = Number(startingPriceDraft) || undefined;
+    if (expected !== undefined && expected < 1_000) {
+      setFormMessage('Beklenen başlangıç fiyatı en az 1.000 ₺ olmalı.');
+      return;
+    }
+
+    setRequestSending(true);
+    try {
+      const created = await submitAuctionRequest({
+        listingId: listing.id,
+        expectedPrice: expected,
+        note: requestNote,
+      });
+      setMyRequests((current) => [created, ...current]);
+      setRequestOpen(false);
+      setSelectedListingId('');
+      setStartingPriceDraft('');
+      setRequestNote('');
+      setFormMessage('Başvurun alındı. Ekibimiz inceledikten sonra aracın 7 günlük açık artırmaya çıkacak.');
+    } catch (error) {
+      setFormMessage(error instanceof Error ? error.message : 'Başvuru gönderilemedi.');
+    } finally {
+      setRequestSending(false);
+    }
+  }
+
   async function handleCreateAuction() {
     if (!currentUser) {
-      setFormMessage('Mezat başlatmak için giriş yapmalısın.');
+      setAdminMessage('Mezat başlatmak için giriş yapmalısın.');
       return;
     }
     const listing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
     if (!listing) {
-      setFormMessage('Mezat başlatmak için önce aktif bir ilan gerekli.');
+      setAdminMessage('Mezat başlatmak için önce aktif bir ilan gerekli.');
       return;
     }
     const nowMs = now;
@@ -229,15 +278,15 @@ export default function Auctions() {
     const reservePrice  = reserveDraft.trim() ? Number(reserveDraft) : undefined;
 
     if (startingPrice < 1_000) {
-      setFormMessage('Başlangıç fiyatı en az 1.000 ₺ olmalı.');
+      setAdminMessage('Başlangıç fiyatı en az 1.000 ₺ olmalı.');
       return;
     }
     if (bidIncrement < 100) {
-      setFormMessage('Minimum artış en az 100 ₺ olmalı.');
+      setAdminMessage('Minimum artış en az 100 ₺ olmalı.');
       return;
     }
     if (reservePrice !== undefined && reservePrice < startingPrice) {
-      setFormMessage('Rezerv fiyat, başlangıç fiyatından düşük olamaz.');
+      setAdminMessage('Rezerv fiyat, başlangıç fiyatından düşük olamaz.');
       return;
     }
 
@@ -259,9 +308,9 @@ export default function Auctions() {
       setIncrementDraft('');
       setReserveDraft('');
       setBidDraft(null);
-      setFormMessage(`${listing.title} için canlı mezat başladı.`);
+      setAdminMessage(`${listing.title} için canlı mezat başladı.`);
     } catch (error) {
-      setFormMessage(error instanceof Error ? error.message : 'Mezat başlatılamadı.');
+      setAdminMessage(error instanceof Error ? error.message : 'Mezat başlatılamadı.');
     } finally {
       setPendingAction(null);
     }
@@ -350,17 +399,133 @@ export default function Auctions() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">İlandan mezat başlat</h2>
+            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">Aracını mezata çıkar</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              Başvurunu ekibimiz inceler; süzgeçten geçen araçlar 7 günlük açık artırmaya çıkar.
+            </p>
+
+            {!currentUser ? (
+              <Link
+                to="/login?redirect=/auctions"
+                className="btn-primary mt-3 block w-full rounded-xl px-4 py-3 text-center text-sm font-black"
+              >
+                Giriş yap
+              </Link>
+            ) : !requestOpen ? (
+              <button
+                type="button"
+                onClick={() => { setRequestOpen(true); setFormMessage(''); }}
+                className="btn-primary mt-3 w-full rounded-xl px-4 py-3 text-sm font-black"
+              >
+                Aracımı açık artırmaya sunmak istiyorum
+              </button>
+            ) : (
+              <form
+                className="mt-3 space-y-3"
+                onSubmit={(event) => { event.preventDefault(); void handleSubmitRequest(); }}
+              >
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Hangi aracın?</span>
+                  <select
+                    value={selectedListingId}
+                    onChange={(event) => setSelectedListingId(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  >
+                    <option value="">İlan seç</option>
+                    {availableListings.map((listing) => (
+                      <option key={listing.id} value={listing.id}>{listing.title}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {availableListings.length === 0 && (
+                  <p className="rounded-xl bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                    Mezata çıkarabileceğin aktif bir ilanın yok. Önce aracının ilanını oluştur.{' '}
+                    <Link to="/create" className="font-bold underline">İlan ver</Link>
+                  </p>
+                )}
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Beklediğin başlangıç fiyatı (₺)</span>
+                  <input
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    value={startingPriceDraft}
+                    onChange={(event) => setStartingPriceDraft(event.target.value)}
+                    placeholder={draftListing ? String(suggestedStartingPrice(draftListing.estimatedValue)) : 'Örn: 450000'}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  />
+                  <span className="mt-1 block text-[11px] text-slate-400">Ekibimiz uygun görürse teklifler bu fiyattan başlar.</span>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Eklemek istediklerin</span>
+                  <textarea
+                    value={requestNote}
+                    onChange={(event) => setRequestNote(event.target.value)}
+                    rows={3}
+                    placeholder="Aracın durumu, ekspertiz, acele durumu…"
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  />
+                </label>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setRequestOpen(false); setFormMessage(''); }}
+                    className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={requestSending || availableListings.length === 0}
+                    className="btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm font-black"
+                  >
+                    {requestSending ? 'Gönderiliyor' : 'Başvuruyu gönder'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {formMessage && (
+              <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                {formMessage}
+              </p>
+            )}
+
+            {myRequests.length > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Başvurularım</p>
+                <ul className="mt-2 space-y-2">
+                  {myRequests.slice(0, 4).map((request) => (
+                    <li key={request.id} className="flex items-center gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">
+                        {listings.find((item) => item.id === request.listingId)?.title ?? 'İlan'}
+                      </span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 font-bold ${
+                        request.status === 'approved'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : request.status === 'rejected'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      }`}>
+                        {request.status === 'approved' ? 'Onaylandı' : request.status === 'rejected' ? 'Reddedildi' : 'İncelemede'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {isAdmin && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">Yönetim · doğrudan mezat aç</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Başvuru sürecini atlayarak mezat başlatır.</p>
             <div className="mt-3 space-y-3">
-              {!currentUser ? (
-                <Link
-                  to="/login?redirect=/auctions"
-                  className="block w-full rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-black text-white transition-colors hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
-                >
-                  Giriş yap
-                </Link>
-              ) : (
-                <>
+              <>
               <label className="block">
                 <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Mezata çıkacak ilan</span>
                 <select
@@ -458,15 +623,16 @@ export default function Auctions() {
               >
                 {pendingAction === 'create' ? 'Başlatılıyor' : 'Mezadı başlat'}
               </button>
-              {formMessage && (
+              {adminMessage && (
                 <p className="rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                  {formMessage}
+                  {adminMessage}
                 </p>
               )}
-                </>
-              )}
+              </>
             </div>
           </div>
+          )}
+
         </aside>
 
         <section className="min-w-0">

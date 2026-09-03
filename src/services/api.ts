@@ -1365,6 +1365,102 @@ export async function moderateListing(id: string, status: 'pending' | 'approved'
   return { success: true }
 }
 
+// ─── Açık artırma başvuruları ────────────────────────────────────────────────
+
+export interface AuctionRequest {
+  id: string;
+  listingId: string;
+  ownerId: string;
+  expectedPrice: number | null;
+  note: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewNote: string | null;
+  auctionId: string | null;
+  createdAt: string;
+  listing?: { id: string; title: string; city: string; estimatedValue: number; images: string[] };
+  owner?: { id: string; name: string; email: string };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToAuctionRequest(row: any): AuctionRequest {
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    ownerId: row.owner_id,
+    expectedPrice: row.expected_price !== null && row.expected_price !== undefined ? Number(row.expected_price) : null,
+    note: row.note ?? null,
+    status: row.status,
+    reviewNote: row.review_note ?? null,
+    auctionId: row.auction_id ?? null,
+    createdAt: row.created_at,
+    listing: row.listing ? {
+      id: row.listing.id,
+      title: row.listing.title,
+      city: row.listing.city,
+      estimatedValue: Number(row.listing.estimated_value ?? 0),
+      images: row.listing.images ?? [],
+    } : undefined,
+    owner: row.owner ?? undefined,
+  }
+}
+
+/** Kullanıcı aracını açık artırmaya sunmak için başvurur. */
+export async function submitAuctionRequest(payload: { listingId: string; expectedPrice?: number; note?: string }): Promise<AuctionRequest> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Başvuru için giriş yapmalısın')
+  const { data, error } = await supabase
+    .from('auction_requests')
+    .insert({
+      listing_id: payload.listingId,
+      owner_id: user.id,
+      expected_price: payload.expectedPrice ?? null,
+      note: payload.note?.trim() || null,
+    })
+    .select('*')
+    .single()
+  if (error) {
+    if (error.code === '23505') throw new Error('Bu ilan için zaten bekleyen bir başvurun var.')
+    throw new Error(error.message)
+  }
+  return dbToAuctionRequest(data)
+}
+
+/** Kullanıcının kendi başvuruları. */
+export async function fetchMyAuctionRequests(): Promise<AuctionRequest[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase
+    .from('auction_requests')
+    .select('*')
+    .eq('owner_id', user.id)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToAuctionRequest)
+}
+
+export async function fetchAuctionRequests(status?: 'pending' | 'approved' | 'rejected'): Promise<AuctionRequest[]> {
+  const { data, error } = await supabase.rpc('admin_get_auction_requests', { p_status: status ?? null })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToAuctionRequest)
+}
+
+export async function reviewAuctionRequest(payload: {
+  requestId: string;
+  approve: boolean;
+  startingPrice?: number;
+  bidIncrement?: number;
+  reviewNote?: string;
+}) {
+  const { error } = await supabase.rpc('admin_review_auction_request', {
+    p_request_id: payload.requestId,
+    p_approve: payload.approve,
+    p_starting_price: payload.startingPrice ?? null,
+    p_bid_increment: payload.bidIncrement ?? null,
+    p_review_note: payload.reviewNote ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
 export interface AdminUser { id: string; name: string; email: string; role: string; emailVerified: boolean; phoneVerified: boolean; rating: number; totalSwaps: number; createdAt: string; _count: { listings: number; sentOffers: number } }
 export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
   const { data: profiles, error } = await supabase.rpc('admin_get_users', { p_search: search ?? null })

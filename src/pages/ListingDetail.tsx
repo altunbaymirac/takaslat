@@ -769,14 +769,7 @@ export default function ListingDetail() {
                 </svg>
                 Kaporta Durumu
               </h2>
-              <p className="text-xs text-slate-500 mb-4">
-                <span className="inline-flex items-center gap-1 mr-3">
-                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-500" /> Boyalı
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-red-400 border border-red-500" /> Değişen
-                </span>
-              </p>
+              <p className="mb-4 text-xs text-slate-500">Boya, değişen ve ekspertiz bilgisi</p>
               <VehicleBodyDiagram
                 paintedParts={v.paintedParts ?? []}
                 changedParts={v.changedParts ?? []}

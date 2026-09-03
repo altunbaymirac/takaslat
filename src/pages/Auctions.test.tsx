@@ -6,12 +6,16 @@ import { useAppStore, type AuthUser } from '../store/useAppStore';
 import type { Listing } from '../types';
 
 const createAuction = vi.hoisted(() => vi.fn());
+const submitAuctionRequest = vi.hoisted(() => vi.fn());
+const fetchMyAuctionRequests = vi.hoisted(() => vi.fn());
 
 vi.mock('../services/api', async (importOriginal) => ({
   ...await importOriginal<typeof import('../services/api')>(),
   createAuctionApi: createAuction,
   fetchAuctions: vi.fn(async () => []),
   subscribeAuctionStream: () => () => undefined,
+  submitAuctionRequest,
+  fetchMyAuctionRequests,
 }));
 
 const owner: AuthUser = { id: 'owner-1', name: 'Mezat Sahibi', email: 'sahip@takaslat.com', role: 'user' };
@@ -43,29 +47,66 @@ function renderAuctions() {
   );
 }
 
-beforeEach(() => {
-  createAuction.mockReset();
-  createAuction.mockImplementation(async (auction: Record<string, unknown>) => ({
-    ...auction,
-    id: 'auction-1',
-    bids: [],
-    currentBid: auction.startingPrice,
-    watcherCount: 0,
-  }));
+function signIn(user: AuthUser) {
   useAppStore.setState({
     listings: [listing],
     auctions: [],
-    currentUser: owner,
-    currentUserId: owner.id,
-    currentUserName: owner.name,
+    currentUser: user,
+    currentUserId: user.id,
+    currentUserName: user.name,
+  });
+}
+
+beforeEach(() => {
+  createAuction.mockReset();
+  submitAuctionRequest.mockReset();
+  fetchMyAuctionRequests.mockReset();
+  fetchMyAuctionRequests.mockResolvedValue([]);
+  submitAuctionRequest.mockImplementation(async (payload: Record<string, unknown>) => ({
+    id: 'req-1', listingId: payload.listingId, ownerId: owner.id,
+    expectedPrice: payload.expectedPrice ?? null, note: payload.note ?? null,
+    status: 'pending', reviewNote: null, auctionId: null, createdAt: new Date().toISOString(),
+  }));
+  createAuction.mockImplementation(async (auction: Record<string, unknown>) => ({
+    ...auction, id: 'auction-1', bids: [], currentBid: auction.startingPrice, watcherCount: 0,
+  }));
+  signIn(owner);
+});
+
+describe('Mezat başvurusu', () => {
+  it('kullanıcıya tek bir başvuru butonu gösterir', () => {
+    renderAuctions();
+
+    expect(screen.getByRole('button', { name: 'Aracımı açık artırmaya sunmak istiyorum' })).toBeInTheDocument();
+    // Doğrudan mezat açma yalnızca yönetimde.
+    expect(screen.queryByRole('button', { name: 'Mezadı başlat' })).not.toBeInTheDocument();
+  });
+
+  it('seçilen ilan ve beklenen fiyatla başvuru gönderir', async () => {
+    renderAuctions();
+    fireEvent.click(screen.getByRole('button', { name: 'Aracımı açık artırmaya sunmak istiyorum' }));
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: listing.id } });
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '450000' } });
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Ekspertizi temiz.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Başvuruyu gönder' }));
+
+    await waitFor(() => expect(submitAuctionRequest).toHaveBeenCalledTimes(1));
+    expect(submitAuctionRequest.mock.calls[0][0]).toMatchObject({
+      listingId: listing.id,
+      expectedPrice: 450_000,
+      note: 'Ekspertizi temiz.',
+    });
+    expect(await screen.findByText(/Başvurun alındı/)).toBeInTheDocument();
   });
 });
 
-describe('Mezat açma formu', () => {
+describe('Yönetim mezat formu', () => {
+  beforeEach(() => signIn({ ...owner, role: 'admin' }));
+
   it('fiyat, artış, rezerv ve süre alanlarını sunar', () => {
     renderAuctions();
 
-    expect(screen.getByText('Mezata çıkacak ilan')).toBeInTheDocument();
     expect(screen.getByText('Başlangıç fiyatı (₺)')).toBeInTheDocument();
     expect(screen.getByText('Minimum artış (₺)')).toBeInTheDocument();
     expect(screen.getByText(/Rezerv fiyat/)).toBeInTheDocument();
@@ -74,7 +115,7 @@ describe('Mezat açma formu', () => {
 
   it('girilen değerlerle mezat açar', async () => {
     const { container } = renderAuctions();
-    const numbers = container.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    const numbers = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')];
 
     fireEvent.change(numbers[0], { target: { value: '450000' } });
     fireEvent.change(numbers[1], { target: { value: '9000' } });
@@ -93,7 +134,7 @@ describe('Mezat açma formu', () => {
 
   it('rezerv fiyat başlangıcın altındaysa mezat açmaz', async () => {
     const { container } = renderAuctions();
-    const numbers = container.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    const numbers = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')];
 
     fireEvent.change(numbers[0], { target: { value: '450000' } });
     fireEvent.change(numbers[2], { target: { value: '100000' } });
