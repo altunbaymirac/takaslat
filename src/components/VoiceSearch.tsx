@@ -77,7 +77,9 @@ export default function VoiceSearch({ onResult }: Props) {
     <button
       onClick={toggle}
       title={listening ? 'Dinleniyor. Durdurmak için tıkla' : 'Sesli arama'}
-      className={`absolute right-12 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
+      type="button"
+      aria-label={listening ? 'Sesli aramayı durdur' : 'Sesli arama'}
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
         listening
           ? 'bg-red-500 text-white animate-pulse'
           : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'

@@ -61,9 +61,7 @@ export default function Listings() {
   const [sortBy, setSortBy]       = useState<SortOption>('newest');
   const [sortOpen, setSortOpen]   = useState(false);
   const [page, setPage]           = useState(1);
-  const [activeTab, setActiveTab] = useState<'search' | 'ai'>(
-    searchParams.get('tab') === 'ai' ? 'ai' : 'search'
-  );
+  const [aiOpen, setAiOpen] = useState(searchParams.get('tab') === 'ai');
 
   const [aiQuery, setAiQuery]                     = useState('');
   const [aiSourceListingId, setAiSourceListingId] = useState('');
@@ -185,47 +183,31 @@ export default function Listings() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
 
-      {/* ── Tab switcher ── */}
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-950 dark:text-slate-100">İlanlar</h1>
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Aradığın ilanı filtrele veya AI eşleştirmesini kullan.</p>
-        </div>
-        <div className="grid w-full grid-cols-2 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800 sm:w-auto">
-        <button
-          onClick={() => setActiveTab('search')}
-          className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-            activeTab === 'search'
-              ? 'bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-          }`}
-        >
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          İlan Ara
-        </button>
-        <button
-          onClick={() => setActiveTab('ai')}
-          className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-            activeTab === 'ai'
-              ? 'bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-          }`}
-        >
-          <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
-          AI ile Bul
-        </button>
-        </div>
+      <div className="mb-3">
+        <h1 className="text-xl font-bold text-slate-950 dark:text-slate-100">İlanlar</h1>
+        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Ne aradığını yaz, istersen filtrelerle daralt.</p>
       </div>
 
-      {/* ── Tab content ── */}
-      {activeTab === 'search' ? (
-        <FilterBar resultCount={filtered.length} onFilterChange={() => setPage(1)} />
-      ) : (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+      <FilterBar resultCount={filtered.length} onFilterChange={() => setPage(1)} />
+
+      {/* ── Cümleyle arama (AI) ── */}
+      <button
+        type="button"
+        onClick={() => setAiOpen((open) => !open)}
+        aria-expanded={aiOpen}
+        className="mt-2 flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-2.5 text-left text-sm font-semibold text-slate-600 transition-colors hover:border-blue-500 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-blue-300"
+      >
+        <svg className="h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        </svg>
+        Ne aradığını cümleyle anlat, AI senin için eşleştirsin
+        <svg className={`ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform ${aiOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {aiOpen && (
+        <div className="mt-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
           <textarea
             value={aiQuery}
             onChange={e => setAiQuery(e.target.value)}
@@ -311,7 +293,7 @@ export default function Listings() {
       )}
 
       {/* ── Recently Viewed ── */}
-      {activeTab === 'search' && recentlyViewedListings.length > 0 && (
+      {recentlyViewedListings.length > 0 && (
         <section className="mt-3 flex items-center gap-3 overflow-hidden">
           <div className="w-24 shrink-0">
             <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">Son baktıkların</h2>
@@ -337,9 +319,8 @@ export default function Listings() {
         </section>
       )}
 
-      {/* ── Listings toolbar + grid (yalnızca İlan Ara sekmesinde) ── */}
-      {activeTab === 'search' && (
-        <>
+      {/* ── Listings toolbar + grid ── */}
+      <>
           <div className="mb-3 mt-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
               {filtered.length} ilan
@@ -430,8 +411,7 @@ export default function Listings() {
               )}
             </>
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }
