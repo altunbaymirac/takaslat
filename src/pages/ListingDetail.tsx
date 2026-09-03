@@ -717,101 +717,45 @@ export default function ListingDetail() {
             </div>
           )}
 
-          {/* Detaylı Araç Özellikleri */}
+          {/* Detaylı Araç Özellikleri — satıcı doldurmamışsa da satır görünür */}
           {v && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Araç Özellikleri</h2>
-              <p className="text-xs text-slate-400 mb-4">Satıcı tarafından girilmiş teknik bilgiler</p>
+              <p className="text-xs text-slate-400 mb-4">Tüm teknik bilgiler; satıcının girmediği alanlar "Belirtilmemiş" olarak görünür.</p>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                <SpecRow
-                  icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>}
-                  label="Marka"
-                  value={v.brand ?? '—'}
-                />
-                <SpecRow
-                  icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>}
-                  label="Model"
-                  value={v.model ?? '—'}
-                />
-                {v.trim && (
-                  <SpecRow
-                    icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>}
-                    label="Donanım"
-                    value={v.trim}
-                    accent="green"
-                  />
-                )}
-                <SpecRow
-                  icon={<span className="text-sm">📅</span>}
-                  label="Model Yılı"
-                  value={v.year?.toString() ?? '—'}
-                  accent={(v.year ?? 0) >= 2021 ? 'green' : undefined}
-                />
-                <SpecRow
-                  icon={<span className="text-sm">🛣️</span>}
-                  label="Kilometre"
-                  value={`${(v.km ?? 0).toLocaleString('tr-TR')} km`}
-                  accent={(v.km ?? 0) < 50_000 ? 'green' : (v.km ?? 0) > 150_000 ? 'amber' : undefined}
-                />
-                <SpecRow
-                  icon={<span className="text-sm">{fuelIcon[v.fuel ?? ''] ?? '⛽'}</span>}
-                  label="Yakıt Tipi"
-                  value={v.fuel ?? '—'}
-                />
-                <SpecRow
-                  icon={<span className="text-sm">⚙️</span>}
-                  label="Şanzıman"
-                  value={v.transmission ?? '—'}
-                />
-                {v.bodyType && (
-                  <SpecRow
-                    icon={<span className="text-sm">🚘</span>}
-                    label="Kasa Tipi"
-                    value={v.bodyType}
-                  />
-                )}
-                {v.color && (
-                  <SpecRow
-                    icon={<span className="text-sm">🎨</span>}
-                    label="Renk"
-                    value={v.color}
-                  />
-                )}
-                {v.engineCC && (
-                  <SpecRow
-                    icon={<span className="text-sm">🔧</span>}
-                    label="Motor Hacmi"
-                    value={`${v.engineCC.toLocaleString('tr-TR')} cc`}
-                  />
-                )}
-                {v.power && (
-                  <SpecRow
-                    icon={<span className="text-sm">⚡</span>}
-                    label="Motor Gücü"
-                    value={`${v.power} HP`}
-                  />
-                )}
-                {v.driveType && (
-                  <SpecRow
-                    icon={<span className="text-sm">🔩</span>}
-                    label="Çekiş"
-                    value={v.driveType}
-                  />
-                )}
-                {v.numberOfDoors && (
-                  <SpecRow
-                    icon={<span className="text-sm">🚪</span>}
-                    label="Kapı Sayısı"
-                    value={`${v.numberOfDoors} kapı`}
-                  />
-                )}
-                <SpecRow
-                  icon={<span className="text-sm">{v.hasAccidentRecord ? '⚠️' : '✅'}</span>}
-                  label="Hasar Kaydı"
-                  value={v.hasAccidentRecord ? 'Var' : 'Yok'}
-                  accent={v.hasAccidentRecord ? 'red' : 'green'}
-                />
+                {(() => {
+                  const unset = 'Belirtilmemiş';
+                  const text = (value?: string | null) => value?.trim() ? value : unset;
+                  const painted = v.paintedParts ?? [];
+                  const changed = v.changedParts ?? [];
+                  const rows: { label: string; value: string; accent?: 'green' | 'red' | 'amber' }[] = [
+                    { label: 'Marka',          value: text(v.brand) },
+                    { label: 'Model',          value: text(v.model) },
+                    { label: 'Donanım / Paket', value: text(v.trim) },
+                    { label: 'Model Yılı',     value: v.year ? String(v.year) : unset, accent: (v.year ?? 0) >= 2021 ? 'green' : undefined },
+                    { label: 'Kilometre',      value: v.km !== undefined ? `${v.km.toLocaleString('tr-TR')} km` : unset, accent: (v.km ?? 0) < 50_000 ? 'green' : (v.km ?? 0) > 150_000 ? 'amber' : undefined },
+                    { label: 'Yakıt Tipi',     value: text(v.fuel) },
+                    { label: 'Şanzıman',       value: text(v.transmission) },
+                    { label: 'Kasa Tipi',      value: text(v.bodyType) },
+                    { label: 'Renk',           value: text(v.color) },
+                    { label: 'Motor Hacmi',    value: v.engineCC ? `${v.engineCC.toLocaleString('tr-TR')} cc` : unset },
+                    { label: 'Motor Gücü',     value: v.power ? `${v.power} HP` : unset },
+                    { label: 'Çekiş',          value: text(v.driveType) },
+                    { label: 'Kapı Sayısı',    value: v.numberOfDoors ? `${v.numberOfDoors} kapı` : unset },
+                    { label: 'Hasar Kaydı',    value: v.hasAccidentRecord ? 'Var' : 'Yok', accent: v.hasAccidentRecord ? 'red' : 'green' },
+                    { label: 'Boyalı Parça',   value: painted.length ? `${painted.length} parça · ${painted.join(', ')}` : 'Yok', accent: painted.length ? 'amber' : 'green' },
+                    { label: 'Değişen Parça',  value: changed.length ? `${changed.length} parça · ${changed.join(', ')}` : 'Yok', accent: changed.length ? 'red' : 'green' },
+                    { label: 'Ekspertiz',      value: v.hasExpertise ? 'Yapıldı' : 'Yapılmadı', accent: v.hasExpertise ? 'green' : undefined },
+                    ...(v.hasExpertise ? [
+                      { label: 'Ekspertiz Firması', value: text(v.expertiseFirm) },
+                      { label: 'Ekspertiz Tarihi',  value: v.expertiseDate ? new Date(v.expertiseDate).toLocaleDateString('tr-TR') : unset },
+                    ] : []),
+                  ];
+                  return rows.map((row) => (
+                    <SpecRow key={row.label} icon={null} label={row.label} value={row.value} accent={row.accent} />
+                  ));
+                })()}
               </div>
             </div>
           )}

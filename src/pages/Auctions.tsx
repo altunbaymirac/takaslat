@@ -7,6 +7,23 @@ import type { LiveAuction, Listing } from '../types';
 const money = (value: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value);
 
+/** Varsayılan başlangıç: değerin %75'i, bine yuvarlanmış. */
+const suggestedStartingPrice = (estimatedValue: number) =>
+  Math.max(1_000, Math.round((estimatedValue * 0.75) / 1000) * 1000);
+
+/** Varsayılan artış: değerin %1,5'i, en az 5.000 ₺. */
+const suggestedIncrement = (estimatedValue: number) =>
+  Math.max(5_000, Math.round((estimatedValue * 0.015) / 1000) * 1000);
+
+const DURATION_OPTIONS: { minutes: number; label: string }[] = [
+  { minutes: 30,      label: '30 dk' },
+  { minutes: 60,      label: '1 saat' },
+  { minutes: 360,     label: '6 saat' },
+  { minutes: 1_440,   label: '1 gün' },
+  { minutes: 4_320,   label: '3 gün' },
+  { minutes: 10_080,  label: '7 gün' },
+];
+
 function getAuctionStatus(auction: LiveAuction, now: number) {
   if (auction.status === 'ended' || now >= new Date(auction.endsAt).getTime()) return 'ended';
   if (now < new Date(auction.startsAt).getTime()) return 'scheduled';
@@ -109,8 +126,12 @@ export default function Auctions() {
   const [bidMode, setBidMode] = useState<'cash' | 'expertise' | 'swap'>('cash');
   const [bidListingId, setBidListingId] = useState('');
   const [selectedListingId, setSelectedListingId] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState(30);
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [startingPriceDraft, setStartingPriceDraft] = useState('');
+  const [incrementDraft, setIncrementDraft] = useState('');
+  const [reserveDraft, setReserveDraft] = useState('');
   const [message, setMessage] = useState('');
+  const [formMessage, setFormMessage] = useState('');
   const [pendingAction, setPendingAction] = useState<'create' | 'bid' | 'close' | null>(null);
 
   useEffect(() => {
@@ -140,6 +161,12 @@ export default function Auctions() {
   const activeCount = auctions.filter((auction) => getAuctionStatus(auction, now) === 'live').length;
   const totalBids = auctions.reduce((sum, auction) => sum + auction.bids.length, 0);
   const nextBid = selectedAuction ? selectedAuction.currentBid + selectedAuction.bidIncrement : 0;
+
+  // Mezat formunun canlı özeti
+  const draftListing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
+  const draftStartingPrice = Number(startingPriceDraft) || (draftListing ? suggestedStartingPrice(draftListing.estimatedValue) : 0);
+  const draftIncrement = Number(incrementDraft) || (draftListing ? suggestedIncrement(draftListing.estimatedValue) : 0);
+  const draftEndsAt = new Date(now + durationMinutes * 60_000);
   const selectedStatus = selectedAuction ? getAuctionStatus(selectedAuction, now) : 'ended';
   const bidAmount = bidDraft ?? String(nextBid);
   const canManageSelectedAuction = Boolean(
@@ -188,16 +215,32 @@ export default function Auctions() {
 
   async function handleCreateAuction() {
     if (!currentUser) {
-      setMessage('Mezat başlatmak için giriş yapmalısın.');
+      setFormMessage('Mezat başlatmak için giriş yapmalısın.');
       return;
     }
     const listing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
     if (!listing) {
-      setMessage('Mezat başlatmak için önce aktif bir ilan gerekli.');
+      setFormMessage('Mezat başlatmak için önce aktif bir ilan gerekli.');
       return;
     }
     const nowMs = now;
-    const startingPrice = Math.max(1_000, Math.round((listing.estimatedValue * 0.75) / 1000) * 1000);
+    const startingPrice = Number(startingPriceDraft) || suggestedStartingPrice(listing.estimatedValue);
+    const bidIncrement  = Number(incrementDraft) || suggestedIncrement(listing.estimatedValue);
+    const reservePrice  = reserveDraft.trim() ? Number(reserveDraft) : undefined;
+
+    if (startingPrice < 1_000) {
+      setFormMessage('Başlangıç fiyatı en az 1.000 ₺ olmalı.');
+      return;
+    }
+    if (bidIncrement < 100) {
+      setFormMessage('Minimum artış en az 100 ₺ olmalı.');
+      return;
+    }
+    if (reservePrice !== undefined && reservePrice < startingPrice) {
+      setFormMessage('Rezerv fiyat, başlangıç fiyatından düşük olamaz.');
+      return;
+    }
+
     setPendingAction('create');
     try {
       const auctionId = await createAuction({
@@ -206,16 +249,19 @@ export default function Auctions() {
         startsAt: new Date(nowMs).toISOString(),
         endsAt: new Date(nowMs + durationMinutes * 60_000).toISOString(),
         startingPrice,
-        bidIncrement: Math.max(5_000, Math.round((listing.estimatedValue * 0.015) / 1000) * 1000),
-        reservePrice: Math.round((listing.estimatedValue * 0.9) / 1000) * 1000,
+        bidIncrement,
+        reservePrice,
         status: 'live',
       });
       setSelectedId(auctionId);
       setSelectedListingId('');
+      setStartingPriceDraft('');
+      setIncrementDraft('');
+      setReserveDraft('');
       setBidDraft(null);
-      setMessage(`${listing.title} için canlı mezat başladı.`);
+      setFormMessage(`${listing.title} için canlı mezat başladı.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Mezat başlatılamadı.');
+      setFormMessage(error instanceof Error ? error.message : 'Mezat başlatılamadı.');
     } finally {
       setPendingAction(null);
     }
@@ -315,36 +361,96 @@ export default function Auctions() {
                 </Link>
               ) : (
                 <>
-              <select
-                value={selectedListingId}
-                onChange={(event) => setSelectedListingId(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-              >
-                <option value="">Uygun ilan seç</option>
-                {availableListings.map((listing) => (
-                  <option key={listing.id} value={listing.id}>{listing.title}</option>
-                ))}
-              </select>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Mezata çıkacak ilan</span>
+                <select
+                  value={selectedListingId}
+                  onChange={(event) => setSelectedListingId(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                >
+                  <option value="">İlan seç</option>
+                  {availableListings.map((listing) => (
+                    <option key={listing.id} value={listing.id}>{listing.title}</option>
+                  ))}
+                </select>
+              </label>
               {availableListings.length === 0 && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Mezata açabileceğin aktif bir ilanın yok. Önce ilan oluşturmalısın.
                 </p>
               )}
-              <div className="grid grid-cols-3 gap-2">
-                {[15, 30, 60].map((minutes) => (
-                  <button
-                    key={minutes}
-                    onClick={() => setDurationMinutes(minutes)}
-                    className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
-                      durationMinutes === minutes
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                        : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    {minutes} dk
-                  </button>
-                ))}
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Başlangıç fiyatı (₺)</span>
+                <input
+                  type="number"
+                  min={1_000}
+                  step={1_000}
+                  value={startingPriceDraft}
+                  onChange={(event) => setStartingPriceDraft(event.target.value)}
+                  placeholder={draftListing ? String(suggestedStartingPrice(draftListing.estimatedValue)) : 'Örn: 450000'}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Teklifler bu fiyattan başlar. Boş bırakırsan değerin %75'i uygulanır.</span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Minimum artış (₺)</span>
+                <input
+                  type="number"
+                  min={100}
+                  step={500}
+                  value={incrementDraft}
+                  onChange={(event) => setIncrementDraft(event.target.value)}
+                  placeholder={draftListing ? String(suggestedIncrement(draftListing.estimatedValue)) : 'Örn: 5000'}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Her yeni teklif bir öncekinden en az bu kadar yüksek olmalı.</span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Rezerv fiyat (₺) — opsiyonel</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1_000}
+                  value={reserveDraft}
+                  onChange={(event) => setReserveDraft(event.target.value)}
+                  placeholder="Boş bırakılabilir"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Bu fiyatın altında satmak zorunda değilsin; teklifler aşınca "rezerv aşıldı" görünür.</span>
+              </label>
+
+              <div>
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Süre</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {DURATION_OPTIONS.map(({ minutes, label }) => (
+                    <button
+                      key={minutes}
+                      type="button"
+                      onClick={() => setDurationMinutes(minutes)}
+                      className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${
+                        durationMinutes === minutes
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {draftListing && (
+                <div className="rounded-xl bg-slate-50 p-3 text-xs leading-6 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                  <p className="font-bold text-slate-700 dark:text-slate-200">Özet</p>
+                  <p>{money(draftStartingPrice)} başlangıç · {money(draftIncrement)} artış</p>
+                  <p>Bitiş: {draftEndsAt.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                  {reserveDraft.trim() && <p>Rezerv: {money(Number(reserveDraft))}</p>}
+                </div>
+              )}
+
               <button
                 onClick={handleCreateAuction}
                 disabled={availableListings.length === 0 || pendingAction !== null}
@@ -352,6 +458,11 @@ export default function Auctions() {
               >
                 {pendingAction === 'create' ? 'Başlatılıyor' : 'Mezadı başlat'}
               </button>
+              {formMessage && (
+                <p className="rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                  {formMessage}
+                </p>
+              )}
                 </>
               )}
             </div>
