@@ -8,7 +8,6 @@ import Toast from './components/Toast';
 import CompareBar from './components/CompareBar';
 import BundleBar from './components/BundleBar';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
-import OnboardingTour from './components/OnboardingTour';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // ── Eager (critical path) ────────────────────────────────────────────────────
@@ -186,7 +185,6 @@ function AppInner() {
               <CompareBar />
               <BundleBar />
               <KeyboardShortcuts />
-              <OnboardingTour />
             </>
           }
         />

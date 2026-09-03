@@ -92,7 +92,6 @@ interface AppState {
   viewLog:                   Record<string, string[]>; // listingId → ISO timestamps[]
   qas:                       ListingQA[];             // public Q&A
   bundleCart:                string[];                // bundle teklif için seçili listing id'leri
-  onboardingDone:            boolean;
   termsAccepted:             boolean;
 
   // ── Kaydedilmiş aramalar & ratings & wishlist & meetings
@@ -154,9 +153,6 @@ interface AppState {
   toggleBundleItem: (listingId: string) => void;
   clearBundle:      () => void;
 
-  // Onboarding
-  completeOnboarding: () => void;
-  resetOnboarding:    () => void;
   acceptTerms:        () => void;
 
   markNotificationsRead: () => void;
@@ -246,7 +242,6 @@ export const useAppStore = create<AppState>()(
       viewLog:                 {},
       qas:                     [],
       bundleCart:              [],
-      onboardingDone:          false,
       termsAccepted:           false,
       savedSearches:           [],
       ratings:                 [],
@@ -768,9 +763,6 @@ export const useAppStore = create<AppState>()(
         })),
       clearBundle: () => set({ bundleCart: [] }),
 
-      // ── Onboarding
-      completeOnboarding: () => set({ onboardingDone: true }),
-      resetOnboarding:    () => set({ onboardingDone: false }),
 
       // ── Terms
       acceptTerms: () => set({ termsAccepted: true }),
@@ -961,7 +953,6 @@ export const useAppStore = create<AppState>()(
         viewLog:                  s.viewLog,
         qas:                      s.qas,
         bundleCart:               s.bundleCart,
-        onboardingDone:           s.onboardingDone,
         termsAccepted:            s.termsAccepted,
       }),
       merge: (persisted: unknown, current) => {
@@ -989,7 +980,6 @@ export const useAppStore = create<AppState>()(
           viewLog?:                 Record<string, string[]>;
           qas?:                     ListingQA[];
           bundleCart?:              string[];
-          onboardingDone?:          boolean;
           termsAccepted?:           boolean;
         } | null;
 
@@ -1021,7 +1011,6 @@ export const useAppStore = create<AppState>()(
           viewLog:                 p?.viewLog         ?? {},
           qas:                     p?.qas             ?? [],
           bundleCart:              p?.bundleCart      ?? [],
-          onboardingDone:          p?.onboardingDone  ?? false,
           termsAccepted:           p?.termsAccepted   ?? false,
           // listings ve offers SADECE API'den gelir — persist edilmez
           listings:                [],

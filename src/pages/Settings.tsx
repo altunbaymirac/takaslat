@@ -8,7 +8,7 @@ import { useSEO } from '../hooks/useSEO';
 export default function Settings() {
   useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.', noIndex: true });
 
-  const { darkMode, toggleDarkMode, soundEnabled, toggleSound, resetOnboarding, currentUser } = useAppStore();
+  const { darkMode, toggleDarkMode, soundEnabled, toggleSound, currentUser } = useAppStore();
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
 
@@ -156,19 +156,6 @@ export default function Settings() {
               2FA yakında · Google Authenticator ve benzeri uygulamalar desteklenecek.
             </p>
           </div>
-        </section>
-
-        {/* Onboarding */}
-        <section className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-            <span>🎓</span> Yardım & Rehber
-          </h2>
-          <button
-            onClick={resetOnboarding}
-            className="w-full bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium text-sm py-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40"
-          >
-            🎉 Onboarding Turunu Tekrar Göster
-          </button>
         </section>
 
         {/* Versiyon */}
