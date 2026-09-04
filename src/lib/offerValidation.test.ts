@@ -26,4 +26,14 @@ describe('validateOfferDraft', () => {
   it('accepts a valid offer', () => {
     expect(validateOfferDraft(validOffer)).toBeNull();
   });
+
+  it('accepts an offer without a message', () => {
+    expect(validateOfferDraft({ ...validOffer, message: '' })).toBeNull();
+    expect(validateOfferDraft({ ...validOffer, message: undefined })).toBeNull();
+  });
+
+  it('rejects a message over the length limit', () => {
+    expect(validateOfferDraft({ ...validOffer, message: 'a'.repeat(2001) }))
+      .toBe('Teklif mesajı en fazla 2000 karakter olabilir');
+  });
 });

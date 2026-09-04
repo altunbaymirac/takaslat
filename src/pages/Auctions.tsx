@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { submitAuctionRequest, fetchMyAuctionRequests, type AuctionRequest } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
@@ -135,7 +135,8 @@ export default function Auctions() {
   const [reserveDraft, setReserveDraft] = useState('');
   const [message, setMessage] = useState('');
   const [formMessage, setFormMessage] = useState('');
-  const [requestOpen, setRequestOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [requestOpen, setRequestOpen] = useState(searchParams.get('basvuru') === '1');
   const [myRequests, setMyRequests] = useState<AuctionRequest[]>([]);
   const [requestSending, setRequestSending] = useState(false);
   const [requestNote, setRequestNote] = useState('');
@@ -439,10 +440,18 @@ export default function Auctions() {
                 </label>
 
                 {availableListings.length === 0 && (
-                  <p className="rounded-xl bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                    Mezata çıkarabileceğin aktif bir ilanın yok. Önce aracının ilanını oluştur.{' '}
-                    <Link to="/create" className="font-bold underline">İlan ver</Link>
-                  </p>
+                  <div className="rounded-xl bg-amber-50 p-3 dark:bg-amber-900/20">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                      Mezata çıkarabileceğin aktif bir ilanın yok. Aracının bilgilerini şimdi gir,
+                      ilanın yayınlanınca mezat başvurusuna kaldığın yerden devam et.
+                    </p>
+                    <Link
+                      to="/create?mezat=1"
+                      className="btn-primary mt-2 block rounded-lg px-4 py-2.5 text-center text-sm font-bold"
+                    >
+                      Aracımın bilgilerini gir
+                    </Link>
+                  </div>
                 )}
 
                 <label className="block">

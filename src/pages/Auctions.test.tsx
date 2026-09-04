@@ -39,9 +39,9 @@ const listing: Listing = {
   moderationStatus: 'approved',
 };
 
-function renderAuctions() {
+function renderAuctions(path = '/auctions') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <Auctions />
     </MemoryRouter>,
   );
@@ -80,6 +80,20 @@ describe('Mezat başvurusu', () => {
     expect(screen.getByRole('button', { name: 'Aracımı açık artırmaya sunmak istiyorum' })).toBeInTheDocument();
     // Doğrudan mezat açma yalnızca yönetimde.
     expect(screen.queryByRole('button', { name: 'Mezadı başlat' })).not.toBeInTheDocument();
+  });
+
+  it('?basvuru=1 ile form açık gelir', () => {
+    renderAuctions('/auctions?basvuru=1');
+    expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeInTheDocument();
+  });
+
+  it('uygun ilanı olmayan kullanıcıyı ilan formuna yönlendirir', () => {
+    useAppStore.setState({ listings: [] });
+    renderAuctions('/auctions?basvuru=1');
+
+    const link = screen.getByRole('link', { name: 'Aracımın bilgilerini gir' });
+    expect(link).toHaveAttribute('href', '/create?mezat=1');
+    expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeDisabled();
   });
 
   it('seçilen ilan ve beklenen fiyatla başvuru gönderir', async () => {

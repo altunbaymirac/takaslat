@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
 import type {
@@ -106,6 +106,8 @@ export default function CreateListing() {
   useSEO({ title: 'İlan Ver', description: 'Aracını Takaslat\'ta ücretsiz ilan ver, binlerce kullanıcıya ulaş.' });
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromAuction = searchParams.get('mezat') === '1';
   const { addListing, currentUser } = useAppStore();
 
   // Girişten sonra forma dönüldüğünde taslağı geri yükleyebilmek için işaret bırak.
@@ -629,6 +631,11 @@ export default function CreateListing() {
       attachments: form.attachments,
       });
       localStorage.removeItem('takaslat-draft');
+      if (fromAuction) {
+        showToast('İlanın yayınlandı, şimdi mezat başvurusunu tamamla', 'success');
+        navigate('/auctions?basvuru=1');
+        return;
+      }
       setSubmitted(true);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'İlan kaydedilemedi', 'error');

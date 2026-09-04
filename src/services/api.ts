@@ -754,7 +754,7 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
 
   const { data: inserted, error } = await supabase.rpc('create_offer', {
     p_listing_id: data.listingId,
-    p_message: data.message.trim(),
+    p_message: data.message?.trim() || null,
     p_offered_value: data.offeredValue ?? null,
     p_offered_listing_id: data.offeredListingId ?? null,
   })

@@ -235,7 +235,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Mesajınız <span className="text-red-500">*</span>
+                  Mesajınız <span className="font-normal text-slate-400">(opsiyonel)</span>
                 </label>
                 <div className="flex gap-1.5">
                   <button
