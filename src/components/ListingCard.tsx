@@ -77,11 +77,11 @@ export default function ListingCard({ listing }: { listing: Listing }) {
       </Link>
 
       {/* Favorite / Compare */}
-      <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+      <div className="flex flex-col items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(listing.id); }}
           aria-label={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-          className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+          className={`w-11 h-11 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-colors ${
             isFav ? 'text-red-500' : 'text-slate-300 dark:text-slate-600 hover:text-red-400'
           }`}
         >
@@ -93,7 +93,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCompare(listing.id); }}
           aria-label={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştırmaya ekle'}
           title={isCompare ? 'Karşılaştırmadan çıkar' : 'Karşılaştır'}
-          className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+          className={`w-11 h-11 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-colors ${
             isCompare ? 'text-blue-700 dark:text-blue-400' : 'text-slate-300 dark:text-slate-600 hover:text-blue-600'
           }`}
         >

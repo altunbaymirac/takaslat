@@ -1490,6 +1490,57 @@ export async function reviewAuctionRequest(payload: {
   if (error) throw new Error(error.message)
 }
 
+// ─── Şikayet inceleme ────────────────────────────────────────────────────────
+
+export type ReportReason = 'fake' | 'misleading' | 'spam' | 'inappropriate' | 'scam' | 'other'
+
+export interface AdminReport {
+  id: string;
+  listingId: string;
+  reason: ReportReason;
+  details: string | null;
+  status: 'pending' | 'reviewed' | 'dismissed';
+  createdAt: string;
+  listing: { id: string; title: string; city: string; isActive: boolean; moderationStatus: string } | null;
+  reporter: { id: string; name: string; email: string } | null;
+}
+
+export async function fetchAdminReports(status?: 'pending' | 'reviewed' | 'dismissed'): Promise<AdminReport[]> {
+  const { data, error } = await supabase.rpc('admin_get_listing_reports', { p_status: status ?? null })
+  if (error) throw new Error(error.message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    listingId: r.listing_id,
+    reason: r.reason,
+    details: r.details ?? null,
+    status: r.status,
+    createdAt: r.created_at,
+    listing: r.listing
+      ? {
+          id: r.listing.id,
+          title: r.listing.title ?? '',
+          city: r.listing.city ?? '',
+          isActive: !!r.listing.is_active,
+          moderationStatus: r.listing.moderation_status ?? '',
+        }
+      : null,
+    reporter: r.reporter
+      ? { id: r.reporter.id, name: r.reporter.name ?? '', email: r.reporter.email ?? '' }
+      : null,
+  }))
+}
+
+/** 'dismiss' yersiz bulur, 'reviewed' ilana dokunmadan kapatır, 'reject' ilanı yayından kaldırır. */
+export async function reviewReport(reportId: string, action: 'dismiss' | 'reviewed' | 'reject', reason?: string) {
+  const { error } = await supabase.rpc('admin_review_listing_report', {
+    p_report_id: reportId,
+    p_action: action,
+    p_reason: reason ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
 export interface AdminUser { id: string; name: string; email: string; role: string; emailVerified: boolean; phoneVerified: boolean; rating: number; totalSwaps: number; createdAt: string; _count: { listings: number; sentOffers: number } }
 export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
   const { data: profiles, error } = await supabase.rpc('admin_get_users', { p_search: search ?? null })
