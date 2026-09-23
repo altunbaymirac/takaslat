@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { playDing } from '../lib/sound';
-import { requestEmailVerification } from '../services/api';
+import { requestEmailVerification, getEmailNotificationPref, setEmailNotificationPref } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
 
@@ -11,6 +11,32 @@ export default function Settings() {
   const { darkMode, toggleDarkMode, soundEnabled, toggleSound, currentUser } = useAppStore();
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [mailPref, setMailPref] = useState(true);
+  const [mailPrefSaving, setMailPrefSaving] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    getEmailNotificationPref()
+      .then((value) => { if (alive) setMailPref(value); })
+      .catch(() => { /* varsayılan açık kalsın */ });
+    return () => { alive = false; };
+  }, [currentUser]);
+
+  async function toggleMailNotifications() {
+    const next = !mailPref;
+    setMailPrefSaving(true);
+    setMailPref(next);
+    try {
+      await setEmailNotificationPref(next);
+      showToast(next ? 'Bildirim e-postaları açıldı' : 'Bildirim e-postaları kapatıldı', 'success');
+    } catch {
+      setMailPref(!next);
+      showToast('Tercih kaydedilemedi, tekrar dene', 'error');
+    } finally {
+      setMailPrefSaving(false);
+    }
+  }
 
   async function sendVerificationLink() {
     setEmailLoading(true);
@@ -108,6 +134,28 @@ export default function Settings() {
                 />
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-t border-slate-100 dark:border-slate-700">
+            <div className="pr-4">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">E-posta Bildirimi</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Teklif, mesaj ve ilan sonucu için {currentUser.email} adresine mail gelsin
+              </p>
+            </div>
+            <button
+              onClick={toggleMailNotifications}
+              disabled={mailPrefSaving}
+              aria-label="E-posta bildirimlerini aç/kapat"
+              aria-pressed={mailPref}
+              className={`relative w-12 h-6 shrink-0 rounded-full overflow-hidden transition-colors disabled:opacity-50 ${mailPref ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                  mailPref ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </section>
 

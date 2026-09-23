@@ -336,6 +336,35 @@ export async function resetPassword(_email: string, _code: string, password: str
 export async function setupTwoFactor(): Promise<{ message: string; devCode?: string }> { return { message: 'Mock' } }
 export async function verifyTwoFactor(_code: string): Promise<Record<string, unknown>> { void _code; return {} }
 export async function disableTwoFactor(): Promise<Record<string, unknown>> { return {} }
+/**
+ * Bildirim e-postası tercihi.
+ *
+ * Bilerek oturum akışından (PROFILE_SELECT) ayrı tutuluyor: sütun henüz
+ * migration ile eklenmemişken frontend deploy edilirse giriş kırılmasın diye.
+ * Sütun yoksa sessizce varsayılana (açık) düşer.
+ */
+export async function getEmailNotificationPref(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return true
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('email_notifications')
+    .eq('id', user.id)
+    .single()
+  if (error || !data) return true
+  return data.email_notifications ?? true
+}
+
+export async function setEmailNotificationPref(enabled: boolean): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Oturum acik degil')
+  const { error } = await supabase
+    .from('profiles')
+    .update({ email_notifications: enabled, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+  if (error) throw new Error(error.message)
+}
+
 export async function requestEmailVerification(): Promise<{ message: string }> {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user?.email) throw new Error('Kullanıcı bulunamadı')
