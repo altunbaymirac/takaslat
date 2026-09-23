@@ -20,7 +20,16 @@ içinde. **Önce o migration çalıştırılmalı**, yoksa ne çan ne mail çal�
 ## 1. Resend hesabı ve alan adı
 
 1. https://resend.com → kayıt ol (ücretsiz katman: 3.000 mail/ay, 100/gün).
-2. **Domains → Add Domain** → `takaslat.com`.
+2. **Domains → Add Domain** → `takaslat.com`, **region: Ireland (eu-west-1)**.
+
+   > Region, maillerin hangi coğrafyadan gönderildiğini belirler; kullanıcılar
+   > Türkiye'de olduğu için en yakın seçenek İrlanda. **Sonradan değiştirilemez** —
+   > değiştirmek için domaini silip yeniden eklemek ve DNS kayıtlarını yenilemek
+   > gerekir, o yüzden DNS'e girişmeden önce doğru region'ı seç.
+   >
+   > Region yalnızca gönderimi etkiler: hesap verisi, loglar ve mail metadata'sı
+   > hangi region seçilirse seçilsin Resend tarafında ABD'de tutulur.
+
 3. Resend'in verdiği **SPF (TXT)**, **DKIM (TXT)** ve **DMARC** kayıtlarını
    alan adının DNS panelinde oluştur. Doğrulama genelde 5–30 dakika sürer.
 4. **API Keys → Create API Key** → `re_...` anahtarını kopyala.
