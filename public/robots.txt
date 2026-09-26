@@ -1,11 +1,18 @@
 User-agent: *
 Allow: /
 
-# Admin paneline erişim engeli
 Disallow: /admin
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /conversations
-Disallow: /my-offers
+Disallow: /offers
+Disallow: /favorites
+Disallow: /compare
+Disallow: /wishlist
+Disallow: /achievements
+Disallow: /smart-tools
+Disallow: /create
+Disallow: /ai-sonuclar
+Disallow: /profile/
 
 Sitemap: https://www.takaslat.com/sitemap.xml

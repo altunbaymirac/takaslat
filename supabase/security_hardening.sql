@@ -1,6 +1,10 @@
 -- Takaslat security and transaction hardening.
 -- Apply after schema.sql.
 
+ALTER TABLE public.listings
+  ADD COLUMN IF NOT EXISTS moderation_status TEXT NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
 ALTER TABLE public.offers
   ADD COLUMN IF NOT EXISTS from_accepted BOOLEAN NOT NULL DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS to_accepted BOOLEAN NOT NULL DEFAULT FALSE;
@@ -12,6 +16,12 @@ ALTER TABLE public.auctions
   ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
 
 ALTER TABLE public.listings ALTER COLUMN moderation_status SET DEFAULT 'pending';
+UPDATE public.listings SET moderation_status = 'approved' WHERE moderation_status IS NULL;
+ALTER TABLE public.listings ALTER COLUMN moderation_status SET NOT NULL;
+ALTER TABLE public.listings DROP CONSTRAINT IF EXISTS listings_moderation_status_check;
+ALTER TABLE public.listings
+  ADD CONSTRAINT listings_moderation_status_check
+  CHECK (moderation_status IN ('pending', 'approved', 'rejected')) NOT VALID;
 
 DO $$
 BEGIN
@@ -27,24 +37,15 @@ BEGIN
 END;
 $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'listings_content_quality'
-      AND conrelid = 'public.listings'::regclass
-  ) THEN
-    ALTER TABLE public.listings
-      ADD CONSTRAINT listings_content_quality
-      CHECK (
-        estimated_value > 0
-        AND char_length(trim(title)) >= 5
-        AND char_length(trim(description)) >= 30
-        AND jsonb_array_length(COALESCE(images, '[]'::jsonb)) > 0
-      ) NOT VALID;
-  END IF;
-END;
-$$;
+ALTER TABLE public.listings DROP CONSTRAINT IF EXISTS listings_content_quality;
+ALTER TABLE public.listings
+  ADD CONSTRAINT listings_content_quality
+  CHECK (
+    estimated_value BETWEEN 1000 AND 2000000000
+    AND char_length(trim(title)) BETWEEN 5 AND 120
+    AND char_length(trim(description)) BETWEEN 30 AND 5000
+    AND jsonb_array_length(COALESCE(images, '[]'::jsonb)) BETWEEN 1 AND 8
+  ) NOT VALID;
 
 CREATE TABLE IF NOT EXISTS public.swap_ratings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -702,3 +703,31 @@ CREATE POLICY "Giriş yapmış kullanıcı görsel yükleyebilir"
     bucket_id = 'images'
     AND auth.uid()::text = (storage.foldername(name))[1]
   );
+
+UPDATE storage.buckets
+SET file_size_limit = 8388608,
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp']
+WHERE id = 'images';
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('documents', 'documents', FALSE, 10485760, ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+ON CONFLICT (id) DO UPDATE SET
+  public = FALSE,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "Kullanıcı kendi belgesini yükler" ON storage.objects;
+DROP POLICY IF EXISTS "Giriş yapmış kullanıcı belgeleri görüntüler" ON storage.objects;
+DROP POLICY IF EXISTS "Kullanıcı kendi belgesini siler" ON storage.objects;
+
+CREATE POLICY "Kullanıcı kendi belgesini yükler"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Giriş yapmış kullanıcı belgeleri görüntüler"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'documents');
+
+CREATE POLICY "Kullanıcı kendi belgesini siler"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);

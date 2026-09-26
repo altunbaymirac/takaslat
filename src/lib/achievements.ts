@@ -175,7 +175,7 @@ export function computeAchievements(params: {
 
 export function tierColor(tier: Achievement['tier']): string {
   // Solid renkler — daha iyi kontrast
-  return tier === 'platinum' ? 'from-cyan-500 to-blue-600'
+  return tier === 'platinum' ? 'from-blue-500 to-blue-600'
        : tier === 'gold'     ? 'from-amber-500 to-yellow-600'
        : tier === 'silver'   ? 'from-slate-400 to-slate-600'
        :                       'from-amber-600 to-orange-700';

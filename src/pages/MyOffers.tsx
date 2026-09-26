@@ -27,7 +27,7 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {isIncoming ? (
-              <span className="text-xs font-medium bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">Gelen Teklif</span>
+              <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Gelen Teklif</span>
             ) : (
               <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Gönderilen Teklif</span>
             )}
@@ -76,7 +76,7 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
           </button>
           <button
             onClick={() => onStatusChange('Reddedildi')}
-            className="flex-1 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
+            className="btn-danger flex-1 text-sm font-medium py-2 rounded-lg"
           >
             Reddet
           </button>
@@ -87,7 +87,7 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
         <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
           <button
             onClick={() => onStatusChange('Onaylandı')}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+            className="btn-success flex-1 text-sm font-medium py-2 rounded-lg"
           >
             Şartları Kabul Et
           </button>
@@ -165,7 +165,7 @@ export default function MyOffers() {
       {/* Incoming */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-purple-500 rounded-full" />
+          <span className="w-2 h-2 bg-blue-500 rounded-full" />
           Gelen Teklifler
           {incoming.length > 0 && (
             <span className="text-sm font-normal text-slate-400">({incoming.length})</span>

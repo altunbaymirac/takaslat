@@ -5,10 +5,11 @@ import SwapOfferModal from '../components/SwapOfferModal';
 import ShareMenu from '../components/ShareMenu';
 import ReportModal from '../components/ReportModal';
 import EditListingModal from '../components/EditListingModal';
-import ValueForecastModal from '../components/ValueForecastModal';
 import ImageLightbox from '../components/ImageLightbox';
 import ListingQASection from '../components/ListingQASection';
 import ListingCard from '../components/ListingCard';
+import PaidFeatureCard from '../components/PaidFeatureCard';
+import { hasPaidFeature } from '../lib/entitlements';
 import VideoEmbed from '../components/VideoEmbed';
 import ListingAIInsights from '../components/ListingAIInsights';
 import SwapChainPanel from '../components/SwapChainPanel';
@@ -16,11 +17,14 @@ import { showToast } from '../components/Toast';
 import { getListingHealth } from '../lib/listingHealth';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
 import { fetchListingById, fetchListingVerification } from '../services/api';
-import { useSEO } from '../hooks/useSEO';
+import { useSEO, useJsonLd } from '../hooks/useSEO';
 import type { Listing, ListingVerification } from '../types';
+import { trackProductEvent } from '../lib/analytics';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
+
+type DetailTab = 'swap' | 'description' | 'features' | 'location';
 
 // ─── Küçük yardımcı: özellik satırı ─────────────────────────────────────────
 
@@ -60,16 +64,26 @@ function SwapExpectationPanel({
   wantedFor,
   estimatedValue,
   isOwner,
+  isFav,
+  shareUrl,
+  shareTitle,
   onOffer,
   onMatch,
   onEdit,
+  onToggleFavorite,
+  onReport,
 }: {
   wantedFor: string;
   estimatedValue: number;
   isOwner: boolean;
+  isFav: boolean;
+  shareUrl: string;
+  shareTitle: string;
   onOffer: () => void;
   onMatch: () => void;
   onEdit: () => void;
+  onToggleFavorite: () => void;
+  onReport: () => void;
 }) {
   const expectation = wantedFor.trim();
   const hasClearExpectation = expectation.length >= 20;
@@ -116,7 +130,7 @@ function SwapExpectationPanel({
           <div className="mt-4 grid gap-2">
             <button
               onClick={onOffer}
-              className="w-full rounded-lg bg-blue-600 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+              className="btn-primary w-full rounded-lg py-3 text-sm font-bold"
             >
               Bu beklentiye teklif ver
             </button>
@@ -128,6 +142,33 @@ function SwapExpectationPanel({
             </button>
           </div>
         )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+          <button
+            onClick={onToggleFavorite}
+            className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+              isFav
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400'
+            }`}
+          >
+            <svg className="h-4 w-4" fill={isFav ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            {isFav ? 'Favorilerde' : 'Favorilere ekle'}
+          </button>
+
+          <ShareMenu url={shareUrl} title={shareTitle} variant="link" />
+
+          {!isOwner && (
+            <button
+              onClick={onReport}
+              className="ml-auto text-xs font-semibold text-slate-400 transition-colors hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400"
+            >
+              Bu ilanı bildir
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -137,7 +178,7 @@ function SwapExpectationPanel({
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { listings, openAIPanel, currentUserId, favorites, toggleFavorite, deleteListing, recordView, boostListing, isBoosted } = useAppStore();
+  const { listings, openAIPanel, currentUser, currentUserId, favorites, toggleFavorite, deleteListing, recordView } = useAppStore();
 
   // ── State — tümü koşullu return'lardan önce (Rules of Hooks) ─────────────
   const [apiFetched, setApiFetched]       = useState<Listing | null>(null);
@@ -148,9 +189,9 @@ export default function ListingDetail() {
   const [reportModalOpen,   setReportModalOpen]   = useState(false);
   const [editModalOpen,     setEditModalOpen]     = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [forecastOpen,      setForecastOpen]      = useState(false);
   const [lightboxOpen,      setLightboxOpen]      = useState(false);
   const [verification,      setVerification]      = useState<ListingVerification | null>(null);
+  const [activeDetailTab,   setActiveDetailTab]   = useState<DetailTab>('swap');
 
   // ── Store'da yoksa API'den yükle ──────────────────────────────────────────
   const storeMatch = listings.find((l) => l.id === id);
@@ -167,7 +208,13 @@ export default function ListingDetail() {
   }, [id, storeMatch]);
 
   useEffect(() => {
-    if (id) recordView(id);
+    if (!id) return;
+    recordView(id);
+    const key = `takaslat-viewed-listing:${id}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1');
+      trackProductEvent('view_listing');
+    }
   }, [id, recordView]);
 
   useEffect(() => {
@@ -208,8 +255,59 @@ export default function ListingDetail() {
       ? `${pendingListing.title} · ${new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(pendingListing.estimatedValue)} · ${pendingListing.city}. Takaslat'ta takas teklifleri verin.`
       : undefined,
     image:       pendingListing?.images?.[0],
+    url:         pendingListing ? `/listing/${pendingListing.id}` : undefined,
     type:        'product',
   });
+
+  const listingJsonLd = useMemo(() => {
+    if (!pendingListing) return null;
+    const url = `https://www.takaslat.com/listing/${pendingListing.id}`;
+    const images = pendingListing.images
+      .filter(Boolean)
+      .map((image) => /^https?:\/\//i.test(image) ? image : `https://www.takaslat.com${image.startsWith('/') ? image : `/${image}`}`);
+    const additionalProperty = [
+      { '@type': 'PropertyValue', name: 'Şehir', value: pendingListing.city },
+      pendingListing.district ? { '@type': 'PropertyValue', name: 'İlçe', value: pendingListing.district } : null,
+      pendingListing.wantedFor ? { '@type': 'PropertyValue', name: 'Takasta istenen', value: pendingListing.wantedFor } : null,
+    ].filter(Boolean);
+
+    return {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Product',
+          name: pendingListing.title,
+          description: pendingListing.description,
+          image: images,
+          category: pendingListing.category,
+          url,
+          ...(pendingListing.vehicleDetails?.brand ? { brand: { '@type': 'Brand', name: pendingListing.vehicleDetails.brand } } : {}),
+          ...(pendingListing.vehicleDetails?.model ? { model: pendingListing.vehicleDetails.model } : {}),
+          itemCondition: 'https://schema.org/UsedCondition',
+          additionalProperty,
+          offers: {
+            '@type': 'Offer',
+            price: pendingListing.estimatedValue,
+            priceCurrency: 'TRY',
+            availability: pendingListing.isActive === false
+              ? 'https://schema.org/OutOfStock'
+              : 'https://schema.org/InStock',
+            url,
+            seller: { '@type': 'Person', name: pendingListing.ownerName },
+          },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Takaslat', item: 'https://www.takaslat.com/' },
+            { '@type': 'ListItem', position: 2, name: 'İlanlar', item: 'https://www.takaslat.com/listings' },
+            { '@type': 'ListItem', position: 3, name: pendingListing.title, item: url },
+          ],
+        },
+      ],
+    };
+  }, [pendingListing]);
+  useJsonLd('listing-jsonld', listingJsonLd);
 
   // ── Derived values (non-hook, can be after conditional returns) ───────────
   const baseListing = storeMatch ?? apiFetched;
@@ -243,6 +341,34 @@ export default function ListingDetail() {
     toggleFavorite(listingId);
     showToast(wasFav ? 'Favorilerden çıkarıldı' : 'Favorilere eklendi', 'success');
   }
+  function handleReportStart() {
+    if (!currentUserId) {
+      showToast('Şikayet için giriş yapmalısınız', 'error');
+      navigate('/login');
+      return;
+    }
+    if (isOwner) {
+      showToast('Kendi ilanınızı şikayet edemezsiniz', 'error');
+      return;
+    }
+    setReportModalOpen(true);
+  }
+  const listingCategory = listing.category;
+
+  function handleOfferStart() {
+    if (!listing) return;
+    if (!currentUserId) {
+      showToast('Teklif göndermek için giriş yapmalısınız', 'error');
+      navigate('/login');
+      return;
+    }
+    if (listing.ownerId === currentUserId) {
+      showToast('Kendi ilanınıza teklif veremezsiniz', 'error');
+      return;
+    }
+    trackProductEvent('offer_started', { category: listingCategory });
+    setOfferModalOpen(true);
+  }
 
   async function handleDelete() {
     if (!listing) return;
@@ -258,6 +384,8 @@ export default function ListingDetail() {
   const v  = listing.vehicleDetails;
   const e  = listing.electronicDetails;
   const p  = listing.propertyDetails;
+  const expertiseFiles = listing.attachments?.filter((file) => file.kind === 'expertise') ?? [];
+  const documentFiles = listing.attachments?.filter((file) => file.kind === 'document') ?? [];
   const isOwner = listing.ownerId === currentUserId;
   const listingHealth = getListingHealth(listing);
   const trustToneClass: Record<string, string> = {
@@ -282,6 +410,7 @@ export default function ListingDetail() {
     accepted: offersOnThis.filter((o) => o.status === 'Tamamlandı').length,
   } : null;
   // viewsByDay is computed above (before conditional returns)
+  const canSeeAnalytics = hasPaidFeature('listing_analytics', currentUser);
   const isFav = favorites.includes(listing.id);
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/listing/${listing.id}`
@@ -292,9 +421,9 @@ export default function ListingDetail() {
   if (v) {
     if (!v.hasAccidentRecord)       highlights.push({ icon: '✅', text: 'Hasar Kaydı Yok',        color: 'bg-emerald-50 text-emerald-700' });
     if ((v.km ?? 0) < 50_000)       highlights.push({ icon: '🏃', text: 'Düşük Kilometre',         color: 'bg-blue-50 text-blue-700'     });
-    if ((v.year ?? 0) >= 2021)      highlights.push({ icon: '✨', text: `${v.year} Model`,          color: 'bg-violet-50 text-violet-700' });
-    if (v.fuel === 'Hibrit')        highlights.push({ icon: '⚡', text: 'Hibrit',                  color: 'bg-teal-50 text-teal-700'     });
-    if (v.fuel === 'Elektrik')      highlights.push({ icon: '⚡', text: 'Elektrikli',              color: 'bg-teal-50 text-teal-700'     });
+    if ((v.year ?? 0) >= 2021)      highlights.push({ icon: '✨', text: `${v.year} Model`,          color: 'bg-blue-50 text-blue-700' });
+    if (v.fuel === 'Hibrit')        highlights.push({ icon: '⚡', text: 'Hibrit',                  color: 'bg-blue-50 text-blue-700'     });
+    if (v.fuel === 'Elektrik')      highlights.push({ icon: '⚡', text: 'Elektrikli',              color: 'bg-blue-50 text-blue-700'     });
     if (v.transmission === 'Otomatik') highlights.push({ icon: '🕹️', text: 'Otomatik Vites',    color: 'bg-slate-100 text-slate-600'  });
     if (v.hasAccidentRecord)        highlights.push({ icon: '⚠️', text: 'Hasar Kaydı Var',        color: 'bg-red-50 text-red-600'       });
   }
@@ -303,7 +432,7 @@ export default function ListingDetail() {
     if ((e.batteryHealth ?? 0) >= 90)       highlights.push({ icon: '🔋', text: `Batarya %${e.batteryHealth}`, color: 'bg-emerald-50 text-emerald-700' });
     else if (e.batteryHealth && e.batteryHealth < 80) highlights.push({ icon: '🪫', text: `Batarya %${e.batteryHealth}`, color: 'bg-amber-50 text-amber-700' });
     if ((e.accessories?.length ?? 0) >= 3)  highlights.push({ icon: '📦', text: 'Tam aksesuarlı',            color: 'bg-blue-50 text-blue-700' });
-    if (e.accessories?.includes('Orijinal kutu')) highlights.push({ icon: '🎁', text: 'Orijinal kutusunda',  color: 'bg-violet-50 text-violet-700' });
+    if (e.accessories?.includes('Orijinal kutu')) highlights.push({ icon: '🎁', text: 'Orijinal kutusunda',  color: 'bg-blue-50 text-blue-700' });
   }
   if (p) {
     if (p.balcony)                          highlights.push({ icon: '🌿', text: 'Balkonlu',          color: 'bg-emerald-50 text-emerald-700' });
@@ -311,7 +440,7 @@ export default function ListingDetail() {
     if (p.parking)                          highlights.push({ icon: '🅿️', text: 'Otoparklı',        color: 'bg-blue-50 text-blue-700' });
     if (p.furnished)                        highlights.push({ icon: '🛋️', text: 'Eşyalı',            color: 'bg-amber-50 text-amber-700' });
     if (p.titleDeed === 'Kat Mülkiyetli')   highlights.push({ icon: '📜', text: 'Kat Mülkiyetli',    color: 'bg-emerald-50 text-emerald-700' });
-    if ((p.buildingAge ?? 99) <= 5)         highlights.push({ icon: '🏗️', text: 'Yeni Bina',         color: 'bg-violet-50 text-violet-700' });
+    if ((p.buildingAge ?? 99) <= 5)         highlights.push({ icon: '🏗️', text: 'Yeni Bina',         color: 'bg-blue-50 text-blue-700' });
   }
   // Yakıt ikonu
   const fuelIcon: Record<string, string> = {
@@ -342,58 +471,6 @@ export default function ListingDetail() {
             </span>
           )}
 
-          {/* Favori */}
-          <button
-            onClick={() => handleFavoriteClick(listing.id, isFav)}
-            title={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
-              isFav
-                ? 'bg-red-500 border-red-500 text-white shadow-md'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-red-500'
-            }`}
-          >
-            <svg className="w-4 h-4" fill={isFav ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </button>
-
-          {/* Paylaş */}
-          <ShareMenu url={shareUrl} title={listing.title} />
-
-          {/* Değer Tahmini */}
-          <button
-            onClick={() => setForecastOpen(true)}
-            title="12 aylık değer projeksiyonu"
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-slate-600 dark:text-slate-300 hover:text-violet-600 flex items-center justify-center transition-colors"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V9m6 10V5m6 14v-7m4 7H2" />
-            </svg>
-          </button>
-
-          {/* Yazdır / PDF */}
-          <button
-            onClick={() => window.print()}
-            title="İlanı yazdır / PDF olarak kaydet"
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-600 dark:text-slate-300 hover:text-blue-600 flex items-center justify-center transition-colors print:hidden"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-          </button>
-
-          {/* Şikayet (sahibi değilse) */}
-          {!isOwner && (
-            <button
-              onClick={() => setReportModalOpen(true)}
-              title="Bu ilanı şikayet et"
-              className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-600 dark:text-slate-300 hover:text-red-600 flex items-center justify-center transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
 
@@ -406,7 +483,7 @@ export default function ListingDetail() {
             </div>
             <h1 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white sm:text-3xl">{listing.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-              <span>{listing.city}</span>
+              <span>{listing.city}{listing.district ? ` / ${listing.district}` : ''}</span>
               <span aria-hidden="true">·</span>
               <span>{new Date(listing.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               {typeof listing.viewCount === 'number' && (
@@ -486,40 +563,84 @@ export default function ListingDetail() {
             )}
           </div>
 
-          <nav className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="İlan bölümleri">
-            {[
-              ['#aciklama', 'Açıklama'],
-              ['#ozellikler', 'Özellikler'],
-              ['#konum', 'Konum'],
-            ].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="shrink-0 border-b-2 border-transparent px-5 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-blue-600 hover:text-blue-700 dark:text-slate-300"
+          <nav
+            className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            aria-label="İlan bölümleri"
+            role="tablist"
+          >
+            {([
+              ['swap', 'Takas için istenen'],
+              ['description', 'Açıklama'],
+              ['features', 'Özellikler'],
+              ['location', 'Konum'],
+            ] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={activeDetailTab === tab}
+                aria-controls={`listing-tab-${tab}`}
+                onClick={() => setActiveDetailTab(tab)}
+                className={`shrink-0 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
+                  activeDetailTab === tab
+                    ? 'border-blue-600 text-blue-700 dark:text-blue-300'
+                    : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
+                }`}
               >
                 {label}
-              </a>
+              </button>
             ))}
           </nav>
 
-          <div className="lg:hidden">
-            <SwapExpectationPanel
-              wantedFor={listing.wantedFor}
-              estimatedValue={listing.estimatedValue}
-              isOwner={isOwner}
-              onOffer={() => setOfferModalOpen(true)}
-              onMatch={() => openAIPanel(listing.id)}
-              onEdit={() => setEditModalOpen(true)}
-            />
-          </div>
+          {activeDetailTab === 'swap' && <section id="listing-tab-swap" role="tabpanel">
+            <div className="lg:hidden">
+              <SwapExpectationPanel
+                wantedFor={listing.wantedFor}
+                estimatedValue={listing.estimatedValue}
+                isOwner={isOwner}
+                isFav={isFav}
+                shareUrl={shareUrl}
+                shareTitle={listing.title}
+                onOffer={handleOfferStart}
+                onMatch={() => openAIPanel(listing.id)}
+                onEdit={() => setEditModalOpen(true)}
+                onToggleFavorite={() => handleFavoriteClick(listing.id, isFav)}
+                onReport={handleReportStart}
+              />
+            </div>
+            <div className="hidden rounded-lg border border-amber-200 bg-white p-6 shadow-sm dark:border-amber-900/60 dark:bg-slate-800 lg:block">
+              <p className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-400">Takas için istenen</p>
+              <h2 className="mt-2 text-base font-bold text-slate-950 dark:text-white">Satıcının takas beklentisi</h2>
+              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">
+                {listing.wantedFor.trim() || 'Satıcı takas beklentisini belirtmemiş.'}
+              </p>
+            </div>
+          </section>}
 
-          <section id="aciklama" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
-            <h2 className="text-base font-bold text-slate-950 dark:text-white">İlan açıklaması</h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{listing.description}</p>
-          </section>
+          {activeDetailTab === 'description' && (
+            <div id="listing-tab-description" role="tabpanel" className="space-y-5">
+              <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+                <h2 className="text-base font-bold text-slate-950 dark:text-white">İlan açıklaması</h2>
+                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-slate-200">{listing.description}</p>
+              </section>
+
+              <details className="border-y border-slate-200 py-4 dark:border-slate-700">
+                <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Akıllı eşleşme araçları
+                </summary>
+                <div className="mt-4 space-y-5">
+                  <ListingAIInsights listing={listing} />
+                  <SwapChainPanel listing={listing} listings={listings} />
+                </div>
+              </details>
+
+              <ListingQASection listingId={listing.id} ownerId={listing.ownerId} />
+            </div>
+          )}
 
           {/* Hızlı özellikler */}
-          <section id="ozellikler" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          {activeDetailTab === 'features' && <>
+          <section id="listing-tab-features" role="tabpanel" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="text-base font-bold text-slate-950 dark:text-white">Temel bilgiler</h2>
             {/* Hızlı araç özellikleri (bar) */}
             {v && (
@@ -596,101 +717,45 @@ export default function ListingDetail() {
             </div>
           )}
 
-          {/* Detaylı Araç Özellikleri */}
+          {/* Detaylı Araç Özellikleri — satıcı doldurmamışsa da satır görünür */}
           {v && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Araç Özellikleri</h2>
-              <p className="text-xs text-slate-400 mb-4">Satıcı tarafından girilmiş teknik bilgiler</p>
+              <p className="text-xs text-slate-400 mb-4">Tüm teknik bilgiler; satıcının girmediği alanlar "Belirtilmemiş" olarak görünür.</p>
 
               <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                <SpecRow
-                  icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>}
-                  label="Marka"
-                  value={v.brand ?? '—'}
-                />
-                <SpecRow
-                  icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>}
-                  label="Model"
-                  value={v.model ?? '—'}
-                />
-                {v.trim && (
-                  <SpecRow
-                    icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>}
-                    label="Donanım"
-                    value={v.trim}
-                    accent="green"
-                  />
-                )}
-                <SpecRow
-                  icon={<span className="text-sm">📅</span>}
-                  label="Model Yılı"
-                  value={v.year?.toString() ?? '—'}
-                  accent={(v.year ?? 0) >= 2021 ? 'green' : undefined}
-                />
-                <SpecRow
-                  icon={<span className="text-sm">🛣️</span>}
-                  label="Kilometre"
-                  value={`${(v.km ?? 0).toLocaleString('tr-TR')} km`}
-                  accent={(v.km ?? 0) < 50_000 ? 'green' : (v.km ?? 0) > 150_000 ? 'amber' : undefined}
-                />
-                <SpecRow
-                  icon={<span className="text-sm">{fuelIcon[v.fuel ?? ''] ?? '⛽'}</span>}
-                  label="Yakıt Tipi"
-                  value={v.fuel ?? '—'}
-                />
-                <SpecRow
-                  icon={<span className="text-sm">⚙️</span>}
-                  label="Şanzıman"
-                  value={v.transmission ?? '—'}
-                />
-                {v.bodyType && (
-                  <SpecRow
-                    icon={<span className="text-sm">🚘</span>}
-                    label="Kasa Tipi"
-                    value={v.bodyType}
-                  />
-                )}
-                {v.color && (
-                  <SpecRow
-                    icon={<span className="text-sm">🎨</span>}
-                    label="Renk"
-                    value={v.color}
-                  />
-                )}
-                {v.engineCC && (
-                  <SpecRow
-                    icon={<span className="text-sm">🔧</span>}
-                    label="Motor Hacmi"
-                    value={`${v.engineCC.toLocaleString('tr-TR')} cc`}
-                  />
-                )}
-                {v.power && (
-                  <SpecRow
-                    icon={<span className="text-sm">⚡</span>}
-                    label="Motor Gücü"
-                    value={`${v.power} HP`}
-                  />
-                )}
-                {v.driveType && (
-                  <SpecRow
-                    icon={<span className="text-sm">🔩</span>}
-                    label="Çekiş"
-                    value={v.driveType}
-                  />
-                )}
-                {v.numberOfDoors && (
-                  <SpecRow
-                    icon={<span className="text-sm">🚪</span>}
-                    label="Kapı Sayısı"
-                    value={`${v.numberOfDoors} kapı`}
-                  />
-                )}
-                <SpecRow
-                  icon={<span className="text-sm">{v.hasAccidentRecord ? '⚠️' : '✅'}</span>}
-                  label="Hasar Kaydı"
-                  value={v.hasAccidentRecord ? 'Var' : 'Yok'}
-                  accent={v.hasAccidentRecord ? 'red' : 'green'}
-                />
+                {(() => {
+                  const unset = 'Belirtilmemiş';
+                  const text = (value?: string | null) => value?.trim() ? value : unset;
+                  const painted = v.paintedParts ?? [];
+                  const changed = v.changedParts ?? [];
+                  const rows: { label: string; value: string; accent?: 'green' | 'red' | 'amber' }[] = [
+                    { label: 'Marka',          value: text(v.brand) },
+                    { label: 'Model',          value: text(v.model) },
+                    { label: 'Donanım / Paket', value: text(v.trim) },
+                    { label: 'Model Yılı',     value: v.year ? String(v.year) : unset, accent: (v.year ?? 0) >= 2021 ? 'green' : undefined },
+                    { label: 'Kilometre',      value: v.km !== undefined ? `${v.km.toLocaleString('tr-TR')} km` : unset, accent: (v.km ?? 0) < 50_000 ? 'green' : (v.km ?? 0) > 150_000 ? 'amber' : undefined },
+                    { label: 'Yakıt Tipi',     value: text(v.fuel) },
+                    { label: 'Şanzıman',       value: text(v.transmission) },
+                    { label: 'Kasa Tipi',      value: text(v.bodyType) },
+                    { label: 'Renk',           value: text(v.color) },
+                    { label: 'Motor Hacmi',    value: v.engineCC ? `${v.engineCC.toLocaleString('tr-TR')} cc` : unset },
+                    { label: 'Motor Gücü',     value: v.power ? `${v.power} HP` : unset },
+                    { label: 'Çekiş',          value: text(v.driveType) },
+                    { label: 'Kapı Sayısı',    value: v.numberOfDoors ? `${v.numberOfDoors} kapı` : unset },
+                    { label: 'Hasar Kaydı',    value: v.hasAccidentRecord ? 'Var' : 'Yok', accent: v.hasAccidentRecord ? 'red' : 'green' },
+                    { label: 'Boyalı Parça',   value: painted.length ? `${painted.length} parça · ${painted.join(', ')}` : 'Yok', accent: painted.length ? 'amber' : 'green' },
+                    { label: 'Değişen Parça',  value: changed.length ? `${changed.length} parça · ${changed.join(', ')}` : 'Yok', accent: changed.length ? 'red' : 'green' },
+                    { label: 'Ekspertiz',      value: v.hasExpertise ? 'Yapıldı' : 'Yapılmadı', accent: v.hasExpertise ? 'green' : undefined },
+                    ...(v.hasExpertise ? [
+                      { label: 'Ekspertiz Firması', value: text(v.expertiseFirm) },
+                      { label: 'Ekspertiz Tarihi',  value: v.expertiseDate ? new Date(v.expertiseDate).toLocaleDateString('tr-TR') : unset },
+                    ] : []),
+                  ];
+                  return rows.map((row) => (
+                    <SpecRow key={row.label} icon={null} label={row.label} value={row.value} accent={row.accent} />
+                  ));
+                })()}
               </div>
             </div>
           )}
@@ -704,14 +769,7 @@ export default function ListingDetail() {
                 </svg>
                 Kaporta Durumu
               </h2>
-              <p className="text-xs text-slate-500 mb-4">
-                <span className="inline-flex items-center gap-1 mr-3">
-                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-500" /> Boyalı
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-red-400 border border-red-500" /> Değişen
-                </span>
-              </p>
+              <p className="mb-4 text-xs text-slate-500">Boya, değişen ve ekspertiz bilgisi</p>
               <VehicleBodyDiagram
                 paintedParts={v.paintedParts ?? []}
                 changedParts={v.changedParts ?? []}
@@ -825,64 +883,129 @@ export default function ListingDetail() {
             </div>
           )}
 
-          {listing.attachments && listing.attachments.length > 0 && (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Belgeler ve Ekspertiz</h2>
+          {(v?.hasExpertise || expertiseFiles.length > 0) && (
+            <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Ekspertiz</h2>
+              {(v?.expertiseFirm || v?.expertiseDate || v?.expertiseNote) && (
+                <div className="mt-3 grid gap-3 border-y border-slate-100 py-3 text-sm dark:border-slate-700 sm:grid-cols-2">
+                  {v.expertiseFirm && (
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Firma / Servis</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">{v.expertiseFirm}</p>
+                    </div>
+                  )}
+                  {v.expertiseDate && (
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Tarih</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">{new Date(v.expertiseDate).toLocaleDateString('tr-TR')}</p>
+                    </div>
+                  )}
+                  {v.expertiseNote && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Sonuç / Not</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">{v.expertiseNote}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {expertiseFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {expertiseFiles.map((file) => {
+                    const content = (
+                      <>
+                        {file.mimeType.startsWith('image/') && file.url ? (
+                          <img src={file.url} alt="" className="h-11 w-11 shrink-0 rounded-md object-cover" />
+                        ) : (
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-200 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200">PDF</span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Ekspertiz raporu · {Math.round(file.size / 1024)} KB</p>
+                        </div>
+                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">{file.url ? 'Aç' : 'Giriş gerekli'}</span>
+                      </>
+                    );
+                    const className = 'flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900';
+                    return file.url ? (
+                      <a key={file.id} href={file.url} target="_blank" rel="noreferrer" className={`${className} hover:border-blue-300 dark:hover:border-blue-700`}>{content}</a>
+                    ) : (
+                      <div key={file.id} className={className} title="Ekspertiz raporunu görüntülemek için giriş yapın">{content}</div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {documentFiles.length > 0 && (
+            <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <h2 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">Diğer Belgeler</h2>
               <div className="space-y-2">
-                {listing.attachments.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 hover:border-blue-300 dark:hover:border-blue-700"
-                  >
+                {documentFiles.map((file) => {
+                  const content = (
+                    <>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {file.kind === 'expertise' ? 'Ekspertiz' : file.kind === 'image' ? 'Fotoğraf' : 'Belge'} · {Math.round(file.size / 1024)} KB
+                        Belge · {Math.round(file.size / 1024)} KB
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">Aç</span>
-                  </a>
-                ))}
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-300">
+                      {file.url ? 'Aç' : 'Giriş gerekli'}
+                    </span>
+                    </>
+                  );
+                  const className = "flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2";
+                  return file.url ? (
+                    <a key={file.id} href={file.url} target="_blank" rel="noreferrer" className={`${className} hover:border-blue-300 dark:hover:border-blue-700`}>
+                      {content}
+                    </a>
+                  ) : (
+                    <div key={file.id} className={className} title="Belgeyi görüntülemek için giriş yapın">
+                      {content}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            </section>
           )}
 
           {/* Video Embed */}
           {listing.videoUrl && <VideoEmbed url={listing.videoUrl} />}
+          </>}
 
-          <ListingAIInsights listing={listing} />
-
-          <SwapChainPanel listing={listing} listings={listings} />
-
-          {/* ── Soru-Cevap ── */}
-          <ListingQASection listingId={listing.id} ownerId={listing.ownerId} />
-
-          {/* Konum */}
-          <div id="konum" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-3">Konum</h2>
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl h-32 flex items-center justify-center border border-slate-100">
-              <div className="text-center">
-                <p className="text-slate-700 font-semibold">{listing.city}</p>
-                <p className="text-slate-400 text-xs mt-0.5">Yaklaşık konum gösterilmektedir</p>
+          {activeDetailTab === 'location' && (
+            <section id="listing-tab-location" role="tabpanel" className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <h2 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">Konum</h2>
+              <div className="flex h-40 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+                <div className="text-center">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {listing.city}{listing.district ? ` / ${listing.district}` : ''}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Güvenlik nedeniyle yaklaşık konum gösterilmektedir.</p>
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
+          )}
+
         </div>
 
         {/* ── Sağ: Sidebar ── */}
-        <div className="space-y-4 print:hidden">
+        <div className="space-y-4 print:hidden lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
 
-          <div className="hidden lg:block lg:sticky lg:top-20 lg:z-10">
+          <div className="hidden lg:block">
             <SwapExpectationPanel
               wantedFor={listing.wantedFor}
               estimatedValue={listing.estimatedValue}
               isOwner={isOwner}
-              onOffer={() => setOfferModalOpen(true)}
+              isFav={isFav}
+              shareUrl={shareUrl}
+              shareTitle={listing.title}
+              onOffer={handleOfferStart}
               onMatch={() => openAIPanel(listing.id)}
               onEdit={() => setEditModalOpen(true)}
+              onToggleFavorite={() => handleFavoriteClick(listing.id, isFav)}
+              onReport={handleReportStart}
             />
           </div>
 
@@ -918,33 +1041,19 @@ export default function ListingDetail() {
               </div>
             )}
 
-            {!isOwner ? (
-              <div className="space-y-2.5">
-                <button
-                  onClick={() => setOfferModalOpen(true)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-                >
-                  Takas Teklifi Gönder
-                </button>
-                <button
-                  onClick={() => openAIPanel(listing.id)}
-                  className="w-full bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-amber-200 dark:border-amber-900/40"
-                >
-                  AI ile Eşleştir
-                </button>
-              </div>
-            ) : (
+            {isOwner ? (
               <div className="space-y-2.5">
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center border border-blue-100 dark:border-blue-900/40">
                   <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">Bu sizin ilanınız</p>
                 </div>
 
-                {/* Sahip istatistikleri */}
-                {ownerStats && (
+                {/* Sahip istatistikleri — ücretli özellik */}
+                {!canSeeAnalytics && <PaidFeatureCard feature="listing_analytics" />}
+                {canSeeAnalytics && ownerStats && (
                   <>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { icon: '👁️', label: 'Görüntülenme', value: ownerStats.views,    color: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300' },
+                        { icon: '👁️', label: 'Görüntülenme', value: ownerStats.views,    color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' },
                         { icon: '🤝', label: 'Toplam Teklif', value: ownerStats.offers,   color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' },
                         { icon: '⏳', label: 'Bekleyen',       value: ownerStats.pending,  color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' },
                         { icon: '✅', label: 'Tamamlanan',     value: ownerStats.accepted, color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' },
@@ -970,7 +1079,7 @@ export default function ListingDetail() {
                                   <div className="flex-1 w-full flex items-end">
                                     <div
                                       className={`w-full rounded-t transition-all ${
-                                        d.count > 0 ? 'bg-violet-500 dark:bg-violet-400 group-hover:bg-violet-600' : 'bg-slate-200 dark:bg-slate-700'
+                                        d.count > 0 ? 'bg-blue-500 dark:bg-blue-400 group-hover:bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
                                       }`}
                                       style={{ height: `${Math.max(4, pct)}%` }}
                                       title={`${d.day}: ${d.count} görüntülenme`}
@@ -991,23 +1100,6 @@ export default function ListingDetail() {
                     </div>
                   </>
                 )}
-                {/* Boost butonu */}
-                {!isBoosted(listing.id) ? (
-                  <button
-                    onClick={() => {
-                      boostListing(listing.id);
-                      showToast('İlan 7 gün boyunca öne çıkarıldı', 'success');
-                    }}
-                    className="w-full bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 border border-violet-200 dark:border-violet-900/40"
-                  >
-                    Öne Çıkar (7 gün)
-                  </button>
-                ) : (
-                  <div className="w-full bg-violet-600 text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
-                    Öne Çıkarıldı
-                  </div>
-                )}
-
                 <button
                   onClick={() => setEditModalOpen(true)}
                   className="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
@@ -1016,19 +1108,6 @@ export default function ListingDetail() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   Düzenle
-                </button>
-                <button
-                  onClick={() => {
-                    localStorage.setItem('takaslat-duplicate', JSON.stringify(listing));
-                    showToast('İlan formuna kopyalandı', 'success');
-                    navigate('/create');
-                  }}
-                  className="w-full bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Çoğalt (Yeni Kopyası)
                 </button>
                 <button
                   onClick={() => setDeleteConfirmOpen(true)}
@@ -1040,6 +1119,10 @@ export default function ListingDetail() {
                   İlanı Kaldır
                 </button>
               </div>
+            ) : (
+              <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Takas beklentisini inceleyip üstteki teklif panelinden kendi ilanını ve nakit farkını seçebilirsin.
+              </p>
             )}
           </div>
 
@@ -1138,13 +1221,6 @@ export default function ListingDetail() {
         <EditListingModal
           listing={listing}
           onClose={() => setEditModalOpen(false)}
-        />
-      )}
-
-      {forecastOpen && (
-        <ValueForecastModal
-          listingId={listing.id}
-          onClose={() => setForecastOpen(false)}
         />
       )}
 

@@ -1,11 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { submitAuctionRequest, fetchMyAuctionRequests, type AuctionRequest } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
+import { isPlatformAdmin } from '../lib/roles';
 import type { LiveAuction, Listing } from '../types';
 
 const money = (value: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(value);
+
+/** Varsayılan başlangıç: değerin %75'i, bine yuvarlanmış. */
+const suggestedStartingPrice = (estimatedValue: number) =>
+  Math.max(1_000, Math.round((estimatedValue * 0.75) / 1000) * 1000);
+
+/** Varsayılan artış: değerin %1,5'i, en az 5.000 ₺. */
+const suggestedIncrement = (estimatedValue: number) =>
+  Math.max(5_000, Math.round((estimatedValue * 0.015) / 1000) * 1000);
+
+const DURATION_OPTIONS: { minutes: number; label: string }[] = [
+  { minutes: 30,      label: '30 dk' },
+  { minutes: 60,      label: '1 saat' },
+  { minutes: 360,     label: '6 saat' },
+  { minutes: 1_440,   label: '1 gün' },
+  { minutes: 4_320,   label: '3 gün' },
+  { minutes: 10_080,  label: '7 gün' },
+];
 
 function getAuctionStatus(auction: LiveAuction, now: number) {
   if (auction.status === 'ended' || now >= new Date(auction.endsAt).getTime()) return 'ended';
@@ -103,20 +122,39 @@ export default function Auctions() {
     closeAuction,
   } = useAppStore();
 
+  const isAdmin = isPlatformAdmin(currentUser?.role);
   const [now, setNow] = useState(() => Date.now());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bidDraft, setBidDraft] = useState<string | null>(null);
   const [bidMode, setBidMode] = useState<'cash' | 'expertise' | 'swap'>('cash');
   const [bidListingId, setBidListingId] = useState('');
   const [selectedListingId, setSelectedListingId] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState(30);
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [startingPriceDraft, setStartingPriceDraft] = useState('');
+  const [incrementDraft, setIncrementDraft] = useState('');
+  const [reserveDraft, setReserveDraft] = useState('');
   const [message, setMessage] = useState('');
+  const [formMessage, setFormMessage] = useState('');
+  const [searchParams] = useSearchParams();
+  const [requestOpen, setRequestOpen] = useState(searchParams.get('basvuru') === '1');
+  const [myRequests, setMyRequests] = useState<AuctionRequest[]>([]);
+  const [requestSending, setRequestSending] = useState(false);
+  const [requestNote, setRequestNote] = useState('');
+  const [adminMessage, setAdminMessage] = useState('');
   const [pendingAction, setPendingAction] = useState<'create' | 'bid' | 'close' | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      queueMicrotask(() => setMyRequests([]));
+      return;
+    }
+    fetchMyAuctionRequests().then(setMyRequests).catch(() => setMyRequests([]));
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortedAuctions = useMemo(
     () => [...auctions].sort((a, b) => {
@@ -140,9 +178,17 @@ export default function Auctions() {
   const activeCount = auctions.filter((auction) => getAuctionStatus(auction, now) === 'live').length;
   const totalBids = auctions.reduce((sum, auction) => sum + auction.bids.length, 0);
   const nextBid = selectedAuction ? selectedAuction.currentBid + selectedAuction.bidIncrement : 0;
+
+  // Mezat formunun canlı özeti
+  const draftListing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
+  const draftStartingPrice = Number(startingPriceDraft) || (draftListing ? suggestedStartingPrice(draftListing.estimatedValue) : 0);
+  const draftIncrement = Number(incrementDraft) || (draftListing ? suggestedIncrement(draftListing.estimatedValue) : 0);
+  const draftEndsAt = new Date(now + durationMinutes * 60_000);
   const selectedStatus = selectedAuction ? getAuctionStatus(selectedAuction, now) : 'ended';
   const bidAmount = bidDraft ?? String(nextBid);
-  const canManageSelectedAuction = Boolean(currentUser && selectedListing?.ownerId === currentUser.id);
+  const canManageSelectedAuction = Boolean(
+    currentUser && (selectedAuction?.ownerId === currentUser.id || selectedListing?.ownerId === currentUser.id)
+  );
   const bidListings = listings.filter((listing) =>
     currentUser?.id === listing.ownerId && listing.id !== selectedAuction?.listingId
   );
@@ -184,18 +230,67 @@ export default function Auctions() {
     }
   }
 
+  async function handleSubmitRequest() {
+    if (!currentUser) return;
+    const listing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
+    if (!listing) {
+      setFormMessage('Önce mezata çıkarmak istediğin ilanı seç.');
+      return;
+    }
+    const expected = Number(startingPriceDraft) || undefined;
+    if (expected !== undefined && expected < 1_000) {
+      setFormMessage('Beklenen başlangıç fiyatı en az 1.000 ₺ olmalı.');
+      return;
+    }
+
+    setRequestSending(true);
+    try {
+      const created = await submitAuctionRequest({
+        listingId: listing.id,
+        expectedPrice: expected,
+        note: requestNote,
+      });
+      setMyRequests((current) => [created, ...current]);
+      setRequestOpen(false);
+      setSelectedListingId('');
+      setStartingPriceDraft('');
+      setRequestNote('');
+      setFormMessage('Başvurun alındı. Ekibimiz inceledikten sonra aracın 7 günlük açık artırmaya çıkacak.');
+    } catch (error) {
+      setFormMessage(error instanceof Error ? error.message : 'Başvuru gönderilemedi.');
+    } finally {
+      setRequestSending(false);
+    }
+  }
+
   async function handleCreateAuction() {
     if (!currentUser) {
-      setMessage('Mezat başlatmak için giriş yapmalısın.');
+      setAdminMessage('Mezat başlatmak için giriş yapmalısın.');
       return;
     }
     const listing = listings.find((item) => item.id === selectedListingId) ?? availableListings[0];
     if (!listing) {
-      setMessage('Mezat başlatmak için önce aktif bir ilan gerekli.');
+      setAdminMessage('Mezat başlatmak için önce aktif bir ilan gerekli.');
       return;
     }
     const nowMs = now;
-    const startingPrice = Math.max(1_000, Math.round((listing.estimatedValue * 0.75) / 1000) * 1000);
+    const startingPrice = Number(startingPriceDraft) || suggestedStartingPrice(listing.estimatedValue);
+    const bidIncrement  = Number(incrementDraft) || suggestedIncrement(listing.estimatedValue);
+    const reservePrice  = reserveDraft.trim() ? Number(reserveDraft) : undefined;
+
+    if (startingPrice < 1_000) {
+      setAdminMessage('Başlangıç fiyatı en az 1.000 ₺ olmalı.');
+      return;
+    }
+    if (bidIncrement < 100) {
+      setAdminMessage('Minimum artış en az 100 ₺ olmalı.');
+      return;
+    }
+    if (reservePrice !== undefined && reservePrice < startingPrice) {
+      setAdminMessage('Rezerv fiyat, başlangıç fiyatından düşük olamaz.');
+      return;
+    }
+
     setPendingAction('create');
     try {
       const auctionId = await createAuction({
@@ -204,16 +299,19 @@ export default function Auctions() {
         startsAt: new Date(nowMs).toISOString(),
         endsAt: new Date(nowMs + durationMinutes * 60_000).toISOString(),
         startingPrice,
-        bidIncrement: Math.max(5_000, Math.round((listing.estimatedValue * 0.015) / 1000) * 1000),
-        reservePrice: Math.round((listing.estimatedValue * 0.9) / 1000) * 1000,
+        bidIncrement,
+        reservePrice,
         status: 'live',
       });
       setSelectedId(auctionId);
       setSelectedListingId('');
+      setStartingPriceDraft('');
+      setIncrementDraft('');
+      setReserveDraft('');
       setBidDraft(null);
-      setMessage(`${listing.title} için canlı mezat başladı.`);
+      setAdminMessage(`${listing.title} için canlı mezat başladı.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Mezat başlatılamadı.');
+      setAdminMessage(error instanceof Error ? error.message : 'Mezat başlatılamadı.');
     } finally {
       setPendingAction(null);
     }
@@ -302,47 +400,231 @@ export default function Auctions() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">İlandan mezat başlat</h2>
-            <div className="mt-3 space-y-3">
-              {!currentUser ? (
-                <Link
-                  to="/login?redirect=/auctions"
-                  className="block w-full rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-black text-white transition-colors hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
-                >
-                  Giriş yap
-                </Link>
-              ) : (
-                <>
-              <select
-                value={selectedListingId}
-                onChange={(event) => setSelectedListingId(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">Aracını mezata çıkar</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              Başvurunu ekibimiz inceler; süzgeçten geçen araçlar 7 günlük açık artırmaya çıkar.
+            </p>
+
+            {!currentUser ? (
+              <Link
+                to="/login?redirect=/auctions"
+                className="btn-primary mt-3 block w-full rounded-xl px-4 py-3 text-center text-sm font-black"
               >
-                <option value="">Uygun ilan seç</option>
-                {availableListings.map((listing) => (
-                  <option key={listing.id} value={listing.id}>{listing.title}</option>
-                ))}
-              </select>
+                Giriş yap
+              </Link>
+            ) : !requestOpen ? (
+              <button
+                type="button"
+                onClick={() => { setRequestOpen(true); setFormMessage(''); }}
+                className="btn-primary mt-3 w-full rounded-xl px-4 py-3 text-sm font-black"
+              >
+                Aracımı açık artırmaya sunmak istiyorum
+              </button>
+            ) : (
+              <form
+                className="mt-3 space-y-3"
+                onSubmit={(event) => { event.preventDefault(); void handleSubmitRequest(); }}
+              >
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Hangi aracın?</span>
+                  <select
+                    value={selectedListingId}
+                    onChange={(event) => setSelectedListingId(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  >
+                    <option value="">İlan seç</option>
+                    {availableListings.map((listing) => (
+                      <option key={listing.id} value={listing.id}>{listing.title}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {availableListings.length === 0 && (
+                  <div className="rounded-xl bg-amber-50 p-3 dark:bg-amber-900/20">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                      Mezata çıkarabileceğin aktif bir ilanın yok. Aracının bilgilerini şimdi gir,
+                      ilanın yayınlanınca mezat başvurusuna kaldığın yerden devam et.
+                    </p>
+                    <Link
+                      to="/create?mezat=1"
+                      className="btn-primary mt-2 block rounded-lg px-4 py-2.5 text-center text-sm font-bold"
+                    >
+                      Aracımın bilgilerini gir
+                    </Link>
+                  </div>
+                )}
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Beklediğin başlangıç fiyatı (₺)</span>
+                  <input
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    value={startingPriceDraft}
+                    onChange={(event) => setStartingPriceDraft(event.target.value)}
+                    placeholder={draftListing ? String(suggestedStartingPrice(draftListing.estimatedValue)) : 'Örn: 450000'}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  />
+                  <span className="mt-1 block text-[11px] text-slate-400">Ekibimiz uygun görürse teklifler bu fiyattan başlar.</span>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Eklemek istediklerin</span>
+                  <textarea
+                    value={requestNote}
+                    onChange={(event) => setRequestNote(event.target.value)}
+                    rows={3}
+                    placeholder="Aracın durumu, ekspertiz, acele durumu…"
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  />
+                </label>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setRequestOpen(false); setFormMessage(''); }}
+                    className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={requestSending || availableListings.length === 0}
+                    className="btn-primary flex-1 rounded-xl px-4 py-2.5 text-sm font-black"
+                  >
+                    {requestSending ? 'Gönderiliyor' : 'Başvuruyu gönder'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {formMessage && (
+              <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                {formMessage}
+              </p>
+            )}
+
+            {myRequests.length > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Başvurularım</p>
+                <ul className="mt-2 space-y-2">
+                  {myRequests.slice(0, 4).map((request) => (
+                    <li key={request.id} className="flex items-center gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">
+                        {listings.find((item) => item.id === request.listingId)?.title ?? 'İlan'}
+                      </span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 font-bold ${
+                        request.status === 'approved'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : request.status === 'rejected'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      }`}>
+                        {request.status === 'approved' ? 'Onaylandı' : request.status === 'rejected' ? 'Reddedildi' : 'İncelemede'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {isAdmin && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-black text-slate-900 dark:text-slate-100">Yönetim · doğrudan mezat aç</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Başvuru sürecini atlayarak mezat başlatır.</p>
+            <div className="mt-3 space-y-3">
+              <>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Mezata çıkacak ilan</span>
+                <select
+                  value={selectedListingId}
+                  onChange={(event) => setSelectedListingId(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                >
+                  <option value="">İlan seç</option>
+                  {availableListings.map((listing) => (
+                    <option key={listing.id} value={listing.id}>{listing.title}</option>
+                  ))}
+                </select>
+              </label>
               {availableListings.length === 0 && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Mezata açabileceğin aktif bir ilanın yok. Önce ilan oluşturmalısın.
                 </p>
               )}
-              <div className="grid grid-cols-3 gap-2">
-                {[15, 30, 60].map((minutes) => (
-                  <button
-                    key={minutes}
-                    onClick={() => setDurationMinutes(minutes)}
-                    className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
-                      durationMinutes === minutes
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                        : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    {minutes} dk
-                  </button>
-                ))}
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Başlangıç fiyatı (₺)</span>
+                <input
+                  type="number"
+                  min={1_000}
+                  step={1_000}
+                  value={startingPriceDraft}
+                  onChange={(event) => setStartingPriceDraft(event.target.value)}
+                  placeholder={draftListing ? String(suggestedStartingPrice(draftListing.estimatedValue)) : 'Örn: 450000'}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Teklifler bu fiyattan başlar. Boş bırakırsan değerin %75'i uygulanır.</span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Minimum artış (₺)</span>
+                <input
+                  type="number"
+                  min={100}
+                  step={500}
+                  value={incrementDraft}
+                  onChange={(event) => setIncrementDraft(event.target.value)}
+                  placeholder={draftListing ? String(suggestedIncrement(draftListing.estimatedValue)) : 'Örn: 5000'}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Her yeni teklif bir öncekinden en az bu kadar yüksek olmalı.</span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Rezerv fiyat (₺) — opsiyonel</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1_000}
+                  value={reserveDraft}
+                  onChange={(event) => setReserveDraft(event.target.value)}
+                  placeholder="Boş bırakılabilir"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+                <span className="mt-1 block text-[11px] text-slate-400">Bu fiyatın altında satmak zorunda değilsin; teklifler aşınca "rezerv aşıldı" görünür.</span>
+              </label>
+
+              <div>
+                <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Süre</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {DURATION_OPTIONS.map(({ minutes, label }) => (
+                    <button
+                      key={minutes}
+                      type="button"
+                      onClick={() => setDurationMinutes(minutes)}
+                      className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${
+                        durationMinutes === minutes
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {draftListing && (
+                <div className="rounded-xl bg-slate-50 p-3 text-xs leading-6 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                  <p className="font-bold text-slate-700 dark:text-slate-200">Özet</p>
+                  <p>{money(draftStartingPrice)} başlangıç · {money(draftIncrement)} artış</p>
+                  <p>Bitiş: {draftEndsAt.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                  {reserveDraft.trim() && <p>Rezerv: {money(Number(reserveDraft))}</p>}
+                </div>
+              )}
+
               <button
                 onClick={handleCreateAuction}
                 disabled={availableListings.length === 0 || pendingAction !== null}
@@ -350,10 +632,16 @@ export default function Auctions() {
               >
                 {pendingAction === 'create' ? 'Başlatılıyor' : 'Mezadı başlat'}
               </button>
-                </>
+              {adminMessage && (
+                <p className="rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                  {adminMessage}
+                </p>
               )}
+              </>
             </div>
           </div>
+          )}
+
         </aside>
 
         <section className="min-w-0">
@@ -517,7 +805,7 @@ export default function Auctions() {
                     <button
                       onClick={() => handleBid(0)}
                       disabled={selectedStatus !== 'live' || !currentUser || canManageSelectedAuction || pendingAction !== null}
-                      className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                      className="btn-primary w-full rounded-2xl px-4 py-3 text-sm font-black"
                     >
                       {pendingAction === 'bid' ? 'Gönderiliyor' : 'Teklif ver'}
                     </button>

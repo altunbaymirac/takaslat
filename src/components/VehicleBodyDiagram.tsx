@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const PANEL_LABELS: Record<string, string> = {
   on_tampon:         'Ön Tampon',
-  on_kaput:          'Ön Kaput',
+  on_kaput:          'Motor Kaputu',
   sol_on_camurluk:   'Sol Ön Çamurluk',
   sag_on_camurluk:   'Sağ Ön Çamurluk',
   tavan:             'Tavan',
@@ -32,94 +32,65 @@ function panelState(id: string, painted: string[], changed: string[]): PanelStat
 }
 
 const FILL: Record<PanelState, string> = {
-  original: '#e2e8f0',
-  painted:  '#fbbf24',
-  changed:  '#f87171',
+  original: '#eef2f7',
+  painted:  '#2563eb',
+  changed:  '#ef4444',
 };
 const STROKE: Record<PanelState, string> = {
-  original: '#94a3b8',
-  painted:  '#d97706',
+  original: '#cbd5e1',
+  painted:  '#1d4ed8',
   changed:  '#dc2626',
 };
-const HOVER_FILL: Record<PanelState, string> = {
-  original: '#dbeafe',
-  painted:  '#fde68a',
-  changed:  '#fecaca',
-};
 
-// Üstten görünüm; paneller gerçek otomobil oranlarına yakın ayrı bölgeler olarak çizilir.
-const PANELS: Array<{ id: string; d: string; lx: number; ly: number }> = [
-  {
-    id: 'on_tampon',
-    d: 'M78,20 Q110,5 142,20 L160,34 L154,50 L66,50 L60,34 Z',
-    lx: 110, ly: 33,
-  },
-  {
-    id: 'on_kaput',
-    d: 'M74,50 L146,50 L151,124 L69,124 Z',
-    lx: 110, ly: 88,
-  },
-  {
-    id: 'sol_on_camurluk',
-    d: 'M66,50 L74,50 L69,124 L56,138 Q46,111 48,78 Q50,60 66,50 Z',
-    lx: 58, ly: 91,
-  },
-  {
-    id: 'sag_on_camurluk',
-    d: 'M146,50 L154,50 Q170,60 172,78 Q174,111 164,138 L151,124 Z',
-    lx: 162, ly: 91,
-  },
-  {
-    id: 'tavan',
-    d: 'M76,136 Q110,120 144,136 L147,260 Q110,278 73,260 Z',
-    lx: 110, ly: 205,
-  },
-  {
-    id: 'sol_on_kapi',
-    d: 'M56,132 L76,136 L75,196 L50,196 L50,154 Z',
-    lx: 62, ly: 166,
-  },
-  {
-    id: 'sag_on_kapi',
-    d: 'M144,136 L164,132 L170,154 L170,196 L145,196 Z',
-    lx: 158, ly: 166,
-  },
-  {
-    id: 'sol_arka_kapi',
-    d: 'M50,196 L75,196 L73,260 L54,266 L50,242 Z',
-    lx: 62, ly: 229,
-  },
-  {
-    id: 'sag_arka_kapi',
-    d: 'M145,196 L170,196 L170,242 L166,266 L147,260 Z',
-    lx: 158, ly: 229,
-  },
-  {
-    id: 'sol_arka_camurluk',
-    d: 'M54,266 L73,260 L69,350 L62,350 Q48,330 48,294 Z',
-    lx: 59, ly: 307,
-  },
-  {
-    id: 'sag_arka_camurluk',
-    d: 'M147,260 L166,266 L172,294 Q172,330 158,350 L151,350 Z',
-    lx: 161, ly: 307,
-  },
-  {
-    id: 'bagaj',
-    d: 'M73,260 Q110,278 147,260 L151,350 L69,350 Z',
-    lx: 110, ly: 313,
-  },
-  {
-    id: 'arka_tampon',
-    d: 'M69,350 L151,350 L158,366 Q110,390 62,366 Z',
-    lx: 110, ly: 368,
-  },
+/** Üstten görünüm. Paneller aralarında boşluk kalacak şekilde ayrı çizilir. */
+type Panel = { id: string; x: number; y: number; w: number; h: number; rx: number };
+
+const PANELS: Panel[] = [
+  { id: 'on_tampon',         x: 68,  y: 14,  w: 104, h: 26, rx: 12 },
+  { id: 'sol_on_camurluk',   x: 46,  y: 46,  w: 22,  h: 72, rx: 9  },
+  { id: 'on_kaput',          x: 72,  y: 46,  w: 96,  h: 72, rx: 10 },
+  { id: 'sag_on_camurluk',   x: 172, y: 46,  w: 22,  h: 72, rx: 9  },
+
+  { id: 'sol_on_kapi',       x: 46,  y: 124, w: 26,  h: 78, rx: 8  },
+  { id: 'tavan',             x: 76,  y: 124, w: 88,  h: 156, rx: 14 },
+  { id: 'sag_on_kapi',       x: 168, y: 124, w: 26,  h: 78, rx: 8  },
+
+  { id: 'sol_arka_kapi',     x: 46,  y: 206, w: 26,  h: 74, rx: 8  },
+  { id: 'sag_arka_kapi',     x: 168, y: 206, w: 26,  h: 74, rx: 8  },
+
+  { id: 'sol_arka_camurluk', x: 46,  y: 286, w: 22,  h: 72, rx: 9  },
+  { id: 'bagaj',             x: 72,  y: 286, w: 96,  h: 72, rx: 10 },
+  { id: 'sag_arka_camurluk', x: 172, y: 286, w: 22,  h: 72, rx: 9  },
+
+  { id: 'arka_tampon',       x: 68,  y: 364, w: 104, h: 26, rx: 12 },
 ];
 
-const WHEELS: Array<{ x: number; y: number }> = [
-  { x: 33, y: 72 }, { x: 171, y: 72 },
-  { x: 33, y: 282 }, { x: 171, y: 282 },
+const WHEELS = [
+  { cx: 30, cy: 92 }, { cx: 210, cy: 92 },
+  { cx: 30, cy: 322 }, { cx: 210, cy: 322 },
 ];
+
+function PartList({ title, color, parts }: { title: string; color: 'blue' | 'red'; parts: string[] }) {
+  if (parts.length === 0) return null;
+  const swatch = color === 'blue' ? 'bg-blue-600' : 'bg-red-500';
+  return (
+    <div>
+      <p className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
+        <span className={`inline-block h-3 w-3 rounded-sm ${swatch}`} />
+        {title}
+        <span className="text-xs font-semibold text-slate-400">({parts.length})</span>
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {parts.map((part) => (
+          <li key={part} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <span className="text-slate-300 dark:text-slate-600">•</span>
+            {PANEL_LABELS[part] ?? part}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaintedChange, onChangedChange }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
@@ -127,152 +98,99 @@ export default function VehicleBodyDiagram({ paintedParts, changedParts, onPaint
 
   function handleClick(id: string) {
     if (!editable) return;
-    const s = panelState(id, paintedParts, changedParts);
-    if (s === 'original') {
+    const state = panelState(id, paintedParts, changedParts);
+    if (state === 'original') {
       onPaintedChange!([...paintedParts, id]);
-    } else if (s === 'painted') {
-      onPaintedChange!(paintedParts.filter(p => p !== id));
+    } else if (state === 'painted') {
+      onPaintedChange!(paintedParts.filter((part) => part !== id));
       onChangedChange!([...changedParts, id]);
     } else {
-      onChangedChange!(changedParts.filter(p => p !== id));
+      onChangedChange!(changedParts.filter((part) => part !== id));
     }
   }
 
   const affected = paintedParts.length > 0 || changedParts.length > 0;
 
   return (
-    <div className="space-y-3">
-      {editable && (
-        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-          <span>Parçaya tıklayarak işaretle:</span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-amber-400 border border-amber-500" />
-            Boyalı
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-red-400 border border-red-500" />
-            Değişen
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-slate-200 border border-slate-400" />
-            Orijinal
-          </span>
-        </div>
-      )}
-
-      <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-        {/* SVG schematic */}
-        <div className="flex-shrink-0">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+        <div className="mx-auto shrink-0 sm:mx-0">
           <svg
-            viewBox="0 0 220 400"
+            viewBox="0 0 240 404"
             xmlns="http://www.w3.org/2000/svg"
-            className="h-auto w-44 sm:w-52"
+            className="h-auto w-48 sm:w-56"
             style={{ cursor: editable ? 'pointer' : 'default' }}
+            role="img"
+            aria-label="Araç kaporta şeması"
           >
-            {/* Direction labels */}
-            <text x="110" y="10" textAnchor="middle" fontSize="7" fill="#94a3b8" fontWeight="700" letterSpacing="1.2">ÖN</text>
-            <text x="110" y="397" textAnchor="middle" fontSize="7" fill="#94a3b8" fontWeight="700" letterSpacing="1.2">ARKA</text>
+            <text x="120" y="9" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="700" letterSpacing="1.5">ÖN</text>
 
-            {/* Tekerlekler */}
-            {WHEELS.map((w, i) => (
-              <rect key={i} x={w.x} y={w.y} width="16" height="54" rx="6" fill="#1e293b" />
+            {WHEELS.map((wheel, index) => (
+              <circle key={index} cx={wheel.cx} cy={wheel.cy} r="15" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
             ))}
 
-            <path
-              d="M78,18 Q110,2 142,18 Q168,27 174,70 L174,320 Q170,360 150,378 Q110,396 70,378 Q50,360 46,320 L46,70 Q52,27 78,18 Z"
-              fill="#f8fafc"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-
-            {/* Panels */}
-            {PANELS.map(({ id, d, lx, ly }) => {
-              const s = panelState(id, paintedParts, changedParts);
-              const isHov = hovered === id;
+            {PANELS.map(({ id, x, y, w, h, rx }) => {
+              const state = panelState(id, paintedParts, changedParts);
+              const isHovered = hovered === id;
               return (
-                <g key={id} onClick={() => handleClick(id)} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)}>
-                  <path
-                    d={d}
-                    fill={isHov && editable ? HOVER_FILL[s] : FILL[s]}
-                    stroke={STROKE[s]}
-                    strokeWidth="0.75"
-                    style={{ transition: 'fill 0.1s' }}
-                  />
-                  {s !== 'original' && (
-                    <text x={lx} y={ly} textAnchor="middle" fontSize="5" fill={s === 'changed' ? '#7f1d1d' : '#78350f'} pointerEvents="none" fontWeight="600">
-                      {s === 'painted' ? 'B' : 'D'}
-                    </text>
-                  )}
-                </g>
+                <rect
+                  key={id}
+                  x={x}
+                  y={y}
+                  width={w}
+                  height={h}
+                  rx={rx}
+                  fill={FILL[state]}
+                  stroke={STROKE[state]}
+                  strokeWidth="1.5"
+                  opacity={isHovered && editable ? 0.75 : 1}
+                  onClick={() => handleClick(id)}
+                  onMouseEnter={() => setHovered(id)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{ transition: 'fill 120ms ease, opacity 120ms ease' }}
+                >
+                  <title>{PANEL_LABELS[id]}</title>
+                </rect>
               );
             })}
 
-            {/* Camlar ve kabin çizgileri */}
-            <path d="M78,136 Q110,123 142,136 L139,158 L81,158 Z" fill="#bfdbfe" stroke="#60a5fa" strokeWidth="1" pointerEvents="none" />
-            <path d="M81,164 L139,164 L141,232 L79,232 Z" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1" pointerEvents="none" />
-            <path d="M79,238 L141,238 L145,258 Q110,271 75,258 Z" fill="#bfdbfe" stroke="#60a5fa" strokeWidth="1" pointerEvents="none" />
-            <line x1="110" y1="164" x2="110" y2="232" stroke="#93c5fd" strokeWidth="1" pointerEvents="none" />
-            <path d="M51,151 L43,144 L42,158 L50,164 Z M169,151 L177,144 L178,158 L170,164 Z" fill="#64748b" pointerEvents="none" />
+            {/* Ön ve arka cam çizgileri — panel değil, yön belli olsun diye */}
+            <rect x="84" y="128" width="72" height="20" rx="6" fill="#ffffff" opacity="0.55" pointerEvents="none" />
+            <rect x="84" y="256" width="72" height="20" rx="6" fill="#ffffff" opacity="0.55" pointerEvents="none" />
 
-            {/* Hover tooltip panel name */}
-            {hovered && editable && (
-              <g>
-                <rect x="8" y="2" width="204" height="13" rx="3" fill="rgba(15,23,42,0.82)" />
-                <text x="110" y="11" textAnchor="middle" fontSize="6.5" fill="white" fontWeight="600">
-                  {PANEL_LABELS[hovered]}: {panelState(hovered, paintedParts, changedParts) === 'original' ? 'Orijinal → Boyalı' : panelState(hovered, paintedParts, changedParts) === 'painted' ? 'Boyalı → Değişen' : 'Değişen → Orijinal'}
-                </text>
-              </g>
-            )}
+            <text x="120" y="400" textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="700" letterSpacing="1.5">ARKA</text>
           </svg>
+
+          {editable && (
+            <p className="mt-2 max-w-56 text-center text-[11px] leading-4 text-slate-400">
+              Parçaya tıkla: orijinal → boyalı → değişen
+            </p>
+          )}
         </div>
 
-        {/* Affected parts summary */}
-        <div className="flex-1 min-w-0 pt-1">
+        <div className="min-w-0 flex-1 space-y-4">
           {affected ? (
-            <div className="space-y-2">
-              {changedParts.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 mb-1">
-                    Değişen parçalar ({changedParts.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {changedParts.map(p => (
-                      <span key={p} className="text-[11px] px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/50">
-                        {PANEL_LABELS[p]}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {paintedParts.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">
-                    Boyalı parçalar ({paintedParts.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {paintedParts.map(p => (
-                      <span key={p} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
-                        {PANEL_LABELS[p]}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <>
+              <PartList title="Boyalı" color="blue" parts={paintedParts} />
+              <PartList title="Değişen" color="red" parts={changedParts} />
               {editable && (
                 <button
                   type="button"
                   onClick={() => { onPaintedChange!([]); onChangedChange!([]); }}
-                  className="text-[11px] text-slate-400 hover:text-red-500 dark:hover:text-red-400 mt-1"
+                  className="text-xs font-semibold text-slate-400 transition-colors hover:text-red-500"
                 >
                   Tümünü sıfırla
                 </button>
               )}
-            </div>
+            </>
           ) : (
-            <div className="text-xs text-slate-400 dark:text-slate-500 pt-2 leading-relaxed">
-              {editable
-                ? 'Boyalı veya değiştirilen parça varsa sol şemada ilgili bölgeye tıklayın.\nB = Boya yapılmış, D = Panel değiştirilmiş'
-                : 'Boya veya değişen parça bilgisi girilmemiş.'}
+            <div className="rounded-lg bg-emerald-50 px-4 py-3 dark:bg-emerald-900/20">
+              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Tamamı orijinal</p>
+              <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">
+                {editable
+                  ? 'Boyalı veya değişen parça varsa şemadan işaretle.'
+                  : 'Satıcı boyalı veya değişen parça bildirmedi.'}
+              </p>
             </div>
           )}
         </div>

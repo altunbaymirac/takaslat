@@ -22,7 +22,6 @@ export default function TermsModal() {
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
           <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">⚖️</span>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Kullanım Koşulları & Yasal Uyarı
             </h2>
@@ -40,7 +39,7 @@ export default function TermsModal() {
           <section>
             <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">1. Platform Hakkında</h3>
             <p>
-              Takaslat, kullanıcıların araç, elektronik, gayrimenkul ve diğer varlıklarını birbiriyle takas etmesini
+              Takaslat, kullanıcıların araç ve gayrimenkul ilanları üzerinden takas görüşmesi yapmasını
               kolaylaştıran bir aracı platformdur. Takaslat, yapılan hiçbir takas işleminin tarafı değildir;
               alıcı ve satıcı/takas eden taraflar arasındaki sözleşmenin tarafları yalnızca ilgili kullanıcılardır.
             </p>
@@ -48,7 +47,7 @@ export default function TermsModal() {
 
           <section>
             <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">
-              2. ⚠️ Vergi ve Yasal Yükümlülükler
+              2. Vergi ve Yasal Yükümlülükler
             </h3>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 space-y-2">
               <p className="font-semibold text-amber-800 dark:text-amber-300">
@@ -94,7 +93,7 @@ export default function TermsModal() {
             <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">5. Gizlilik</h3>
             <p>
               Kişisel verileriniz Türk Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında
-              işlenmektedir. Verileriniz üçüncü şahıslarla satılmaz veya paylaşılmaz.
+              işlenmektedir. Verileriniz satılmaz. Analitik ve reklam hizmetleri yalnızca ayrı çerez izni verilirse etkinleştirilir.
             </p>
           </section>
 

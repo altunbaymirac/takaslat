@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
-import type { Listing } from '../types';
 import type {
   Category, FuelType, TransmissionType, Condition,
   ElectronicType, ElectronicDetails, WarrantyStatus,
@@ -12,11 +11,14 @@ import type {
 import { aiDescribe, aiEstimateValue, aiListingQuality, aiVisualDescription, aiErrorMessage, uploadFile, uploadImages } from '../services/api';
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
+import { getDistrictsForCity } from '../data/districts';
 import { VEHICLE_GROUPS } from '../data/vehicleTypes';
 import { VEHICLE_COLORS } from '../data/vehicleModels';
 import { ELECTRONIC_BRANDS, getBrandsForVehicleGroup } from '../data/brands';
 import { getModelsFromDB, getTrimsFromDB } from '../data/vehicleDatabase';
 import { describeVehicleModelDefaults, getVehicleModelDefaults } from '../data/vehicleModelDefaults';
+import { MAX_LISTING_VALUE, MIN_LISTING_VALUE, validateListingValue } from '../lib/listingValidation';
+import { trackProductEvent } from '../lib/analytics';
 import BrandPicker from '../components/BrandPicker';
 import VehicleBodyDiagram from '../components/VehicleBodyDiagram';
 
@@ -39,6 +41,7 @@ interface FormData {
   description: string;
   wantedFor: string;
   city: string;
+  district: string;
   condition: Condition;
 
   // Araç: temel
@@ -103,7 +106,14 @@ export default function CreateListing() {
   useSEO({ title: 'İlan Ver', description: 'Aracını Takaslat\'ta ücretsiz ilan ver, binlerce kullanıcıya ulaş.' });
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromAuction = searchParams.get('mezat') === '1';
   const { addListing, currentUser } = useAppStore();
+
+  // Girişten sonra forma dönüldüğünde taslağı geri yükleyebilmek için işaret bırak.
+  function rememberDraftResume() {
+    try { localStorage.setItem('takaslat-resume-after-login', '1'); } catch { /* depolama kapalı olabilir */ }
+  }
   const [vehicleGroup, setVehicleGroup] = useState('');
   const [catalogHint, setCatalogHint] = useState('');
   const [step, setStep] = useState(1);
@@ -126,6 +136,7 @@ export default function CreateListing() {
     description: '',
     wantedFor: '',
     city: 'İstanbul',
+    district: '',
     condition: 'İyi',
     brand: '',
     model: '',
@@ -176,16 +187,12 @@ export default function CreateListing() {
     attachments: [],
   });
 
-  // Giriş yoksa hemen login'e yönlendir (son adımda değil)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!currentUser) {
-        try { localStorage.setItem('takaslat-resume-after-login', '1'); } catch { /* */ }
-        navigate('/login?redirect=/create');
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [currentUser, navigate]);
+    const key = 'takaslat-listing-started';
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    trackProductEvent('listing_started');
+  }, []);
 
   useEffect(() => {
     // Sayfa ilk açıldığında: taslak var mı kontrol et
@@ -198,7 +205,7 @@ export default function CreateListing() {
         if (resuming && currentUser) {
           localStorage.removeItem('takaslat-resume-after-login');
           queueMicrotask(() => {
-            setForm(draft);
+            setForm((current) => ({ ...current, ...draft, district: draft.district ?? '' }));
             if (draft.bodyType) {
               const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(draft.bodyType))?.[0];
               if (grp) setVehicleGroup(grp);
@@ -221,7 +228,7 @@ export default function CreateListing() {
       const raw = localStorage.getItem('takaslat-draft');
       if (raw) {
         const draft = JSON.parse(raw);
-        setForm(draft);
+        setForm((current) => ({ ...current, ...draft, district: draft.district ?? '' }));
         if (draft.bodyType) {
           const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(draft.bodyType))?.[0];
           if (grp) setVehicleGroup(grp);
@@ -236,54 +243,6 @@ export default function CreateListing() {
     setHasDraft(false);
   }
 
-  // ── İlan çoğaltma: localStorage'tan kopyalanmış ilanı oku
-  useEffect(() => {
-    const dup = localStorage.getItem('takaslat-duplicate');
-    if (!dup) return;
-    try {
-      const src = JSON.parse(dup) as Listing;
-      queueMicrotask(() => {
-        setForm((f) => ({
-          ...f,
-          category:       src.category,
-          condition:      src.condition,
-          city:           src.city,
-          estimatedValue: src.estimatedValue.toString(),
-          description:    src.description,
-          wantedFor:      src.wantedFor,
-          title:          src.title + ' (Kopya)',
-          brand:        src.vehicleDetails?.brand        ?? f.brand,
-          model:        src.vehicleDetails?.model        ?? f.model,
-          year:         src.vehicleDetails?.year ? src.vehicleDetails.year.toString() : f.year,
-          km:           src.vehicleDetails?.km ? src.vehicleDetails.km.toString() : f.km,
-          fuel:         src.vehicleDetails?.fuel         ?? f.fuel,
-          transmission: src.vehicleDetails?.transmission ?? f.transmission,
-          color:        src.vehicleDetails?.color        ?? f.color,
-          bodyType:     src.vehicleDetails?.bodyType     ?? f.bodyType,
-          hasAccidentRecord: src.vehicleDetails?.hasAccidentRecord ?? f.hasAccidentRecord,
-          hasExpertise:  src.vehicleDetails?.hasExpertise  ?? f.hasExpertise,
-          expertiseFirm: src.vehicleDetails?.expertiseFirm ?? f.expertiseFirm,
-          expertiseDate: src.vehicleDetails?.expertiseDate ?? f.expertiseDate,
-          expertiseNote: src.vehicleDetails?.expertiseNote ?? f.expertiseNote,
-          elecType:  (src.electronicDetails?.type as typeof f.elecType) ?? f.elecType,
-          elecBrand: src.electronicDetails?.brand   ?? f.elecBrand,
-          elecModel: src.electronicDetails?.model   ?? f.elecModel,
-          storage:   src.electronicDetails?.storage ?? f.storage,
-          ram:       src.electronicDetails?.ram     ?? f.ram,
-          warranty:  (src.electronicDetails?.warranty as typeof f.warranty) ?? f.warranty,
-          propType:  (src.propertyDetails?.type as typeof f.propType) ?? f.propType,
-          netSqm:    src.propertyDetails?.netSqm ? src.propertyDetails.netSqm.toString() : f.netSqm,
-          rooms:     src.propertyDetails?.rooms ?? f.rooms,
-        }));
-        if (src.vehicleDetails?.bodyType) {
-          const grp = Object.entries(VEHICLE_GROUPS).find(([, types]) => types.includes(src.vehicleDetails!.bodyType!))?.[0];
-          if (grp) setVehicleGroup(grp);
-        }
-      });
-      localStorage.removeItem('takaslat-duplicate');
-      showToast('Önceki ilan kopyalandı, alanları gözden geçir', 'info');
-    } catch { /* malformed */ }
-  }, []);
 
 
   async function handleAiDescribe() {
@@ -371,6 +330,7 @@ export default function CreateListing() {
           description: form.description,
           wantedFor: form.wantedFor,
           city: form.city,
+          district: form.district,
           condition: form.condition,
           images: form.previewImages,
           attachments: form.attachments,
@@ -423,6 +383,9 @@ export default function CreateListing() {
       ? form.propType === 'Arsa' ? 'Arsa' : 'Ev'
       : 'Araç';
   const isLandListing = listingKind === 'Arsa';
+  const districtOptions = getDistrictsForCity(form.city);
+  const expertiseAttachments = form.attachments.filter((file) => file.kind === 'expertise');
+  const documentAttachments = form.attachments.filter((file) => file.kind !== 'expertise');
 
   function selectListingKind(kind: ListingKind) {
     setForm((current) => ({
@@ -494,18 +457,6 @@ export default function CreateListing() {
         ...permanentUrls,
       ].slice(0, 5));
 
-      // Ek olarak attachment listesine de ekle
-      const attachments = files.map((f, i): ListingAttachment => ({
-        id:        `img-${Date.now()}-${i}`,
-        name:      f.name,
-        url:       permanentUrls[i] ?? URL.createObjectURL(f),
-        mimeType:  f.type,
-        kind:      'image',
-        size:      f.size,
-        createdAt: new Date().toISOString(),
-      }));
-      update('attachments', [...form.attachments, ...attachments]);
-
       // AI görsel analizi (ilk fotoğraf)
       if (files[0]) {
         const note = await aiVisualDescription({ fileName: files[0].name, mimeType: files[0].type, size: files[0].size });
@@ -525,7 +476,7 @@ export default function CreateListing() {
     if (!files.length) return;
     setUploading(true);
     try {
-      const uploaded = await Promise.all(files.map((file) => uploadFile(file, file.type === 'application/pdf' ? 'expertise' : 'document')));
+      const uploaded = await Promise.all(files.map((file) => uploadFile(file, 'document')));
       update('attachments', [...form.attachments, ...uploaded]);
       const first = uploaded[0];
       if (first) {
@@ -537,6 +488,28 @@ export default function CreateListing() {
       showToast('Belge yüklenemedi', 'error');
     } finally {
       setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleExpertiseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const availableSlots = Math.max(0, 6 - expertiseAttachments.length);
+    const files = Array.from(e.target.files ?? []).slice(0, availableSlots);
+    if (!files.length) {
+      if (availableSlots === 0) showToast('En fazla 6 ekspertiz dosyası ekleyebilirsin', 'error');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(files.map((file) => uploadFile(file, 'expertise')));
+      update('attachments', [...form.attachments, ...uploaded]);
+      showToast('Ekspertiz dosyaları yüklendi', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Ekspertiz dosyaları yüklenemedi', 'error');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -554,16 +527,17 @@ export default function CreateListing() {
       else if (form.category === 'Elektronik') autoTitle = `${form.elecBrand} ${form.elecModel}${form.storage ? ` ${form.storage}` : ''}`;
       else if (form.category === 'Gayrimenkul') {
         autoTitle = isLandListing
-          ? `${form.city} ${form.netSqm ? `${form.netSqm}m² ` : ''}Arsa`
-          : `${form.city} ${form.netSqm ? `${form.netSqm}m² ` : ''}${form.rooms ? `${form.rooms} ` : ''}${form.propType}`;
+          ? `${form.city} ${form.district} ${form.netSqm ? `${form.netSqm}m² ` : ''}Arsa`
+          : `${form.city} ${form.district} ${form.netSqm ? `${form.netSqm}m² ` : ''}${form.rooms ? `${form.rooms} ` : ''}${form.propType}`;
       }
       else                                 autoTitle = 'Takas İlanı';
     }
     autoTitle = autoTitle.trim().replace(/\s+/g, ' ');
 
     const estimatedValue = Number(form.estimatedValue);
-    if (!Number.isFinite(estimatedValue) || estimatedValue <= 0) {
-      showToast('Geçerli bir tahmini değer gir', 'error');
+    const valueError = validateListingValue(estimatedValue);
+    if (valueError) {
+      showToast(valueError, 'error');
       return;
     }
     if (autoTitle.length < 5 || !/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(autoTitle)) {
@@ -626,6 +600,7 @@ export default function CreateListing() {
       description:    form.description,
       wantedFor:      form.wantedFor,
       city:           form.city,
+      district:       form.district,
       condition:      form.condition,
       images: form.previewImages,
       tags: tags.filter(Boolean),
@@ -656,11 +631,55 @@ export default function CreateListing() {
       attachments: form.attachments,
       });
       localStorage.removeItem('takaslat-draft');
+      if (fromAuction) {
+        showToast('İlanın yayınlandı, şimdi mezat başvurusunu tamamla', 'success');
+        navigate('/auctions?basvuru=1');
+        return;
+      }
       setSubmitted(true);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'İlan kaydedilemedi', 'error');
     }
   };
+
+  if (!currentUser) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <h2 className="mb-2 text-xl font-bold text-slate-900 dark:text-slate-100">İlan vermek için giriş yap</h2>
+        <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+          İlan yayınlamak ücretsiz. Hesabın yoksa bir dakikada oluşturabilirsin.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <Link
+            to="/login?redirect=/create"
+            onClick={rememberDraftResume}
+            className="btn-primary rounded-md px-6 py-3 text-sm font-bold"
+          >
+            Giriş yap
+          </Link>
+          <Link
+            to="/register?redirect=/create"
+            onClick={rememberDraftResume}
+            className="rounded-md border border-slate-300 px-6 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Kayıt ol
+          </Link>
+        </div>
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/listings'))}
+          className="mt-6 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-800 dark:hover:text-slate-200"
+        >
+          ← Geri dön
+        </button>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -1059,6 +1078,56 @@ export default function CreateListing() {
                               className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
+                          <div className="col-span-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                            <div className="mb-2">
+                              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Ekspertiz raporu</p>
+                              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">İsteğe bağlı olarak PDF veya rapor fotoğrafları ekleyebilirsin.</p>
+                            </div>
+                            <label className="block cursor-pointer">
+                              <div className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition-colors hover:border-blue-500 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V4.5m0 0L7.5 9M12 4.5 16.5 9M4.5 15.75v2.25A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5v-2.25" />
+                                </svg>
+                                PDF veya fotoğraf ekle
+                              </div>
+                              <input
+                                type="file"
+                                aria-label="Ekspertiz raporu yükle"
+                                accept="application/pdf,image/jpeg,image/png,image/webp"
+                                multiple
+                                disabled={uploading || expertiseAttachments.length >= 6}
+                                onChange={handleExpertiseUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            {expertiseAttachments.length > 0 && (
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                {expertiseAttachments.map((file) => (
+                                  <div key={file.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+                                    {file.mimeType.startsWith('image/') && file.url ? (
+                                      <img src={file.url} alt="" className="h-11 w-11 shrink-0 rounded-md object-cover" />
+                                    ) : (
+                                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">PDF</span>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{file.name}</p>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">{Math.round(file.size / 1024)} KB</p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      aria-label={`${file.name} dosyasını kaldır`}
+                                      onClick={() => update('attachments', form.attachments.filter((item) => item.id !== file.id))}
+                                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1325,15 +1394,30 @@ export default function CreateListing() {
               </>
             )}
 
-            <div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Şehir</label>
                 <select
+                  aria-label="Şehir"
                   value={form.city}
-                  onChange={(e) => update('city', e.target.value)}
+                  onChange={(e) => setForm((current) => ({ ...current, city: e.target.value, district: '' }))}
                   className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {CITIES_81.map((c) => <option key={c}>{c}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">İlçe</label>
+                <select
+                  aria-label="İlçe"
+                  value={form.district}
+                  onChange={(e) => update('district', e.target.value)}
+                  className="w-full text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">İlçe seç</option>
+                  {districtOptions.map((district) => <option key={district} value={district}>{district}</option>)}
+                </select>
+              </div>
             </div>
 
             <button
@@ -1342,7 +1426,8 @@ export default function CreateListing() {
               disabled={
                 (form.category === 'Araç'        && (!vehicleGroup || !form.brand || !form.model || !form.km)) ||
                 (form.category === 'Elektronik'  && (!form.elecBrand || !form.elecModel))                      ||
-                (form.category === 'Gayrimenkul' && !form.netSqm)
+                (form.category === 'Gayrimenkul' && !form.netSqm)                                             ||
+                !form.district
               }
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
             >
@@ -1395,6 +1480,9 @@ export default function CreateListing() {
                 <input
                   required
                   type="number"
+                  min={MIN_LISTING_VALUE}
+                  max={MAX_LISTING_VALUE}
+                  step="1000"
                   placeholder="850000"
                   value={form.estimatedValue}
                   onChange={(e) => update('estimatedValue', e.target.value)}
@@ -1406,6 +1494,7 @@ export default function CreateListing() {
                   ≈ {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(Number(form.estimatedValue))}
                 </p>
               )}
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Minimum ilan değeri ₺1.000</p>
               {valueHint && (
                 <div className="mt-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
                   <p className="font-semibold text-emerald-800 mb-0.5">AI Değer Aralığı ({valueHint.basedOn} ilan)</p>
@@ -1584,12 +1673,12 @@ export default function CreateListing() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
-                Ekspertiz / Belge Eki
+                Diğer Belgeler (opsiyonel)
               </label>
               <label className="block cursor-pointer">
                 <div className="border border-slate-200 dark:border-slate-700 hover:border-amber-400 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/60 transition-colors">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">PDF veya belge görseli ekle</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Ekspertiz raporu, fatura ve servis kaydı gibi dosyalar ilana güven katar.</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Belge ekle</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Fatura, servis kaydı veya ruhsat dışı destekleyici belgeler ekleyebilirsin.</p>
                 </div>
                 <input
                   type="file"
@@ -1599,9 +1688,9 @@ export default function CreateListing() {
                   className="hidden"
                 />
               </label>
-              {form.attachments.length > 0 && (
+              {documentAttachments.length > 0 && (
                 <div className="mt-3 space-y-2">
-                  {form.attachments.map((file) => (
+                  {documentAttachments.map((file) => (
                     <div key={file.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{file.name}</p>
@@ -1628,7 +1717,7 @@ export default function CreateListing() {
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
               <h4 className="font-medium text-blue-800 text-sm mb-2">İlan Özeti</h4>
               <div className="text-sm text-blue-700 space-y-1">
-                <p>Konum: {form.city}</p>
+                <p>Konum: {form.city}{form.district ? ` / ${form.district}` : ''}</p>
                 {form.category === 'Araç' && form.brand && (
                   <p>Araç: {form.year} {form.brand} {form.model}, {Number(form.km).toLocaleString('tr-TR')} km</p>
                 )}
@@ -1660,7 +1749,7 @@ export default function CreateListing() {
               <button
                 type="submit"
                 disabled={form.wantedFor.trim().length < 20}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
+                className="btn-primary flex-1 font-semibold py-3 rounded-xl"
               >
                 İlanı Yayınla
               </button>

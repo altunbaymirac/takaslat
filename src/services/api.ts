@@ -1,13 +1,14 @@
 /**
  * API Service Layer
  *
- * Uygulama varsayılan olarak gerçek Supabase projesini kullanır.
- * Mock veri yalnızca testlerde veya VITE_USE_MOCK=true ile açıkça etkinleştirilir.
+ * Uygulama her ortamda gerçek Supabase projesini kullanır; mock veri katmanı yoktur.
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { mockListings, mockOffers } from '../data/mockListings'
-import type { LiveAuction, Listing, ListingAttachment, ListingVerification, Notification, SwapOffer } from '../types'
+import type { LiveAuction, Listing, ListingAttachment, ListingQA, ListingReport, ListingVerification, Notification, SwapOffer } from '../types'
+import { validateListingDraft, validateListingValue } from '../lib/listingValidation'
+import { validateOfferDraft } from '../lib/offerValidation'
+import { trackProductEvent } from '../lib/analytics'
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
@@ -15,7 +16,6 @@ const PUBLIC_SUPABASE_URL = 'https://kozvhbepwboaxpksgqaj.supabase.co'
 const PUBLIC_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvenZoYmVwd2JvYXhwa3NncWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5ODg2ODIsImV4cCI6MjA5NTU2NDY4Mn0.qjZxNQxvtnbP_qaWISkS9osE9OMaiFPmWUZQRo3Podo'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || PUBLIC_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY
-export const USE_MOCK = import.meta.env.MODE === 'test' || import.meta.env.VITE_USE_MOCK === 'true'
 
 export const supabase = createClient(
   SUPABASE_URL,
@@ -30,13 +30,13 @@ export function getToken(): string | null {
 export function setToken(t: string) {
   localStorage.setItem('takaslat_token', t)
 }
-export function clearToken() {
+export function removeToken() {
   localStorage.removeItem('takaslat_token')
-  if (!USE_MOCK) supabase.auth.signOut()
 }
-
-const delay = (ms = 250) => new Promise(r => setTimeout(r, ms))
-const mockAuctions: LiveAuction[] = []
+export function clearToken() {
+  removeToken()
+  void supabase.auth.signOut()
+}
 
 // ─── DB row → Frontend tip dönüşümleri ───────────────────────────────────────
 
@@ -52,9 +52,12 @@ function dbToListing(row: any): Listing {
     description: row.description,
     wantedFor: row.wanted_for,
     city: row.city,
+    district: row.extra_details?.location?.district ?? undefined,
     images: Array.isArray(row.images) ? row.images : [],
     condition: row.condition,
     tags: Array.isArray(row.tags) ? row.tags : [],
+    isActive: row.is_active ?? true,
+    moderationStatus: row.moderation_status ?? undefined,
     viewCount: row.view_count ?? 0,
     createdAt: row.created_at,
     videoUrl: row.video_url ?? undefined,
@@ -133,11 +136,42 @@ function dbToOffer(row: any): SwapOffer {
   }
 }
 
+function attachmentsForStorage(attachments: ListingAttachment[] | undefined) {
+  return attachments?.map((attachment) => (
+    attachment.storagePath ? { ...attachment, url: '' } : attachment
+  )) ?? null
+}
+
+async function signPrivateAttachments(listings: Listing[]): Promise<Listing[]> {
+  const paths = [...new Set(
+    listings.flatMap((listing) => listing.attachments ?? [])
+      .map((attachment) => attachment.storagePath)
+      .filter((path): path is string => Boolean(path)),
+  )]
+  if (paths.length === 0) return listings
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return listings
+
+  const { data, error } = await supabase.storage.from('documents').createSignedUrls(paths, 15 * 60)
+  if (error || !data) return listings
+  const signedByPath = new Map(data.map((item) => [item.path, item.signedUrl]))
+
+  return listings.map((listing) => ({
+    ...listing,
+    attachments: listing.attachments?.map((attachment) => ({
+      ...attachment,
+      url: attachment.storagePath ? signedByPath.get(attachment.storagePath) ?? '' : attachment.url,
+    })),
+  }))
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dbToAuction(row: any): LiveAuction {
   return {
     id: row.id,
     listingId: row.listing_id,
+    ownerId: row.owner_id,
     title: row.title,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -196,10 +230,6 @@ const PROFILE_SELECT = 'id, name, city, avatar, rating, total_swaps, role, email
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function register(payload: { name: string; email: string; password: string; city?: string }) {
-  if (USE_MOCK) {
-    await delay(400)
-    return { user: { id: 'current-user', name: payload.name, email: payload.email }, token: 'mock-token' }
-  }
   const { data, error } = await supabase.auth.signUp({
     email: payload.email,
     password: payload.password,
@@ -214,6 +244,7 @@ export async function register(payload: { name: string; email: string; password:
 
   const token = data.session?.access_token ?? ''
   if (token) setToken(token)
+  trackProductEvent('sign_up', { method: 'email' })
   return { user: { id: data.user.id, name: payload.name, email: payload.email }, token }
 }
 
@@ -227,10 +258,6 @@ export async function signInWithGoogle() {
 
 export async function login(email: string, password: string, _twoFactorCode?: string) {
   void _twoFactorCode
-  if (USE_MOCK) {
-    await delay(300)
-    return { user: { id: 'current-user', name: 'Demo Kullanıcı' }, token: 'mock-token' }
-  }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw new Error(error.message)
   if (!data.user) throw new Error('Giris basarisiz')
@@ -257,7 +284,6 @@ export async function login(email: string, password: string, _twoFactorCode?: st
 }
 
 export async function getMe() {
-  if (USE_MOCK) return null
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: profile } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', user.id).single()
@@ -277,7 +303,6 @@ export async function getMe() {
 }
 
 export async function updateMe(patch: { name?: string; city?: string; avatar?: string; phone?: string }) {
-  if (USE_MOCK) return {}
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Oturum acik degil')
   const { error } = await supabase
@@ -295,7 +320,6 @@ export async function updateMe(patch: { name?: string; city?: string; avatar?: s
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string; devCode?: string }> {
-  if (USE_MOCK) return { message: 'Mock: e-posta gonderildi' }
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
   })
@@ -304,7 +328,6 @@ export async function forgotPassword(email: string): Promise<{ message: string; 
 }
 
 export async function resetPassword(_email: string, _code: string, password: string): Promise<{ message: string }> {
-  if (USE_MOCK) return { message: 'Mock: sifre sifirlandi' }
   const { error } = await supabase.auth.updateUser({ password })
   if (error) throw new Error(error.message)
   return { message: 'Sifre basariyla guncellendi' }
@@ -313,8 +336,36 @@ export async function resetPassword(_email: string, _code: string, password: str
 export async function setupTwoFactor(): Promise<{ message: string; devCode?: string }> { return { message: 'Mock' } }
 export async function verifyTwoFactor(_code: string): Promise<Record<string, unknown>> { void _code; return {} }
 export async function disableTwoFactor(): Promise<Record<string, unknown>> { return {} }
+/**
+ * Bildirim e-postası tercihi.
+ *
+ * Bilerek oturum akışından (PROFILE_SELECT) ayrı tutuluyor: sütun henüz
+ * migration ile eklenmemişken frontend deploy edilirse giriş kırılmasın diye.
+ * Sütun yoksa sessizce varsayılana (açık) düşer.
+ */
+export async function getEmailNotificationPref(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return true
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('email_notifications')
+    .eq('id', user.id)
+    .single()
+  if (error || !data) return true
+  return data.email_notifications ?? true
+}
+
+export async function setEmailNotificationPref(enabled: boolean): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Oturum acik degil')
+  const { error } = await supabase
+    .from('profiles')
+    .update({ email_notifications: enabled, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+  if (error) throw new Error(error.message)
+}
+
 export async function requestEmailVerification(): Promise<{ message: string }> {
-  if (USE_MOCK) return { message: 'Mock: doğrulama bağlantısı gönderildi' }
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user?.email) throw new Error('Kullanıcı bulunamadı')
   const { error } = await supabase.auth.resend({ type: 'signup', email: user.email })
@@ -353,23 +404,6 @@ export interface ListingPage {
 }
 
 export async function fetchListings(filters: ListingFilters = {}): Promise<Listing[]> {
-  if (USE_MOCK) {
-    await delay(200)
-    let r = [...mockListings]
-    if (filters.category && filters.category !== 'Tümü') r = r.filter(l => l.category === filters.category)
-    if (filters.city) r = r.filter(l => l.city === filters.city)
-    if (filters.minValue) r = r.filter(l => l.estimatedValue >= filters.minValue!)
-    if (filters.maxValue && filters.maxValue < 5_000_000) r = r.filter(l => l.estimatedValue <= filters.maxValue!)
-    if (filters.query) {
-      const q = filters.query.toLowerCase()
-      r = r.filter(l => `${l.title} ${l.vehicleDetails?.brand ?? ''} ${l.city}`.toLowerCase().includes(q))
-    }
-    if (filters.sort === 'price_asc')  r.sort((a, b) => a.estimatedValue - b.estimatedValue)
-    if (filters.sort === 'price_desc') r.sort((a, b) => b.estimatedValue - a.estimatedValue)
-    if (filters.sort === 'popular')    r.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
-    if (filters.sort === 'oldest')     r.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-    return r
-  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q: any = supabase.from('listings').select(LISTING_SELECT).eq('is_active', true)
@@ -406,17 +440,10 @@ export async function fetchListings(filters: ListingFilters = {}): Promise<Listi
 
   const { data, error } = await q
   if (error) throw new Error(error.message)
-  return (data ?? []).map(dbToListing)
+  return signPrivateAttachments((data ?? []).map(dbToListing))
 }
 
 export async function fetchListingPage(filters: ListingFilters = {}): Promise<ListingPage> {
-  if (USE_MOCK) {
-    const all = await fetchListings(filters)
-    const page  = filters.page  ?? 1
-    const limit = filters.limit ?? 12
-    const start = (page - 1) * limit
-    return { listings: all.slice(start, start + limit), total: all.length, page, limit, hasMore: start + limit < all.length }
-  }
   const page  = filters.page  ?? 1
   const limit = filters.limit ?? 12
   const from  = (page - 1) * limit
@@ -437,7 +464,7 @@ export async function fetchListingPage(filters: ListingFilters = {}): Promise<Li
   const { data, error, count } = await q
   if (error) throw new Error(error.message)
   const total = count ?? 0
-  return { listings: (data ?? []).map(dbToListing), total, page, limit, hasMore: from + limit < total }
+  return { listings: await signPrivateAttachments((data ?? []).map(dbToListing)), total, page, limit, hasMore: from + limit < total }
 }
 
 export interface PublicUser {
@@ -446,22 +473,19 @@ export interface PublicUser {
 }
 
 export async function fetchUserById(id: string): Promise<PublicUser | null> {
-  if (USE_MOCK) { await delay(100); return null }
   const { data } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', id).single()
   if (!data) return null
   return { id: data.id, name: data.name, city: data.city, avatar: data.avatar, rating: data.rating, totalSwaps: data.total_swaps, emailVerified: data.email_verified, phoneVerified: data.phone_verified, createdAt: data.created_at }
 }
 
 export async function fetchListingById(id: string): Promise<Listing | null> {
-  if (USE_MOCK) { await delay(100); return mockListings.find(l => l.id === id) ?? null }
   const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('id', id).single()
   if (!data) return null
   void supabase.rpc('increment_listing_view', { p_listing_id: id })
-  return dbToListing(data)
+  return (await signPrivateAttachments([dbToListing(data)]))[0] ?? null
 }
 
 export async function fetchListingVerification(listingId: string): Promise<ListingVerification | null> {
-  if (USE_MOCK) return null
   const { data, error } = await supabase
     .from('listing_verifications')
     .select('identity_state, ownership_state, vin_state, mileage_state, damage_state, expertise_state, updated_at')
@@ -481,19 +505,13 @@ export async function fetchListingVerification(listingId: string): Promise<Listi
 }
 
 export async function fetchListingByCode(code: string): Promise<Listing | null> {
-  if (USE_MOCK) { await delay(100); return mockListings.find(l => l.listingCode?.toUpperCase() === code.toUpperCase()) ?? null }
   const { data } = await supabase.from('listings').select(LISTING_SELECT).ilike('listing_code', code).single()
-  return data ? dbToListing(data) : null
+  return data ? (await signPrivateAttachments([dbToListing(data)]))[0] ?? null : null
 }
 
 export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Promise<Listing> {
-  if (USE_MOCK) {
-    await delay(400)
-    const num = Math.floor(Math.random() * 9_000_000) + 1_000_000
-    const l: Listing = { ...data, id: `lst-${Date.now()}`, listingCode: `TKS-${num}`, createdAt: new Date().toISOString() }
-    mockListings.unshift(l)
-    return l
-  }
+  const validationError = validateListingDraft(data)
+  if (validationError) throw new Error(validationError)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Oturum acik degil')
 
@@ -510,7 +528,7 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
     condition: data.condition,
     tags: data.tags,
     video_url: data.videoUrl ?? null,
-    attachments: data.attachments ?? null,
+    attachments: attachmentsForStorage(data.attachments),
     owner_id: user.id,
     brand:              data.vehicleDetails?.brand ?? null,
     model:              data.vehicleDetails?.model ?? null,
@@ -523,7 +541,8 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
     body_type:          data.vehicleDetails?.bodyType ?? null,
     engine_cc:          data.vehicleDetails?.engineCC ?? null,
     // Elektronik/Gayrimenkul detayları JSON olarak — dbToListing bunları okur
-    extra_details: (data.vehicleDetails || data.electronicDetails || data.propertyDetails) ? {
+    extra_details: (data.vehicleDetails || data.electronicDetails || data.propertyDetails || data.district) ? {
+      location: data.district ? { district: data.district } : null,
       vehicleDetails: data.vehicleDetails ? {
         hasExpertise: data.vehicleDetails.hasExpertise ?? null,
         expertiseFirm: data.vehicleDetails.expertiseFirm ?? null,
@@ -536,15 +555,15 @@ export async function createListing(data: Omit<Listing, 'id' | 'createdAt'>): Pr
   }
   const { data: inserted, error } = await supabase.from('listings').insert(row).select(LISTING_SELECT).single()
   if (error) throw new Error(error.message)
-  return dbToListing(inserted)
+  const listing = (await signPrivateAttachments([dbToListing(inserted)]))[0]
+  trackProductEvent('listing_published', { category: data.category, value: data.estimatedValue })
+  return listing
 }
 
 export async function updateListingApi(id: string, patch: Partial<Listing>): Promise<Listing> {
-  if (USE_MOCK) {
-    const current = mockListings.find((l) => l.id === id)
-    if (!current) throw new Error('İlan bulunamadi')
-    Object.assign(current, patch)
-    return current
+  if (patch.estimatedValue !== undefined) {
+    const valueError = validateListingValue(patch.estimatedValue)
+    if (valueError) throw new Error(valueError)
   }
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (patch.title)                     row.title = patch.title
@@ -567,16 +586,27 @@ export async function updateListingApi(id: string, patch: Partial<Listing>): Pro
     row.body_type           = patch.vehicleDetails.bodyType
     row.engine_cc           = patch.vehicleDetails.engineCC
   }
-  if (patch.vehicleDetails || patch.electronicDetails || patch.propertyDetails) {
+  if (patch.vehicleDetails || patch.electronicDetails || patch.propertyDetails || patch.district !== undefined) {
+    const { data: current } = await supabase
+      .from('listings')
+      .select('extra_details')
+      .eq('id', id)
+      .single()
+    const currentExtra = current?.extra_details ?? {}
     row.extra_details = {
+      ...currentExtra,
+      location: patch.district !== undefined
+        ? { ...(currentExtra.location ?? {}), district: patch.district || null }
+        : currentExtra.location ?? null,
       vehicleDetails: patch.vehicleDetails ? {
+        ...(currentExtra.vehicleDetails ?? {}),
         hasExpertise: patch.vehicleDetails.hasExpertise ?? null,
         expertiseFirm: patch.vehicleDetails.expertiseFirm ?? null,
         expertiseDate: patch.vehicleDetails.expertiseDate ?? null,
         expertiseNote: patch.vehicleDetails.expertiseNote ?? null,
-      } : null,
-      electronicDetails: patch.electronicDetails ?? null,
-      propertyDetails:   patch.propertyDetails ?? null,
+      } : currentExtra.vehicleDetails ?? null,
+      electronicDetails: patch.electronicDetails ?? currentExtra.electronicDetails ?? null,
+      propertyDetails:   patch.propertyDetails ?? currentExtra.propertyDetails ?? null,
     }
   }
   const { data, error } = await supabase.from('listings').update(row).eq('id', id).select(LISTING_SELECT).single()
@@ -585,33 +615,30 @@ export async function updateListingApi(id: string, patch: Partial<Listing>): Pro
 }
 
 export async function deleteListingApi(id: string): Promise<void> {
-  if (USE_MOCK) return
   const { error } = await supabase.from('listings').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 
 export async function uploadFile(file: File, kind: ListingAttachment['kind'] = 'document'): Promise<ListingAttachment> {
-  if (USE_MOCK) {
-    await delay(150)
-    return { id: `att-${Date.now()}-${file.name}`, name: file.name, url: URL.createObjectURL(file), mimeType: file.type, kind, size: file.size, createdAt: new Date().toISOString() }
-  }
   if (file.size > 10 * 1024 * 1024) throw new Error('Belge boyutu 10 MB sınırını aşıyor')
   const allowedTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
   if (!allowedTypes.has(file.type)) throw new Error('Yalnızca PDF, JPG, PNG veya WEBP yükleyebilirsin')
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Belge yüklemek için giriş yapmalısın')
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-  const path = `${user.id}/documents/${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage.from('images').upload(path, file, {
+  const path = `${user.id}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('documents').upload(path, file, {
     upsert: false,
     contentType: file.type,
   })
   if (error) throw new Error(error.message)
-  const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path)
+  const { data: signed, error: signError } = await supabase.storage.from('documents').createSignedUrl(path, 15 * 60)
+  if (signError) throw new Error(signError.message)
   return {
     id: crypto.randomUUID(),
     name: file.name,
-    url: publicUrl,
+    url: signed.signedUrl,
+    storagePath: path,
     mimeType: file.type,
     kind,
     size: file.size,
@@ -620,11 +647,14 @@ export async function uploadFile(file: File, kind: ListingAttachment['kind'] = '
 }
 
 export async function uploadImages(files: File[]): Promise<string[]> {
-  if (USE_MOCK) { await delay(200); return files.map((f) => URL.createObjectURL(f)) }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Görsel yüklemek için giriş yapmalısın')
   const urls: string[] = []
   for (const file of files) {
+    if (file.size > 8 * 1024 * 1024) throw new Error('Görsel boyutu 8 MB sınırını aşıyor')
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      throw new Error('Yalnızca JPG, PNG veya WEBP görsel yükleyebilirsin')
+    }
     const ext  = file.name.split('.').pop() ?? 'jpg'
     const path = `${user.id}/listings/${crypto.randomUUID()}.${ext}`
     const { error } = await supabase.storage.from('images').upload(path, file, { upsert: false })
@@ -638,10 +668,6 @@ export async function uploadImages(files: File[]): Promise<string[]> {
 // ─── Auctions ─────────────────────────────────────────────────────────────────
 
 export async function fetchAuctions(): Promise<LiveAuction[]> {
-  if (USE_MOCK) {
-    await delay(100)
-    return [...mockAuctions]
-  }
   await supabase.rpc('finalize_expired_auctions')
   const { data, error } = await supabase
     .from('auctions')
@@ -654,19 +680,6 @@ export async function fetchAuctions(): Promise<LiveAuction[]> {
 export async function createAuctionApi(
   auction: Omit<LiveAuction, 'id' | 'createdAt' | 'bids' | 'currentBid' | 'watcherCount'>,
 ): Promise<LiveAuction> {
-  if (USE_MOCK) {
-    await delay(150)
-    const created: LiveAuction = {
-      ...auction,
-      id: `auc-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      currentBid: auction.startingPrice,
-      bids: [],
-      watcherCount: 0,
-    }
-    mockAuctions.unshift(created)
-    return created
-  }
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Mezat başlatmak için giriş yapmalısın')
@@ -693,29 +706,8 @@ export async function createAuctionApi(
 export async function placeAuctionBidApi(
   auctionId: string,
   amount: number,
-  note: string | undefined,
-  mockBidder: { id: string; name: string },
+  note?: string,
 ): Promise<LiveAuction> {
-  if (USE_MOCK) {
-    await delay(100)
-    const auction = mockAuctions.find((item) => item.id === auctionId)
-    if (!auction) throw new Error('Mezat bulunamadı')
-    const minimumBid = auction.currentBid + auction.bidIncrement
-    if (auction.status === 'ended' || Date.now() >= new Date(auction.endsAt).getTime()) {
-      throw new Error('Bu mezat sona erdi')
-    }
-    if (amount < minimumBid) throw new Error(`Minimum teklif ${minimumBid} olmalı`)
-    auction.currentBid = amount
-    auction.bids.unshift({
-      id: `bid-${Date.now()}`,
-      userId: mockBidder.id,
-      userName: mockBidder.name,
-      amount,
-      note,
-      createdAt: new Date().toISOString(),
-    })
-    return { ...auction, bids: [...auction.bids] }
-  }
 
   const { data, error } = await supabase.rpc('place_auction_bid', {
     p_auction_id: auctionId,
@@ -727,13 +719,6 @@ export async function placeAuctionBidApi(
 }
 
 export async function closeAuctionApi(auctionId: string): Promise<LiveAuction> {
-  if (USE_MOCK) {
-    await delay(100)
-    const auction = mockAuctions.find((item) => item.id === auctionId)
-    if (!auction) throw new Error('Mezat bulunamadı')
-    auction.status = 'ended'
-    return { ...auction, bids: [...auction.bids] }
-  }
   const { data, error } = await supabase.rpc('finalize_auction', {
     p_auction_id: auctionId,
   })
@@ -742,7 +727,6 @@ export async function closeAuctionApi(auctionId: string): Promise<LiveAuction> {
 }
 
 export function subscribeAuctionStream(onChange: () => void): () => void {
-  if (USE_MOCK) return () => undefined
   const channel = supabase
     .channel(`auctions-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, onChange)
@@ -754,7 +738,6 @@ export function subscribeAuctionStream(onChange: () => void): () => void {
 // ─── Offers ───────────────────────────────────────────────────────────────────
 
 export async function fetchOffers(userId: string): Promise<SwapOffer[]> {
-  if (USE_MOCK) { await delay(150); return mockOffers.filter(o => o.fromUserId === userId || o.toUserId === userId) }
   const { data, error } = await supabase
     .from('offers')
     .select(OFFER_SELECT)
@@ -775,14 +758,20 @@ async function fetchOfferById(offerId: string): Promise<SwapOffer> {
 }
 
 export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Promise<SwapOffer> {
-  if (USE_MOCK) {
-    await delay(300)
-    const o: SwapOffer = { ...data, id: `offer-${Date.now()}`, createdAt: new Date().toISOString() }
-    mockOffers.unshift(o)
-    return o
-  }
+  const validate = (actorId: string | undefined) => validateOfferDraft({
+    actorId,
+    targetOwnerId: data.toUserId,
+    targetListingId: data.listingId,
+    offeredListingId: data.offeredListingId,
+    message: data.message,
+    offeredValue: data.offeredValue,
+  })
+
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) throw new Error('Teklif göndermek için giriş yapmalısınız')
+
+  const validationError = validate(user.id)
+  if (validationError) throw new Error(validationError)
 
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   if (!uuidPattern.test(data.listingId) || !uuidPattern.test(data.toUserId)) {
@@ -792,35 +781,20 @@ export async function createOffer(data: Omit<SwapOffer, 'id' | 'createdAt'>): Pr
     throw new Error('Teklif edilen ilan bilgisi geçersiz')
   }
 
-  const { data: inserted, error } = await supabase
-    .from('offers')
-    .insert({
-      message:               data.message,
-      listing_id:            data.listingId,
-      from_user_id:          user.id,
-      to_user_id:            data.toUserId,
-      offered_value:         data.offeredValue ?? null,
-      offered_listing_id:    data.offeredListingId ?? null,
-      offered_listing_title: data.offeredListingTitle ?? null,
-    })
-    .select(OFFER_SELECT)
-    .single()
+  const { data: inserted, error } = await supabase.rpc('create_offer', {
+    p_listing_id: data.listingId,
+    p_message: data.message?.trim() || null,
+    p_offered_value: data.offeredValue ?? null,
+    p_offered_listing_id: data.offeredListingId ?? null,
+  })
   if (error) throw new Error(error.message)
-  return dbToOffer(inserted)
+  const insertedOffer = Array.isArray(inserted) ? inserted[0] : inserted
+  if (!insertedOffer?.id) throw new Error('Teklif oluşturulamadı')
+  trackProductEvent('offer_sent', { has_listing: Boolean(data.offeredListingId), has_cash: Boolean(data.offeredValue) })
+  return fetchOfferById(insertedOffer.id)
 }
 
 export async function updateOfferStatus(offerId: string, status: SwapOffer['status'], meetingNote?: string): Promise<SwapOffer> {
-  if (USE_MOCK) {
-    await delay(200)
-    const o = mockOffers.find(x => x.id === offerId)
-    if (!o) throw new Error('Teklif bulunamadi')
-    if (status === 'Onaylandı') {
-      o.fromAccepted = true
-      o.toAccepted = true
-    }
-    o.status = status
-    return o
-  }
   const rpcName = status === 'Onaylandı' ? 'accept_offer' : 'update_offer_status'
   const args = status === 'Onaylandı'
     ? { p_offer_id: offerId }
@@ -831,20 +805,14 @@ export async function updateOfferStatus(offerId: string, status: SwapOffer['stat
 }
 
 export async function confirmOfferComplete(offerId: string): Promise<SwapOffer> {
-  if (USE_MOCK) {
-    await delay(200)
-    const o = mockOffers.find(x => x.id === offerId)
-    if (!o) throw new Error('Teklif bulunamadi')
-    o.status = 'Tamamlandı'
-    return o
-  }
   const { error } = await supabase.rpc('confirm_offer_complete', { p_offer_id: offerId })
   if (error) throw new Error(error.message)
-  return fetchOfferById(offerId)
+  const offer = await fetchOfferById(offerId)
+  if (offer.status === 'Tamamlandı') trackProductEvent('swap_completed')
+  return offer
 }
 
 export async function rateOffer(offerId: string, score: number, comment?: string): Promise<{ success: boolean; newRating: number }> {
-  if (USE_MOCK) return { success: true, newRating: score }
   const { data, error } = await supabase.rpc('rate_offer', {
     p_offer_id: offerId,
     p_score: score,
@@ -854,13 +822,87 @@ export async function rateOffer(offerId: string, score: number, comment?: string
   return { success: true, newRating: Number(data) }
 }
 
+export async function createListingReport(
+  listingId: string,
+  reason: string,
+  details?: string,
+): Promise<ListingReport> {
+  const cleanDetails = details?.trim() || undefined
+  if (!listingId || !reason || (cleanDetails?.length ?? 0) > 1000) {
+    throw new Error('Geçersiz şikayet bilgisi')
+  }
+  const { data, error } = await supabase.rpc('create_listing_report', {
+    p_listing_id: listingId,
+    p_reason: reason,
+    p_details: cleanDetails ?? null,
+  })
+  if (error) throw new Error(error.message)
+  return {
+    id: data.id,
+    listingId: data.listing_id,
+    reason: data.reason,
+    details: data.details ?? undefined,
+    createdAt: data.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToListingQA(row: any): ListingQA {
+  const user = row.user ?? {}
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    userId: row.user_id,
+    userName: user.name ?? 'Kullanıcı',
+    question: row.question,
+    answer: row.answer ?? undefined,
+    answeredAt: row.answered_at ?? undefined,
+    createdAt: row.created_at,
+  }
+}
+
+export async function fetchListingQuestions(listingId: string): Promise<ListingQA[]> {
+  const { data, error } = await supabase
+    .from('listing_questions')
+    .select('id, listing_id, user_id, question, answer, answered_at, created_at, user:profiles!user_id(name)')
+    .eq('listing_id', listingId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToListingQA)
+}
+
+export async function createListingQuestion(listingId: string, question: string): Promise<void> {
+  const cleanQuestion = question.trim()
+  if (cleanQuestion.length < 5 || cleanQuestion.length > 500) {
+    throw new Error('Soru 5 ile 500 karakter arasında olmalıdır')
+  }
+  const { error } = await supabase.rpc('create_listing_question', {
+    p_listing_id: listingId,
+    p_question: cleanQuestion,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function answerListingQuestion(questionId: string, answer: string): Promise<void> {
+  const cleanAnswer = answer.trim()
+  if (cleanAnswer.length < 2 || cleanAnswer.length > 1000) {
+    throw new Error('Yanıt 2 ile 1000 karakter arasında olmalıdır')
+  }
+  const { error } = await supabase.rpc('answer_listing_question', {
+    p_question_id: questionId,
+    p_answer: cleanAnswer,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteListingQuestion(questionId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_listing_question', { p_question_id: questionId })
+  if (error) throw new Error(error.message)
+}
+
 export async function reviseOfferApi(offerId: string, patch: { offeredValue?: number; offeredListingId?: string; offeredListingTitle?: string }): Promise<SwapOffer> {
-  if (USE_MOCK) {
-    await delay(200)
-    const o = mockOffers.find(x => x.id === offerId)
-    if (!o) throw new Error('Teklif bulunamadi')
-    Object.assign(o, patch, { status: 'Görüşülüyor' as const })
-    return o
+  if (patch.offeredValue !== undefined && (!Number.isSafeInteger(patch.offeredValue) || patch.offeredValue < 0 || patch.offeredValue > 2_000_000_000)) {
+    throw new Error('Teklif değeri geçersiz')
   }
   const { error } = await supabase.rpc('revise_offer', {
     p_offer_id: offerId,
@@ -875,18 +917,26 @@ export async function reviseOfferApi(offerId: string, patch: { offeredValue?: nu
 // ─── Messages ─────────────────────────────────────────────────────────────────
 
 export async function sendMessage(offerId: string, text: string) {
-  if (USE_MOCK) { await delay(150); return { id: `msg-${Date.now()}`, text, createdAt: new Date().toISOString() } }
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Oturum acik degil')
-  const { data, error } = await supabase.from('messages').insert({ offer_id: offerId, from_user_id: user.id, text }).select().single()
+  const cleanText = text.trim()
+  if (cleanText.length < 1 || cleanText.length > 4000) throw new Error('Mesaj 1 ile 4000 karakter arasında olmalıdır')
+  const { data, error } = await supabase.rpc('send_offer_message', {
+    p_offer_id: offerId,
+    p_text: cleanText,
+  })
   if (error) throw new Error(error.message)
-  return { id: data.id, text: data.text, createdAt: data.created_at }
+  const message = Array.isArray(data) ? data[0] : data
+  if (!message?.id) throw new Error('Mesaj gönderilemedi')
+  const conversationKey = `takaslat-conversation-started:${offerId}`
+  if (!sessionStorage.getItem(conversationKey)) {
+    sessionStorage.setItem(conversationKey, '1')
+    trackProductEvent('conversation_started')
+  }
+  return { id: message.id, text: message.text, createdAt: message.created_at }
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export async function fetchNotifications(): Promise<Notification[]> {
-  if (USE_MOCK) return []
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
   const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30)
@@ -895,7 +945,6 @@ export async function fetchNotifications(): Promise<Notification[]> {
 }
 
 export async function markNotificationsReadApi(): Promise<void> {
-  if (USE_MOCK) return
   const { error } = await supabase.rpc('mark_notifications_read')
   if (error) throw new Error(error.message)
 }
@@ -916,7 +965,6 @@ export function subscribeNotificationStream(
 ): () => void {
   void _onMessageEvent
   void _onOfferStatusEvent
-  if (USE_MOCK) return () => undefined
   // Benzersiz kanal adı: aynı topic'e iki kez abone olup
   // "cannot add postgres_changes after subscribe()" hatasını önler
   const channelName = `notifications-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -934,7 +982,6 @@ export function subscribeNotificationStream(
 // ─── AI (DeepSeek edge function) ─────────────────────────────────────────────
 
 // Tüm AI çağrıları için ortak yardımcı: edge function'a action+payload yollar.
-// USE_MOCK ise çağıran fonksiyon kendi fallback'ini döndürür (helper çağrılmaz).
 async function invokeAI<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.functions.invoke('ai', { body: { action, payload } })
   if (error) {
@@ -974,7 +1021,7 @@ export function aiErrorMessage(err: unknown): string {
 export async function queryAI(_p: { query: string; currentListingId?: string | null; conversation?: { role: 'user' | 'assistant'; content: string; candidateIds?: string[] }[] }): Promise<Record<string, unknown>> { void _p; return {} }
 
 // TakaslAI sohbet — LLM yanıtı + gerçek ilan önerileri.
-// USE_MOCK veya hata durumunda fırlatır; çağıran (AIAssistant) yerel motora düşer.
+// Hata durumunda fırlatır; çağıran (AIAssistant) yerel motora düşer.
 export interface AIChatResult {
   message: string;
   suggestions: { listingId: string; compatibilityScore: number; reasons: string[]; priceDiff: number; negotiationTip: string }[];
@@ -984,14 +1031,10 @@ export async function aiChat(p: {
   currentListing?: { id: string; title: string; value: number; category: string } | null;
   listings: { id: string; title: string; value: number; city: string; category: string; brand?: string; model?: string; year?: number; km?: number; fuel?: string }[];
 }): Promise<AIChatResult> {
-  if (USE_MOCK) throw new Error('mock')
   return invokeAI<AIChatResult>('chat', p as unknown as Record<string, unknown>)
 }
 
 export async function aiDescribe(p: { brand: string; model: string; year: number; km?: number; fuel?: string; transmission?: string; color?: string; bodyType?: string; hasAccidentRecord?: boolean; condition?: string; city?: string }): Promise<{ description: string; basedOnSimilar: number }> {
-  if (USE_MOCK) {
-    return { description: `${p.year} model ${p.brand} ${p.model} — bakimli, takasa acik. Detaylar icin iletisime gecin.`, basedOnSimilar: 0 }
-  }
   const data = await invokeAI<{ description?: string; basedOnSimilar?: number }>('describe', p)
   if (!data.description) throw new Error('AI açıklama üretemedi (boş yanıt)')
   return { description: data.description, basedOnSimilar: data.basedOnSimilar ?? 0 }
@@ -999,13 +1042,11 @@ export async function aiDescribe(p: { brand: string; model: string; year: number
 
 export interface ValueForecast { listingId: string; title: string; currentValue: number; months: { month: number; value: number; label: string }[]; summary: { after6m: number; after12m: number; totalChange6m: number; totalChange12m: number; monthlyDepreciation: number; inflationAdjust: number }; factors: string[]; recommendation: string }
 export async function aiForecast(id: string): Promise<ValueForecast> {
-  if (USE_MOCK) throw new Error('Backend gerekli')
   return invokeAI<ValueForecast>('forecast', { id })
 }
 
 export interface Deal { listingId: string; title: string; city: string; category: string; image: string; price: number; avgPrice: number; saving: number; savingPct: number; ownerName: string }
 export async function fetchDeals(): Promise<{ deals: Deal[]; totalAnalyzed: number }> {
-  if (USE_MOCK) return { deals: [], totalAnalyzed: 0 }
   const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('is_active', true)
   const all = (data ?? []).map(dbToListing)
   // Benzer ilanları grupla (kategori|marka|model), ortalamanın altındakileri fırsat say
@@ -1036,7 +1077,6 @@ export async function fetchDeals(): Promise<{ deals: Deal[]; totalAnalyzed: numb
 
 export interface BudgetResult { budget: number; inBudgetCount: number; stretchCount: number; byCategory: { name: string; count: number }[]; inBudget: { listingId: string; title: string; city: string; category: string; image: string; price: number; utilization: number; ownerName: string }[]; stretch: { listingId: string; title: string; city: string; image: string; price: number; overBy: number }[] }
 export async function aiBudget(p: { budget: number; category?: string; city?: string }): Promise<BudgetResult> {
-  if (USE_MOCK) return { budget: 0, inBudgetCount: 0, stretchCount: 0, byCategory: [], inBudget: [], stretch: [] }
   return invokeAI<BudgetResult>('budget', p)
 }
 
@@ -1197,7 +1237,6 @@ export async function aiHomeMatch(p: {
   cashDirection?: 'any' | 'pay' | 'receive';
   cashAmount?: number;
 }, fallbackListings: Listing[] = [], currentUserId?: string | null): Promise<HomeMatchResult> {
-  if (USE_MOCK) return buildHomeMatchFallback(p, fallbackListings, currentUserId)
   try {
     return await invokeAI<HomeMatchResult>('homeMatch', p as unknown as Record<string, unknown>)
   } catch (error) {
@@ -1209,49 +1248,39 @@ export async function aiHomeMatch(p: {
 
 export interface NegotiationAnalysis { analysis: { tone: 'agresif' | 'pasif' | 'dengeli'; toneReason: string; length: { score: number; note: string }; positives: string[]; negatives: string[]; overallScore: number }; possibilities: { probability: number; type: 'kabul' | 'pazarlik' | 'red'; message: string; reason: string }[]; tips: string[] }
 export async function aiNegotiate(p: { myMessage: string; listingId?: string; offeredValue?: number }): Promise<NegotiationAnalysis> {
-  if (USE_MOCK) return { analysis: { tone: 'dengeli', toneReason: 'Mock', length: { score: 80, note: 'OK' }, positives: [], negatives: [], overallScore: 80 }, possibilities: [], tips: ['Mock mod'] }
   return invokeAI<NegotiationAnalysis>('negotiate', p)
 }
 
 export async function aiEstimateValue(p: { brand: string; model?: string; year?: number; km?: number; hasAccidentRecord?: boolean }): Promise<{ estimated: number | null; low: number | null; high: number | null; basedOn: number; message: string }> {
-  if (USE_MOCK) {
-    return { estimated: null, low: null, high: null, basedOn: 0, message: 'Mock modda deger hesaplanamaz.' }
-  }
   const data = await invokeAI<{ estimated?: number | null; low?: number | null; high?: number | null; basedOn?: number; message?: string }>('estimate', p)
   return { estimated: data.estimated ?? null, low: data.low ?? null, high: data.high ?? null, basedOn: data.basedOn ?? 0, message: data.message ?? '' }
 }
 
 export interface SwapAdvice { message: string; candidates: { listingId: string; title: string; city: string; value: number; score: number }[]; tips: string[]; suggestedMessage: string }
 export async function aiSwapAdvice(p: { listingId?: string; userText: string }): Promise<SwapAdvice> {
-  if (USE_MOCK) return { message: 'Mock modda yerel oneri uretildi.', candidates: [], tips: ['DB bagliyken gercek ilanlardan aday cikarilir.'], suggestedMessage: 'Merhaba, ilaniyla ilgileniyorum. Takas detaylarini konusabilir miyiz?' }
   return invokeAI<SwapAdvice>('swapAdvice', p)
 }
 
 export interface SwapScoreResult { source: { id: string; title: string; value: number }; suggestions: { listingId: string; title: string; city: string; value: number; compatibilityScore: number; priceDiff: number; breakdown: Record<string, number>; reasons: string[]; warnings: string[]; negotiationTip: string }[] }
 export async function aiSwapScore(p: { sourceListingId: string; targetListingId?: string }): Promise<SwapScoreResult> {
-  if (USE_MOCK) throw new Error('Backend gerekli')
   return invokeAI<SwapScoreResult>('swapScore', p)
 }
 
 export interface PriceGapResult { rawDiff: number; payer: 'sourceUser' | 'targetUser' | 'none'; fairRange: { min: number; max: number }; verdict: string; explanation: string }
 export async function aiPriceGap(p: { sourceListingId?: string; targetListingId?: string; sourceValue?: number; targetValue?: number }): Promise<PriceGapResult> {
-  if (USE_MOCK) throw new Error('Backend gerekli')
   return invokeAI<PriceGapResult>('priceGap', p)
 }
 
 export interface OfferQualityResult { score: number; positives: string[]; issues: string[]; improvedMessage: string }
 export async function aiOfferQuality(p: { message: string; listingId?: string; offeredListingId?: string; offeredValue?: number }): Promise<OfferQualityResult> {
-  if (USE_MOCK) return { score: 70, positives: [], issues: [], improvedMessage: '' }
   return invokeAI<OfferQualityResult>('offerQuality', p)
 }
 
 export async function aiAutoMessage(p: { sourceListingId?: string; targetListingId: string; tone?: 'samimi' | 'profesyonel' | 'kisa' }): Promise<{ message: string; diff: number | null }> {
-  if (USE_MOCK) return { message: 'Merhaba, ilaniyla ilgileniyorum. Takas detaylarini konusabilir miyiz?', diff: null }
   return invokeAI<{ message: string; diff: number | null }>('autoMessage', p)
 }
 
 export async function aiPersonalFeed(p: { favoriteIds: string[]; searchHistory: string[]; wishlistTerms: string[] }): Promise<{ items: { listingId: string; title: string; city: string; value: number; score: number; reasons: string[] }[]; profileSignals: string[] }> {
-  if (USE_MOCK) return { items: [], profileSignals: [] }
   const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('is_active', true)
   const all = (data ?? []).map(dbToListing)
   const favs = all.filter((l) => p.favoriteIds.includes(l.id))
@@ -1283,33 +1312,27 @@ export async function aiPersonalFeed(p: { favoriteIds: string[]; searchHistory: 
 }
 
 export async function aiConversationCoach(p: { lastMessage: string; listingId?: string }): Promise<{ intent: string; caution: string; replies: string[]; nextBestAction: string }> {
-  if (USE_MOCK) return { intent: 'ilgi', caution: '', replies: [], nextBestAction: 'Bekle' }
   return invokeAI('conversationCoach', p)
 }
 
 export async function aiRisk(p: { listingId: string }): Promise<{ riskScore: number; level: string; risks: string[]; positives: string[]; checklist: string[] }> {
-  if (USE_MOCK) return { riskScore: 20, level: 'Dusuk', risks: [], positives: [], checklist: [] }
   return invokeAI('risk', p)
 }
 
 export async function aiListingQuality(p: { listingId?: string; draft?: Record<string, unknown> }): Promise<{ score: number; grade: string; fixes: string[]; improvedDescription: string }> {
-  if (USE_MOCK) return { score: 75, grade: 'B', fixes: [], improvedDescription: '' }
   const data = await invokeAI<{ score?: number; grade?: string; fixes?: string[]; improvedDescription?: string }>('quality', p)
   return { score: data.score ?? 60, grade: data.grade ?? 'B', fixes: data.fixes ?? [], improvedDescription: data.improvedDescription ?? '' }
 }
 
 export async function aiMarketInsights(): Promise<{ hotBrands: { brand: string; count: number; avgValue: number; demandScore: number }[]; cityPremiums: { city: string; count: number; avgValue: number }[]; insight: string }> {
-  if (USE_MOCK) return { hotBrands: [], cityPremiums: [], insight: 'Mock mod' }
   return invokeAI('marketInsights')
 }
 
 export async function aiScenarios(p: { sourceListingId?: string; targetText: string; maxCashDiff?: number }): Promise<{ summary: string; scenarios: { name: string; difficulty: string; plan: string; bestFor: string }[] }> {
-  if (USE_MOCK) return { summary: '', scenarios: [] }
   return invokeAI('scenarios', p)
 }
 
 export async function aiVisualDescription(p: { fileName: string; mimeType: string; size: number }): Promise<{ summary: string; checks: string[]; risks: string[] }> {
-  if (USE_MOCK) return { summary: 'Mock analiz: gorsel/ekspertiz dosyasi ilana guven sinyali olarak eklendi.', checks: ['Panel araliklar', 'Lastik durumu', 'Far ve tampon uyumu'], risks: [] }
   return invokeAI('visualDescription', p as unknown as Record<string, unknown>)
 }
 
@@ -1318,7 +1341,6 @@ export async function aiVisualDescription(p: { fileName: string; mimeType: strin
 export interface TrendsData { totalListings: number; avgPrice: number; totalValue: number; recent7d: number; topBrands: { brand: string; count: number; views: number; avgPrice: number; score: number }[]; categories: { name: string; count: number }[]; topCities: { name: string; count: number }[]; fuels: { name: string; count: number }[] }
 
 export async function fetchTrends(): Promise<TrendsData> {
-  if (USE_MOCK) return { totalListings: 0, avgPrice: 0, totalValue: 0, recent7d: 0, topBrands: [], categories: [], topCities: [], fuels: [] }
   const { data } = await supabase.from('listings').select('estimated_value, brand, category, city, fuel, created_at').eq('is_active', true)
   const ls = data ?? []
   const week = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
@@ -1337,12 +1359,9 @@ export async function fetchTrends(): Promise<TrendsData> {
 
 // ─── Dev / Admin ──────────────────────────────────────────────────────────────
 
-export async function seedDemoData(): Promise<{ created: number; total: number }> { return { created: 0, total: 0 } }
-export async function clearDevData(): Promise<{ deleted: { listings: number; offers: number; messages: number } }> { return { deleted: { listings: 0, offers: 0, messages: 0 } } }
 
 export interface AdminStats { users: number; listings: number; pendingListings: number; offers: number; reports: number; notifications: number; recentListings: Array<Listing & { owner?: { id: string; name: string; email: string } }> }
 export async function fetchAdminStats(): Promise<AdminStats> {
-  if (USE_MOCK) return { users: 0, listings: 0, pendingListings: 0, offers: 0, reports: 0, notifications: 0, recentListings: [] }
   const { data: stats, error } = await supabase.rpc('admin_get_stats')
   if (error) throw new Error(error.message)
   const { data: recent } = await supabase.from('listings').select(LISTING_SELECT).order('created_at', { ascending: false }).limit(5)
@@ -1351,26 +1370,21 @@ export async function fetchAdminStats(): Promise<AdminStats> {
     listings: Number(stats?.listings ?? 0),
     pendingListings: Number(stats?.pending_listings ?? 0),
     offers: Number(stats?.offers ?? 0),
-    reports: 0,
+    reports: Number(stats?.reports ?? 0),
     notifications: Number(stats?.notifications ?? 0),
     recentListings: (recent ?? []).map(dbToListing),
   }
 }
 
 export async function fetchAdminListings(status?: string): Promise<Array<Listing & { owner?: { id: string; name: string; email: string } }>> {
-  if (USE_MOCK) return []
-  let query = supabase
-    .from('listings')
-    .select('*, owner:profiles!owner_id(id, name, email, avatar, rating, total_swaps, email_verified, phone_verified)')
-    .order('created_at', { ascending: false })
-  if (status) query = query.eq('moderation_status', status)
-  const { data, error } = await query
+  const { data, error } = await supabase.rpc('admin_get_listings', {
+    p_status: status || null,
+  })
   if (error) throw new Error(error.message)
   return (data ?? []).map(dbToAdminListing)
 }
 
 export async function moderateListing(id: string, status: 'pending' | 'approved' | 'rejected', reason?: string) {
-  if (USE_MOCK) return {}
   const { error } = await supabase.rpc('admin_moderate_listing', {
     p_listing_id: id,
     p_status: status,
@@ -1380,9 +1394,155 @@ export async function moderateListing(id: string, status: 'pending' | 'approved'
   return { success: true }
 }
 
+// ─── Açık artırma başvuruları ────────────────────────────────────────────────
+
+export interface AuctionRequest {
+  id: string;
+  listingId: string;
+  ownerId: string;
+  expectedPrice: number | null;
+  note: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewNote: string | null;
+  auctionId: string | null;
+  createdAt: string;
+  listing?: { id: string; title: string; city: string; estimatedValue: number; images: string[] };
+  owner?: { id: string; name: string; email: string };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToAuctionRequest(row: any): AuctionRequest {
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    ownerId: row.owner_id,
+    expectedPrice: row.expected_price !== null && row.expected_price !== undefined ? Number(row.expected_price) : null,
+    note: row.note ?? null,
+    status: row.status,
+    reviewNote: row.review_note ?? null,
+    auctionId: row.auction_id ?? null,
+    createdAt: row.created_at,
+    listing: row.listing ? {
+      id: row.listing.id,
+      title: row.listing.title,
+      city: row.listing.city,
+      estimatedValue: Number(row.listing.estimated_value ?? 0),
+      images: row.listing.images ?? [],
+    } : undefined,
+    owner: row.owner ?? undefined,
+  }
+}
+
+/** Kullanıcı aracını açık artırmaya sunmak için başvurur. */
+export async function submitAuctionRequest(payload: { listingId: string; expectedPrice?: number; note?: string }): Promise<AuctionRequest> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Başvuru için giriş yapmalısın')
+  const { data, error } = await supabase
+    .from('auction_requests')
+    .insert({
+      listing_id: payload.listingId,
+      owner_id: user.id,
+      expected_price: payload.expectedPrice ?? null,
+      note: payload.note?.trim() || null,
+    })
+    .select('*')
+    .single()
+  if (error) {
+    if (error.code === '23505') throw new Error('Bu ilan için zaten bekleyen bir başvurun var.')
+    throw new Error(error.message)
+  }
+  return dbToAuctionRequest(data)
+}
+
+/** Kullanıcının kendi başvuruları. */
+export async function fetchMyAuctionRequests(): Promise<AuctionRequest[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase
+    .from('auction_requests')
+    .select('*')
+    .eq('owner_id', user.id)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToAuctionRequest)
+}
+
+export async function fetchAuctionRequests(status?: 'pending' | 'approved' | 'rejected'): Promise<AuctionRequest[]> {
+  const { data, error } = await supabase.rpc('admin_get_auction_requests', { p_status: status ?? null })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(dbToAuctionRequest)
+}
+
+export async function reviewAuctionRequest(payload: {
+  requestId: string;
+  approve: boolean;
+  startingPrice?: number;
+  bidIncrement?: number;
+  reviewNote?: string;
+}) {
+  const { error } = await supabase.rpc('admin_review_auction_request', {
+    p_request_id: payload.requestId,
+    p_approve: payload.approve,
+    p_starting_price: payload.startingPrice ?? null,
+    p_bid_increment: payload.bidIncrement ?? null,
+    p_review_note: payload.reviewNote ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+// ─── Şikayet inceleme ────────────────────────────────────────────────────────
+
+export type ReportReason = 'fake' | 'misleading' | 'spam' | 'inappropriate' | 'scam' | 'other'
+
+export interface AdminReport {
+  id: string;
+  listingId: string;
+  reason: ReportReason;
+  details: string | null;
+  status: 'pending' | 'reviewed' | 'dismissed';
+  createdAt: string;
+  listing: { id: string; title: string; city: string; isActive: boolean; moderationStatus: string } | null;
+  reporter: { id: string; name: string; email: string } | null;
+}
+
+export async function fetchAdminReports(status?: 'pending' | 'reviewed' | 'dismissed'): Promise<AdminReport[]> {
+  const { data, error } = await supabase.rpc('admin_get_listing_reports', { p_status: status ?? null })
+  if (error) throw new Error(error.message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    listingId: r.listing_id,
+    reason: r.reason,
+    details: r.details ?? null,
+    status: r.status,
+    createdAt: r.created_at,
+    listing: r.listing
+      ? {
+          id: r.listing.id,
+          title: r.listing.title ?? '',
+          city: r.listing.city ?? '',
+          isActive: !!r.listing.is_active,
+          moderationStatus: r.listing.moderation_status ?? '',
+        }
+      : null,
+    reporter: r.reporter
+      ? { id: r.reporter.id, name: r.reporter.name ?? '', email: r.reporter.email ?? '' }
+      : null,
+  }))
+}
+
+/** 'dismiss' yersiz bulur, 'reviewed' ilana dokunmadan kapatır, 'reject' ilanı yayından kaldırır. */
+export async function reviewReport(reportId: string, action: 'dismiss' | 'reviewed' | 'reject', reason?: string) {
+  const { error } = await supabase.rpc('admin_review_listing_report', {
+    p_report_id: reportId,
+    p_action: action,
+    p_reason: reason ?? null,
+  })
+  if (error) throw new Error(error.message)
+}
+
 export interface AdminUser { id: string; name: string; email: string; role: string; emailVerified: boolean; phoneVerified: boolean; rating: number; totalSwaps: number; createdAt: string; _count: { listings: number; sentOffers: number } }
 export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
-  if (USE_MOCK) return []
   const { data: profiles, error } = await supabase.rpc('admin_get_users', { p_search: search ?? null })
   if (error) throw new Error(error.message)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1396,7 +1556,6 @@ export async function fetchAdminUsers(search?: string): Promise<AdminUser[]> {
 }
 
 export async function setUserRole(userId: string, role: 'USER' | 'ADMIN' | 'MODERATOR') {
-  if (USE_MOCK) return {}
   const { error } = await supabase.rpc('admin_set_user_role', {
     p_user_id: userId,
     p_role: role.toLowerCase(),
@@ -1406,7 +1565,6 @@ export async function setUserRole(userId: string, role: 'USER' | 'ADMIN' | 'MODE
 }
 
 export async function banUser(userId: string) {
-  if (USE_MOCK) return {}
   // Şemada ban kolonu yok — kullanıcının tüm ilanları pasif yapılır
   const { error } = await supabase.rpc('admin_ban_user', { p_user_id: userId })
   if (error) throw new Error(error.message)

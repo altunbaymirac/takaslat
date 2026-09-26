@@ -15,18 +15,22 @@ import {
   createOffer as apiCreateOffer,
   updateOfferStatus as apiUpdateOfferStatus,
   reviseOfferApi,
+  createListingReport as apiCreateListingReport,
   sendMessage as apiSendMessage,
   markNotificationsReadApi,
   login       as apiLogin,
   register    as apiRegister,
   getMe,
   updateMe,
-  getToken,
   setToken,
+  removeToken,
   clearToken,
   supabase,
-  USE_MOCK,
 } from '../services/api';
+import { trackProductEvent } from '../lib/analytics';
+import { validateOfferDraft } from '../lib/offerValidation';
+
+let authListenerReady = false;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +45,8 @@ export interface AuthUser {
   totalSwaps?: number;
   twoFactorEnabled?: boolean;
   role?: string;
+  /** Satın alınmış ücretli özellikler (bkz. lib/entitlements). */
+  entitlements?: string[];
   emailVerified?: boolean;
   phoneVerified?: boolean;
 }
@@ -86,7 +92,6 @@ interface AppState {
   viewLog:                   Record<string, string[]>; // listingId → ISO timestamps[]
   qas:                       ListingQA[];             // public Q&A
   bundleCart:                string[];                // bundle teklif için seçili listing id'leri
-  onboardingDone:            boolean;
   termsAccepted:             boolean;
 
   // ── Kaydedilmiş aramalar & ratings & wishlist & meetings
@@ -148,9 +153,6 @@ interface AppState {
   toggleBundleItem: (listingId: string) => void;
   clearBundle:      () => void;
 
-  // Onboarding
-  completeOnboarding: () => void;
-  resetOnboarding:    () => void;
   acceptTerms:        () => void;
 
   markNotificationsRead: () => void;
@@ -177,7 +179,7 @@ interface AppState {
   setDarkMode:     (on: boolean) => void;
   toggleSound:     () => void;
   setAccentColor:  (color: string) => void;
-  addReport:       (listingId: string, reason: string, details?: string) => void;
+  addReport:       (listingId: string, reason: string, details?: string) => Promise<void>;
 
   setFilters:      (filters: Partial<FilterState>) => void;
   resetFilters:    () => void;
@@ -190,7 +192,7 @@ interface AppState {
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
 const defaultFilters: FilterState = {
-  category:       'Tümü',
+  category:       'Araç',
   propertyKind:   '',
   city:           '',
   minValue:       0,
@@ -220,7 +222,7 @@ export const useAppStore = create<AppState>()(
       auctionSyncState:        'idle',
       token:                   null,
       currentUser:             null,
-      currentUserId:           USE_MOCK ? 'current-user' : '',
+      currentUserId:           '',
       currentUserName:         'Kullanıcı',
       filters:                 defaultFilters,
       aiPanelOpen:             false,
@@ -240,7 +242,6 @@ export const useAppStore = create<AppState>()(
       viewLog:                 {},
       qas:                     [],
       bundleCart:              [],
-      onboardingDone:          false,
       termsAccepted:           false,
       savedSearches:           [],
       ratings:                 [],
@@ -262,7 +263,7 @@ export const useAppStore = create<AppState>()(
       // ── Load offers (giriş yapılmışsa)
       loadOffers: async () => {
         const { token, currentUserId } = get();
-        if (!token && !USE_MOCK) {
+        if (!token) {
           set({ offers: [] });
           return;
         }
@@ -307,50 +308,63 @@ export const useAppStore = create<AppState>()(
       // ── Auth: check stored token on startup
       initAuth: async () => {
         try {
-          if (!USE_MOCK) {
-            // Supabase: mevcut session'ı kontrol et
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              setToken(session.access_token);
-              const user = await getMe() as AuthUser | null;
-              if (user) {
-                set({
-                  token:           session.access_token,
-                  currentUser:     user,
-                  currentUserId:   user.id,
-                  currentUserName: user.name,
-                });
-                await get().loadOffers();
-                await get().loadNotifications();
-              }
-              // Token yenileme: session değişince store'u güncelle
-              supabase.auth.onAuthStateChange(async (event, newSession) => {
-                if (event === 'SIGNED_OUT' || !newSession) {
-                  clearToken();
-                  set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı', offers: [], notifications: [] });
-                } else if (event === 'TOKEN_REFRESHED' && newSession) {
-                  setToken(newSession.access_token);
-                  set({ token: newSession.access_token });
-                }
+          const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+            if (!session) {
+              removeToken();
+              set({
+                token: null,
+                currentUser: null,
+                currentUserId: '',
+                currentUserName: 'Kullanıcı',
+                offers: [],
+                notifications: [],
               });
+              return;
             }
-            return;
-          }
-          // Mock mod — token varsa restore, yoksa da offer'ları yükle (currentUserId default 'current-user')
-          const stored = getToken();
-          if (stored) {
+
+            setToken(session.access_token);
             const user = await getMe() as AuthUser | null;
-            if (user) {
-              set({ token: stored, currentUser: user, currentUserId: user.id, currentUserName: user.name });
-            } else {
-              set({ token: stored });
+            if (!user) throw new Error('Kullanıcı profili yüklenemedi');
+
+            set({
+              token: session.access_token,
+              currentUser: user,
+              currentUserId: user.id,
+              currentUserName: user.name,
+            });
+            const createdAt = Date.parse(session.user.created_at);
+            const isNewOAuthUser = session.user.app_metadata.provider === 'google'
+              && Number.isFinite(createdAt)
+              && Date.now() - createdAt < 60_000;
+            const signupKey = `takaslat-google-signup:${session.user.id}`;
+            if (isNewOAuthUser && !sessionStorage.getItem(signupKey)) {
+              sessionStorage.setItem(signupKey, '1');
+              trackProductEvent('sign_up', { method: 'google' });
             }
+            await Promise.all([get().loadListings(), get().loadOffers(), get().loadNotifications()]);
+          };
+
+          // OAuth dönüşünde SIGNED_IN, getSession çağrısından sonra gelebilir.
+          // Listener her zaman kurulmalı ve callback içinde Supabase çağrısı bekletilmemeli.
+          if (!authListenerReady) {
+            supabase.auth.onAuthStateChange((event, newSession) => {
+              if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(event)) return;
+              window.setTimeout(() => {
+                void syncSession(newSession).catch(() => {
+                  removeToken();
+                  set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
+                });
+              }, 0);
+            });
+            authListenerReady = true;
           }
-          await get().loadOffers();
-          await get().loadNotifications();
+
+          const { data: { session } } = await supabase.auth.getSession();
+          await syncSession(session);
+          return;
         } catch {
-          clearToken();
-          set({ token: null, currentUser: null });
+          removeToken();
+          set({ token: null, currentUser: null, currentUserId: '', currentUserName: 'Kullanıcı' });
         }
       },
 
@@ -408,7 +422,7 @@ export const useAppStore = create<AppState>()(
         set({
           token:           null,
           currentUser:     null,
-          currentUserId:   USE_MOCK ? 'current-user' : '',
+          currentUserId:   '',
           currentUserName: 'Kullanıcı',
           offers:          [],
           listings:        [],
@@ -449,10 +463,12 @@ export const useAppStore = create<AppState>()(
       // ── Offers
       createAuction: async (auction) => {
         const now = new Date().toISOString();
+        const ownerId = get().currentUserId;
         const id = `auc-local-${Date.now()}`;
         const optimisticAuction: LiveAuction = {
           ...auction,
           id,
+          ownerId,
           createdAt: now,
           currentBid: auction.startingPrice,
           bids: [],
@@ -465,18 +481,13 @@ export const useAppStore = create<AppState>()(
           ],
         }));
         try {
-          const created = await createAuctionApi(auction);
+          const created = await createAuctionApi({ ...auction, ownerId });
           set((s) => ({
             auctions: [created, ...s.auctions.filter((item) => item.id !== id && item.listingId !== created.listingId)],
-            auctionSyncState: USE_MOCK ? 'local' : 'live',
+            auctionSyncState: 'live',
           }));
           return created.id;
         } catch (error) {
-          const message = error instanceof Error ? error.message : '';
-          if (/auctions|schema cache|PGRST205/i.test(message)) {
-            set({ auctionSyncState: 'local' });
-            return id;
-          }
           set((s) => ({ auctions: s.auctions.filter((item) => item.id !== id), auctionSyncState: 'error' }));
           throw error;
         }
@@ -485,6 +496,8 @@ export const useAppStore = create<AppState>()(
       placeAuctionBid: async (auctionId, amount, note) => {
         const { currentUserId, currentUserName } = get();
         const previous = get().auctions.find((auction) => auction.id === auctionId);
+        if (!currentUserId) throw new Error('Teklif vermek için giriş yapmalısınız');
+        if (previous?.ownerId === currentUserId) throw new Error('Kendi mezadınıza teklif veremezsiniz');
         set((s) => ({
           auctions: s.auctions.map((auction) => {
             const now = Date.now();
@@ -512,22 +525,12 @@ export const useAppStore = create<AppState>()(
           }),
         }));
         try {
-          const updated = await placeAuctionBidApi(
-            auctionId,
-            amount,
-            note,
-            { id: currentUserId, name: currentUserName },
-          );
+          const updated = await placeAuctionBidApi(auctionId, amount, note);
           set((s) => ({
             auctions: s.auctions.map((auction) => auction.id === auctionId ? updated : auction),
-            auctionSyncState: USE_MOCK ? 'local' : 'live',
+            auctionSyncState: 'live',
           }));
         } catch (error) {
-          const message = error instanceof Error ? error.message : '';
-          if (/auctions|auction_bids|schema cache|PGRST205/i.test(message) || auctionId.startsWith('auc-local-')) {
-            set({ auctionSyncState: 'local' });
-            return;
-          }
           if (previous) {
             set((s) => ({
               auctions: s.auctions.map((auction) => auction.id === auctionId ? previous : auction),
@@ -549,7 +552,7 @@ export const useAppStore = create<AppState>()(
           const updated = await closeAuctionApi(auctionId);
           set((s) => ({
             auctions: s.auctions.map((auction) => auction.id === auctionId ? updated : auction),
-            auctionSyncState: USE_MOCK ? 'local' : 'live',
+            auctionSyncState: 'live',
           }));
         } catch (error) {
           const message = error instanceof Error ? error.message : '';
@@ -568,6 +571,23 @@ export const useAppStore = create<AppState>()(
       },
 
       sendOffer: async (data) => {
+        const state = get();
+        const targetListing = state.listings.find((listing) => listing.id === data.listingId);
+        const offeredListing = data.offeredListingId
+          ? state.listings.find((listing) => listing.id === data.offeredListingId)
+          : undefined;
+        const validationError = validateOfferDraft({
+          actorId: state.currentUserId,
+          targetOwnerId: targetListing?.ownerId ?? data.toUserId,
+          targetListingId: data.listingId,
+          offeredListingId: data.offeredListingId,
+          message: data.message,
+          offeredValue: data.offeredValue,
+        });
+        if (validationError) throw new Error(validationError);
+        if (data.offeredListingId && (!offeredListing || offeredListing.ownerId !== state.currentUserId)) {
+          throw new Error('Yalnızca kendi aktif ilanınızı teklif edebilirsiniz');
+        }
         const created = await apiCreateOffer(data);
         set((s) => ({ offers: [created, ...s.offers.filter((o) => o.id !== created.id)] }));
       },
@@ -578,6 +598,17 @@ export const useAppStore = create<AppState>()(
       },
 
       reviseOffer: async (offerId, patch) => {
+        const state = get();
+        const offer = state.offers.find((item) => item.id === offerId);
+        if (!offer || offer.fromUserId !== state.currentUserId) {
+          throw new Error('Yalnızca teklifi gönderen kişi teklifi revize edebilir');
+        }
+        if (patch.offeredListingId) {
+          const offeredListing = state.listings.find((listing) => listing.id === patch.offeredListingId);
+          if (!offeredListing || offeredListing.ownerId !== state.currentUserId || offeredListing.id === offer.listingId) {
+            throw new Error('Yalnızca kendi aktif ilanınızı teklif edebilirsiniz');
+          }
+        }
         const updated = await reviseOfferApi(offerId, patch);
         set((s) => ({ offers: s.offers.map((o) => (o.id === offerId ? updated : o)) }));
       },
@@ -732,9 +763,6 @@ export const useAppStore = create<AppState>()(
         })),
       clearBundle: () => set({ bundleCart: [] }),
 
-      // ── Onboarding
-      completeOnboarding: () => set({ onboardingDone: true }),
-      resetOnboarding:    () => set({ onboardingDone: false }),
 
       // ── Terms
       acceptTerms: () => set({ termsAccepted: true }),
@@ -882,19 +910,14 @@ export const useAppStore = create<AppState>()(
       setAccentColor: (color) => set({ accentColor: color }),
 
       // ── Rapor
-      addReport: (listingId, reason, details) =>
-        set((s) => ({
-          reports: [
-            {
-              id:        `rep-${Date.now()}`,
-              listingId,
-              reason,
-              details,
-              createdAt: new Date().toISOString(),
-            },
-            ...s.reports,
-          ],
-        })),
+      addReport: async (listingId, reason, details) => {
+        const { currentUserId, listings } = get();
+        if (!currentUserId) throw new Error('Şikayet için giriş yapmalısınız');
+        const listing = listings.find((item) => item.id === listingId);
+        if (listing?.ownerId === currentUserId) throw new Error('Kendi ilanınızı şikayet edemezsiniz');
+        const report = await apiCreateListingReport(listingId, reason, details);
+        set((s) => ({ reports: [report, ...s.reports.filter((item) => item.id !== report.id)] }));
+      },
 
       setFilters:      (f)   => set((s) => ({ filters: { ...s.filters, ...f } })),
       resetFilters:    ()    => set({ filters: defaultFilters }),
@@ -930,7 +953,6 @@ export const useAppStore = create<AppState>()(
         viewLog:                  s.viewLog,
         qas:                      s.qas,
         bundleCart:               s.bundleCart,
-        onboardingDone:           s.onboardingDone,
         termsAccepted:            s.termsAccepted,
       }),
       merge: (persisted: unknown, current) => {
@@ -958,7 +980,6 @@ export const useAppStore = create<AppState>()(
           viewLog?:                 Record<string, string[]>;
           qas?:                     ListingQA[];
           bundleCart?:              string[];
-          onboardingDone?:          boolean;
           termsAccepted?:           boolean;
         } | null;
 
@@ -967,7 +988,7 @@ export const useAppStore = create<AppState>()(
           ...current,
           token:                   p?.token        ?? null,
           currentUser:             user,
-          currentUserId:           user?.id        ?? (USE_MOCK ? 'current-user' : ''),
+          currentUserId:           user?.id ?? '',
           currentUserName:         user?.name      ?? 'Kullanıcı',
           favorites:               p?.favorites    ?? [],
           darkMode:                p?.darkMode     ?? false,
@@ -990,7 +1011,6 @@ export const useAppStore = create<AppState>()(
           viewLog:                 p?.viewLog         ?? {},
           qas:                     p?.qas             ?? [],
           bundleCart:              p?.bundleCart      ?? [],
-          onboardingDone:          p?.onboardingDone  ?? false,
           termsAccepted:           p?.termsAccepted   ?? false,
           // listings ve offers SADECE API'den gelir — persist edilmez
           listings:                [],

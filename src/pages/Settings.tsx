@@ -1,25 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { playDing } from '../lib/sound';
-import { requestEmailVerification } from '../services/api';
+import { requestEmailVerification, getEmailNotificationPref, setEmailNotificationPref } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
 
-const ACCENT_OPTIONS: { id: string; name: string; bgClass: string }[] = [
-  { id: 'blue',    name: 'Mavi',    bgClass: 'bg-blue-600'    },
-  { id: 'emerald', name: 'Yeşil',   bgClass: 'bg-emerald-600' },
-  { id: 'violet',  name: 'Mor',     bgClass: 'bg-violet-600'  },
-  { id: 'orange',  name: 'Turuncu', bgClass: 'bg-orange-600'  },
-  { id: 'pink',    name: 'Pembe',   bgClass: 'bg-pink-600'    },
-  { id: 'teal',    name: 'Turkuaz', bgClass: 'bg-teal-600'    },
-];
-
 export default function Settings() {
-  useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.' });
+  useSEO({ title: 'Ayarlar', description: 'Hesap ayarlarını, bildirimlerini ve güvenlik tercihlerini yönet.', noIndex: true });
 
-  const { darkMode, toggleDarkMode, soundEnabled, toggleSound, accentColor, setAccentColor, resetOnboarding, currentUser } = useAppStore();
+  const { darkMode, toggleDarkMode, soundEnabled, toggleSound, currentUser } = useAppStore();
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [mailPref, setMailPref] = useState(true);
+  const [mailPrefSaving, setMailPrefSaving] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    getEmailNotificationPref()
+      .then((value) => { if (alive) setMailPref(value); })
+      .catch(() => { /* varsayılan açık kalsın */ });
+    return () => { alive = false; };
+  }, [currentUser]);
+
+  async function toggleMailNotifications() {
+    const next = !mailPref;
+    setMailPrefSaving(true);
+    setMailPref(next);
+    try {
+      await setEmailNotificationPref(next);
+      showToast(next ? 'Bildirim e-postaları açıldı' : 'Bildirim e-postaları kapatıldı', 'success');
+    } catch {
+      setMailPref(!next);
+      showToast('Tercih kaydedilemedi, tekrar dene', 'error');
+    } finally {
+      setMailPrefSaving(false);
+    }
+  }
 
   async function sendVerificationLink() {
     setEmailLoading(true);
@@ -67,7 +84,7 @@ export default function Settings() {
           </h2>
 
           {/* Dark mode */}
-          <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between py-3">
             <div>
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Karanlık Mod</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">Göz yormayan koyu tema</p>
@@ -84,32 +101,6 @@ export default function Settings() {
             </button>
           </div>
 
-          {/* Accent color */}
-          <div className="py-3 border-b border-slate-100 dark:border-slate-700">
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-100 mb-1">Vurgu Rengi</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Butonlar, linkler ve seçimler bu rengi kullanır</p>
-            <div className="flex flex-wrap gap-2">
-              {ACCENT_OPTIONS.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setAccentColor(c.id)}
-                  className={`w-10 h-10 rounded-full ${c.bgClass} relative transition-transform hover:scale-110 ${
-                    accentColor === c.id ? 'ring-2 ring-offset-2 dark:ring-offset-slate-800 ring-slate-900 dark:ring-white' : ''
-                  }`}
-                  title={c.name}
-                >
-                  {accentColor === c.id && (
-                    <svg className="absolute inset-0 m-auto w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 italic">
-              💡 Şu anki vurgu: <span className="font-semibold capitalize text-slate-600 dark:text-slate-300">{ACCENT_OPTIONS.find((a) => a.id === accentColor)?.name}</span>
-            </p>
-          </div>
         </section>
 
         {/* Ses */}
@@ -143,6 +134,28 @@ export default function Settings() {
                 />
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-t border-slate-100 dark:border-slate-700">
+            <div className="pr-4">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">E-posta Bildirimi</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Teklif, mesaj ve ilan sonucu için {currentUser.email} adresine mail gelsin
+              </p>
+            </div>
+            <button
+              onClick={toggleMailNotifications}
+              disabled={mailPrefSaving}
+              aria-label="E-posta bildirimlerini aç/kapat"
+              aria-pressed={mailPref}
+              className={`relative w-12 h-6 shrink-0 rounded-full overflow-hidden transition-colors disabled:opacity-50 ${mailPref ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                  mailPref ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </section>
 
@@ -191,19 +204,6 @@ export default function Settings() {
               2FA yakında · Google Authenticator ve benzeri uygulamalar desteklenecek.
             </p>
           </div>
-        </section>
-
-        {/* Onboarding */}
-        <section className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-            <span>🎓</span> Yardım & Rehber
-          </h2>
-          <button
-            onClick={resetOnboarding}
-            className="w-full bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium text-sm py-2.5 rounded-xl border border-blue-100 dark:border-blue-900/40"
-          >
-            🎉 Onboarding Turunu Tekrar Göster
-          </button>
         </section>
 
         {/* Versiyon */}

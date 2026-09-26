@@ -41,7 +41,7 @@ export default function Toast() {
 
   return (
     <div
-      className={`fixed bottom-4 sm:bottom-6 left-1/2 w-[calc(100%-2rem)] max-w-md sm:w-auto -translate-x-1/2 ${color} px-5 py-3 rounded-lg shadow-xl z-[100] flex items-center justify-center transition-all duration-200 ease-out ${
+      className={`fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-1/2 z-[100] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center justify-center rounded-lg px-5 py-3 shadow-xl transition-all duration-200 ease-out md:bottom-6 md:w-auto ${color} ${
         leaving ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0 toast-enter'
       }`}
     >

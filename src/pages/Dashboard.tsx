@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { seedDemoData, clearDevData } from '../services/api';
 import { showToast } from '../components/Toast';
 import { downloadCSV } from '../lib/csv';
 import { useSEO } from '../hooks/useSEO';
+import { isPlatformAdmin } from '../lib/roles';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
@@ -24,12 +24,10 @@ export default function Dashboard() {
 
   const {
     listings, offers, favorites, currentUser, currentUserId,
-    loadListings, loadOffers, getNotifications,
+    getNotifications,
     searchHistory, clearSearchHistory, setFilters,
   } = useAppStore();
 
-  const [seeding,  setSeeding]  = useState(false);
-  const [clearing, setClearing] = useState(false);
 
   // ── İstatistikler ───────────────────────────────────────────────────────────
 
@@ -86,20 +84,6 @@ export default function Dashboard() {
   }
 
   const unreadNotes = getNotifications().filter((n) => !n.read).length;
-
-  async function handleSeed() {
-    setSeeding(true);
-    try {
-      const res = await seedDemoData();
-      showToast(`${res.created} demo ilan eklendi (toplam: ${res.total})`, 'success');
-      await loadListings();
-      await loadOffers();
-    } catch (e) {
-      showToast((e as Error).message || 'Tohumlama başarısız', 'error');
-    } finally {
-      setSeeding(false);
-    }
-  }
 
   function exportListings() {
     downloadCSV(
@@ -168,20 +152,6 @@ export default function Dashboard() {
     showToast('Teklifler indirildi', 'success');
   }
 
-  async function handleClear() {
-    if (!confirm('TÜM ilanları, teklifleri ve mesajları silmek istediğine emin misin? Kullanıcılar korunur.')) return;
-    setClearing(true);
-    try {
-      const res = await clearDevData();
-      showToast(`Silindi: ${res.deleted.listings} ilan, ${res.deleted.offers} teklif`, 'success');
-      await loadListings();
-      await loadOffers();
-    } catch (e) {
-      showToast((e as Error).message || 'Temizlik başarısız', 'error');
-    } finally {
-      setClearing(false);
-    }
-  }
 
   // ── UI ──────────────────────────────────────────────────────────────────────
 
@@ -218,23 +188,6 @@ export default function Dashboard() {
               <span>📥</span> Teklifleri İndir
             </button>
           )}
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            title="DB'ye 15 örnek ilan yükle"
-            className="text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40 px-3 py-2 rounded-xl flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-          >
-            <span>🌱</span>
-            {seeding ? 'Yükleniyor…' : 'Demo Veri Ekle'}
-          </button>
-          <button
-            onClick={handleClear}
-            disabled={clearing}
-            className="text-xs font-semibold bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/40 px-3 py-2 rounded-xl flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-          >
-            <span>🗑️</span>
-            {clearing ? 'Siliniyor…' : 'Veriyi Temizle'}
-          </button>
         </div>
       </header>
 
@@ -244,7 +197,7 @@ export default function Dashboard() {
           { icon: '📋', label: 'İlanlarım',         value: myListings.length.toString(),  color: 'bg-blue-600',     link: '/profile/' + currentUserId },
           { icon: '🤝', label: 'Bekleyen Teklifler',value: pending.toString(),            color: 'bg-amber-600',    link: '/conversations' },
           { icon: '✅', label: 'Tamamlanan',        value: completed.toString(),          color: 'bg-emerald-600',  link: '/conversations' },
-          { icon: '👁️', label: 'Toplam Görüntülenme', value: totalViews.toString(),       color: 'bg-violet-600',   link: '/profile/' + currentUserId },
+          { icon: '👁️', label: 'Toplam Görüntülenme', value: totalViews.toString(),       color: 'bg-blue-600',   link: '/profile/' + currentUserId },
         ].map((s) => (
           <Link
             key={s.label}
@@ -352,7 +305,7 @@ export default function Dashboard() {
           )}
 
           {/* 🎁 Davet kartı */}
-          <div className="bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl p-5 text-white shadow-sm">
+          <div className="rounded-2xl bg-blue-700 p-5 text-white shadow-sm">
             <h3 className="text-sm font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <span>🎁</span> Arkadaşlarını Davet Et
             </h3>
@@ -385,7 +338,9 @@ export default function Dashboard() {
                 { to: '/create',        label: '+ Yeni İlan Ver',   color: 'bg-blue-600 hover:bg-blue-700 text-white' },
                 { to: '/favorites',     label: '❤️ Favoriler',      color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' },
                 { to: '/conversations', label: '💬 Görüşmeler',     color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' },
-                { to: '/trends',        label: '📈 Trend Paneli',   color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' },
+                ...(isPlatformAdmin(currentUser?.role)
+                  ? [{ to: '/trends', label: '📈 Trend Paneli', color: 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200' }]
+                  : []),
               ].map((q) => (
                 <Link
                   key={q.to}

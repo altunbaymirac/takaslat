@@ -21,7 +21,7 @@ export default function SavedSearchesPanel() {
 
   // Aktif bir filtre var mı kontrol et
   const hasActive =
-    filters.category !== 'Tümü' ||
+    filters.category !== 'Araç' ||
     filters.city !== '' ||
     filters.searchQuery !== '' ||
     filters.brands.length > 0 ||

@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchTrends, type TrendsData } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
+import { useAppStore } from '../store/useAppStore';
+import { isPlatformAdmin } from '../lib/roles';
 
 const formatPrice = (value: number) =>
   new Intl.NumberFormat('tr-TR', {
@@ -47,13 +49,25 @@ function DataSection({ title, subtitle, children }: {
 }
 
 export default function Trends() {
-  useSEO({ title: 'Piyasa Verileri', description: 'Aktif ilanların kategori, şehir, marka ve yakıt dağılımını inceleyin.' });
+  useSEO({ title: 'Piyasa Verileri', description: 'Aktif ilanların kategori, şehir, marka ve yakıt dağılımını inceleyin.', noIndex: true });
+  const currentUser = useAppStore((s) => s.currentUser);
+  const isAdmin = isPlatformAdmin(currentUser?.role);
   const [data, setData] = useState<TrendsData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!isAdmin) return;
     fetchTrends().then(setData).catch(() => setError(true));
-  }, []);
+  }, [isAdmin]);
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Admin yetkisi gerekli</h1>
+        <p className="mt-2 text-slate-500 dark:text-slate-400">Piyasa verileri paneli yalnızca yönetim yetkisi olan kullanıcılar içindir.</p>
+      </div>
+    );
+  }
 
   if (error) {
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-slate-500">Piyasa verileri şu anda yüklenemiyor.</div>;

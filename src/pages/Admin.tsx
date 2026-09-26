@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchAdminListings, fetchAdminStats, moderateListing, sendTestNotification, fetchAdminUsers, setUserRole, banUser, type AdminStats, type AdminUser } from '../services/api';
+import { fetchAdminListings, fetchAdminStats, moderateListing, sendTestNotification, fetchAdminUsers, setUserRole, banUser, fetchAuctionRequests, reviewAuctionRequest, fetchAdminReports, reviewReport, type AdminStats, type AdminUser, type AuctionRequest, type AdminReport } from '../services/api';
 import type { Listing } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
@@ -15,10 +15,26 @@ type AdminListing = Listing & {
 
 const fmt = (n: number) => new Intl.NumberFormat('tr-TR').format(n);
 
+// ReportModal'daki sebeplerle aynı etiketler.
+const REPORT_REASONS: Record<string, string> = {
+  fake:          'Sahte ilan',
+  misleading:    'Yanıltıcı bilgi',
+  spam:          'Spam',
+  inappropriate: 'Uygunsuz içerik',
+  scam:          'Dolandırıcılık şüphesi',
+  other:         'Diğer',
+};
+
 function adminErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : 'Admin verisi alınamadı';
+  if (/admin_get_listings.*schema cache|could not find the function public\.admin_get_listings/i.test(message)) {
+    return 'İlan moderasyonu servisi hazır değil. Admin onarım migration dosyası uygulanmalı.';
+  }
   if (/admin_(get_stats|get_users|moderate_listing|set_user_role|ban_user).*schema cache|could not find the function/i.test(message)) {
-    return 'Admin veritabanı kurulumu eksik. Supabase admin migration dosyası uygulanmalı.';
+    return 'Admin servis kurulumu eksik. Son admin migration dosyası uygulanmalı.';
+  }
+  if (/column .* of relation .* does not exist/i.test(message)) {
+    return 'Admin veritabanı şeması güncel değil. Son Supabase migration dosyası uygulanmalı.';
   }
   if (/admin access required/i.test(message)) return 'Bu işlem için admin yetkisi doğrulanamadı.';
   return message;
@@ -29,7 +45,9 @@ export default function Admin() {
 
   const currentUser = useAppStore((s) => s.currentUser);
   const pushNotification = useAppStore((s) => s.pushNotification);
-  const [tab, setTab] = useState<'listings' | 'users'>('listings');
+  const [tab, setTab] = useState<'listings' | 'users' | 'auctions' | 'reports'>('listings');
+  const [auctionRequests, setAuctionRequests] = useState<AuctionRequest[]>([]);
+  const [reports, setReports] = useState<AdminReport[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [listings, setListings] = useState<AdminListing[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -55,6 +73,10 @@ export default function Admin() {
           : listingsResult.status === 'rejected' ? listingsResult.reason
           : null;
         if (failure) throw failure;
+      } else if (tab === 'auctions') {
+        setAuctionRequests(await fetchAuctionRequests());
+      } else if (tab === 'reports') {
+        setReports(await fetchAdminReports('pending'));
       } else {
         const [statsResult, usersResult] = await Promise.allSettled([
           fetchAdminStats(),
@@ -68,6 +90,7 @@ export default function Admin() {
         if (failure) throw failure;
       }
     } catch (err) {
+      console.error('[Admin] Panel verileri yüklenemedi', err);
       const message = adminErrorMessage(err);
       setLoadError(message);
       showToast(message, 'error');
@@ -86,8 +109,63 @@ export default function Admin() {
       await moderateListing(id, next, reason);
       showToast('Moderasyon güncellendi', 'success');
       await load();
-    } catch {
-      showToast('Moderasyon güncellenemedi', 'error');
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
+    }
+  }
+
+  async function handleReviewReport(report: AdminReport, action: 'dismiss' | 'reviewed' | 'reject') {
+    if (action === 'reject' && !window.confirm(
+      `"${report.listing?.title ?? 'İlan'}" yayından kaldırılacak ve sahibine bildirim gidecek. Onaylıyor musun?`,
+    )) return;
+
+    const reason = action === 'reject'
+      ? window.prompt('İlan sahibine iletilecek sebep', 'Şikayet üzerine yayından kaldırıldı') ?? undefined
+      : undefined;
+
+    try {
+      await reviewReport(report.id, action, reason);
+      showToast(
+        action === 'reject' ? 'İlan yayından kaldırıldı'
+          : action === 'dismiss' ? 'Şikayet yersiz olarak kapatıldı'
+          : 'Şikayet incelendi olarak işaretlendi',
+        'success',
+      );
+      await load();
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
+    }
+  }
+
+  async function handleReviewRequest(request: AuctionRequest, approve: boolean) {
+    if (approve) {
+      const priceInput = window.prompt(
+        'Başlangıç fiyatı (₺) — boş bırakırsan başvurudaki değer kullanılır',
+        request.expectedPrice ? String(request.expectedPrice) : '',
+      );
+      if (priceInput === null) return;
+      const startingPrice = priceInput.trim() ? Number(priceInput) : undefined;
+      if (startingPrice !== undefined && (Number.isNaN(startingPrice) || startingPrice < 1_000)) {
+        showToast('Geçerli bir başlangıç fiyatı gir', 'error');
+        return;
+      }
+      try {
+        await reviewAuctionRequest({ requestId: request.id, approve: true, startingPrice });
+        showToast('Başvuru onaylandı, 7 günlük mezat açıldı', 'success');
+        await load();
+      } catch (error) {
+        showToast(adminErrorMessage(error), 'error');
+      }
+      return;
+    }
+
+    const reason = window.prompt('Red sebebi (başvuru sahibine gösterilir)') ?? undefined;
+    try {
+      await reviewAuctionRequest({ requestId: request.id, approve: false, reviewNote: reason });
+      showToast('Başvuru reddedildi', 'success');
+      await load();
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
     }
   }
 
@@ -96,8 +174,8 @@ export default function Admin() {
       await setUserRole(userId, role);
       showToast(`Rol güncellendi: ${role}`, 'success');
       void load();
-    } catch {
-      showToast('Rol güncellenemedi', 'error');
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
     }
   }
 
@@ -107,8 +185,8 @@ export default function Admin() {
       await banUser(userId);
       showToast('Kullanıcı banlandı, ilanları kaldırıldı', 'success');
       void load();
-    } catch {
-      showToast('Ban işlemi başarısız', 'error');
+    } catch (error) {
+      showToast(adminErrorMessage(error), 'error');
     }
   }
 
@@ -165,7 +243,7 @@ export default function Admin() {
       )}
 
       <div className="mb-4 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900 w-fit">
-        {(['listings', 'users'] as const).map((t) => (
+        {(['listings', 'reports', 'auctions', 'users'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -175,7 +253,13 @@ export default function Admin() {
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            {t === 'listings' ? 'İlanlar' : 'Kullanıcılar'}
+            {t === 'listings'
+              ? 'İlanlar'
+              : t === 'reports'
+                ? `Şikayetler${stats?.reports ? ` (${stats.reports})` : ''}`
+                : t === 'auctions'
+                  ? 'Mezat başvuruları'
+                  : 'Kullanıcılar'}
           </button>
         ))}
       </div>
@@ -255,6 +339,142 @@ export default function Admin() {
                 <p className="p-8 text-center text-sm text-slate-400">Bu filtrede ilan yok</p>
               )}
             </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'reports' && (
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="border-b border-slate-100 p-4 dark:border-slate-800">
+            <h2 className="font-bold text-slate-900 dark:text-slate-100">Bekleyen Şikayetler</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Bir ilanı kaldırdığında o ilana ait diğer bekleyen şikayetler de kapanır.
+            </p>
+          </div>
+
+          {reports.length === 0 ? (
+            <p className="p-6 text-sm text-slate-500 dark:text-slate-400">Bekleyen şikayet yok.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+              {reports.map((report) => (
+                <li key={report.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {report.listing ? (
+                        <Link
+                          to={`/listing/${report.listing.id}`}
+                          className="font-semibold text-blue-700 hover:underline dark:text-blue-400"
+                        >
+                          {report.listing.title}
+                        </Link>
+                      ) : (
+                        <span className="font-semibold text-slate-500 dark:text-slate-400">İlan silinmiş</span>
+                      )}
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                        {REPORT_REASONS[report.reason] ?? report.reason}
+                      </span>
+                      {report.listing && !report.listing.isActive && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          Zaten pasif
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      {report.reporter?.name || 'Bilinmeyen'} bildirdi ·{' '}
+                      {new Date(report.createdAt).toLocaleString('tr-TR')}
+                      {report.listing?.city ? ` · ${report.listing.city}` : ''}
+                    </p>
+                    {report.details && (
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">“{report.details}”</p>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      onClick={() => void handleReviewReport(report, 'reject')}
+                      className="btn-danger rounded-lg px-3 py-2 text-xs font-semibold"
+                    >
+                      İlanı kaldır
+                    </button>
+                    <button
+                      onClick={() => void handleReviewReport(report, 'reviewed')}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      İncelendi
+                    </button>
+                    <button
+                      onClick={() => void handleReviewReport(report, 'dismiss')}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      Yersiz
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {tab === 'auctions' && (
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="border-b border-slate-100 p-4 dark:border-slate-800">
+            <h2 className="font-bold text-slate-900 dark:text-slate-100">Mezat Başvuruları</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Onaylanan araçlar sahibi adına 7 günlük açık artırmaya çıkar.
+            </p>
+          </div>
+
+          {auctionRequests.length === 0 ? (
+            <p className="p-6 text-sm text-slate-500 dark:text-slate-400">Başvuru yok.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+              {auctionRequests.map((request) => (
+                <li key={request.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{request.listing?.title ?? 'İlan'}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        request.status === 'approved'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : request.status === 'rejected'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {request.status === 'approved' ? 'Onaylandı' : request.status === 'rejected' ? 'Reddedildi' : 'Bekliyor'}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      {request.owner?.name ?? '—'} · {request.listing?.city ?? '—'} · değer {fmt(request.listing?.estimatedValue ?? 0)} ₺
+                      {request.expectedPrice ? ` · beklenen başlangıç ${fmt(request.expectedPrice)} ₺` : ''}
+                    </p>
+                    {request.note && (
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">“{request.note}”</p>
+                    )}
+                    {request.reviewNote && (
+                      <p className="mt-1 text-xs text-red-600">Karar notu: {request.reviewNote}</p>
+                    )}
+                  </div>
+
+                  {request.status === 'pending' && (
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => void handleReviewRequest(request, true)}
+                        className="btn-success rounded-lg px-3 py-2 text-xs font-semibold"
+                      >
+                        Onayla ve mezata çıkar
+                      </button>
+                      <button
+                        onClick={() => void handleReviewRequest(request, false)}
+                        className="btn-danger rounded-lg px-3 py-2 text-xs font-semibold"
+                      >
+                        Reddet
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}

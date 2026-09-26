@@ -7,6 +7,7 @@ import { checkPasswordStrength } from '../lib/sanitize';
 import { signInWithGoogle } from '../services/api';
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
+import { normalizeInternalRedirect } from '../lib/navigation';
 
 export default function Register() {
   useSEO({ title: 'Kayıt Ol', description: 'Takaslat\'a ücretsiz kayıt ol ve araç takasına hemen başla.' });
@@ -27,7 +28,7 @@ export default function Register() {
   const remaining = getRemainingAttempts('register', 'global');
   const [searchParams] = useSearchParams();
   const refId = searchParams.get('ref');
-  const redirectTo = searchParams.get('redirect') || '/';
+  const redirectTo = normalizeInternalRedirect(searchParams.get('redirect'));
 
   useEffect(() => {
     if (refId) {
@@ -56,7 +57,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f2d6e] via-[#1B4FD8] to-[#1e40af] flex items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-blue-950 px-4 py-10">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -76,11 +77,11 @@ export default function Register() {
           <h1 className="text-xl font-bold text-slate-900 mb-6">Yeni hesap oluştur</h1>
 
           {refId && (
-            <div className="mb-4 px-4 py-3 bg-pink-50 border border-pink-200 rounded-xl flex items-center gap-2">
+            <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2">
               <span className="text-xl">🎁</span>
               <div>
-                <p className="text-xs font-bold text-pink-700">Davet ile geliyorsun!</p>
-                <p className="text-[11px] text-pink-600">Hoş geldin bonusu kazanacaksın</p>
+                <p className="text-xs font-bold text-blue-700">Davet ile geliyorsun!</p>
+                <p className="text-[11px] text-blue-600">Hoş geldin bonusu kazanacaksın</p>
               </div>
             </div>
           )}
@@ -180,10 +181,10 @@ export default function Register() {
               {loading ? 'Hesap oluşturuluyor…' : 'Kayıt Ol'}
             </button>
             {remaining <= 1 && remaining > 0 && (
-              <p className="text-center text-xs text-amber-600">⚠️ Son kayıt denemesi</p>
+              <p className="text-center text-xs text-amber-600">Son kayıt denemesi</p>
             )}
             {remaining === 0 && (
-              <p className="text-center text-xs text-red-600 font-medium">🔒 Çok fazla deneme — bir süre bekle</p>
+              <p className="text-center text-xs text-red-600 font-medium">Çok fazla deneme, bir süre bekle</p>
             )}
           </form>
 
@@ -194,7 +195,13 @@ export default function Register() {
           </div>
           <button
             type="button"
-            onClick={async () => { try { await signInWithGoogle(); } catch { showToast('Google ile giriş başarısız', 'error'); } }}
+            onClick={async () => {
+              try {
+                await signInWithGoogle();
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : 'Google ile giriş başarısız', 'error');
+              }
+            }}
             className="w-full flex items-center justify-center gap-3 border border-slate-200 rounded-xl py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
@@ -226,11 +233,11 @@ export default function Register() {
             <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
               <p><strong>Platform:</strong> Takaslat bir aracı platformdur; takas işlemlerinin tarafı değildir.</p>
               <p className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800">
-                <strong>⚠️ Vergi Uyarısı:</strong> Takas işlemleri Türk vergi mevzuatı kapsamında gelir vergisi veya KDV'ye konu olabilir. Takaslat bu yükümlülüklerden sorumlu tutulamaz.
+                <strong>Vergi Uyarısı:</strong> Takas işlemleri Türk vergi mevzuatı kapsamında gelir vergisi veya KDV'ye konu olabilir. Takaslat bu yükümlülüklerden sorumlu tutulamaz.
               </p>
               <p><strong>Güvenli takas:</strong> Araç devri noterden yapılmalı, kapora öncesi aracı yerinde görün.</p>
               <p><strong>Yasak:</strong> Sahte ilan, dolandırıcılık ve yasadışı ürün listeleme hesap kapatma sebebidir.</p>
-              <p><strong>Gizlilik:</strong> Verileriniz KVKK kapsamında korunur, üçüncü şahıslarla satılmaz.</p>
+              <p><strong>Gizlilik:</strong> Verileriniz satılmaz. Analitik ve reklam sağlayıcıları yalnızca çerez tercihlerinizde ayrıca izin vermeniz halinde etkinleştirilir.</p>
             </div>
             <button
               type="button"

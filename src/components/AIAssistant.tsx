@@ -217,7 +217,7 @@ export default function AIAssistant() {
       <div className="fixed right-0 top-0 h-[100dvh] w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200 panel-slide-right">
 
         {/* ── Header ── */}
-        <div className="bg-gradient-to-r from-[#1B4FD8] to-[#2563eb] px-4 py-3.5 flex items-center justify-between flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center justify-between bg-blue-700 px-4 py-3.5">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white text-base">✦</div>
             <div>

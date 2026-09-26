@@ -2,6 +2,13 @@ import '@testing-library/jest-dom';
 
 // ─── Global mocks ────────────────────────────────────────────────────────────
 
+// Ağ erişimi: testler gerçek Supabase'e gitmesin. Ağ gerektiren bir davranış
+// test edilecekse ilgili test kendi vi.mock'unu tanımlar.
+Object.defineProperty(globalThis, 'fetch', {
+  value: () => Promise.reject(new Error('Testlerde ağ çağrısı kapalı')),
+  writable: true,
+});
+
 // EventSource (SSE) — not available in jsdom
 class EventSourceMock {
   onmessage: ((event: MessageEvent) => void) | null = null;

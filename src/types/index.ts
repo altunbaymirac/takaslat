@@ -81,6 +81,7 @@ export interface ListingAttachment {
   id: string;
   name: string;
   url: string;
+  storagePath?: string;
   mimeType: string;
   kind: 'image' | 'expertise' | 'document';
   size: number;
@@ -108,6 +109,7 @@ export interface Listing {
   description: string;
   wantedFor: string;
   city: string;
+  district?: string;
   images: string[];
   ownerId: string;
   ownerName: string;
@@ -122,6 +124,8 @@ export interface Listing {
   propertyDetails?:   PropertyDetails;
   condition: Condition;
   tags: string[];
+  isActive?: boolean;
+  moderationStatus?: 'pending' | 'approved' | 'rejected';
   viewCount?: number;
   videoUrl?: string;            // YouTube veya doğrudan video URL'si
   attachments?: ListingAttachment[];
@@ -142,6 +146,7 @@ export interface AuctionBid {
 export interface LiveAuction {
   id: string;
   listingId: string;
+  ownerId?: string;
   title: string;
   startsAt: string;
   endsAt: string;
