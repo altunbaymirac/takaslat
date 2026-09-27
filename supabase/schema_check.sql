@@ -63,6 +63,7 @@ beklenen_sutun(tablo, sutun) AS (VALUES
   ('offers', 'counter_message'), ('offers', 'meeting_note'),
   ('offers', 'from_confirmed'), ('offers', 'to_confirmed'),
   ('offers', 'from_rated'), ('offers', 'to_rated'),
+  ('offers', 'from_accepted'), ('offers', 'to_accepted'),
 
   ('messages', 'offer_id'), ('messages', 'from_user_id'), ('messages', 'text'),
 

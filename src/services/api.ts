@@ -481,7 +481,12 @@ export async function fetchUserById(id: string): Promise<PublicUser | null> {
 export async function fetchListingById(id: string): Promise<Listing | null> {
   const { data } = await supabase.from('listings').select(LISTING_SELECT).eq('id', id).single()
   if (!data) return null
-  void supabase.rpc('increment_listing_view', { p_listing_id: id })
+  // Supabase sorguları tembeldir: then() çağrılmadan istek gönderilmez.
+  // Görüntülenme sayfayı bekletmesin diye await etmiyoruz, ama tetikliyoruz.
+  supabase.rpc('increment_listing_view', { p_listing_id: id }).then(
+    () => undefined,
+    () => undefined,
+  )
   return (await signPrivateAttachments([dbToListing(data)]))[0] ?? null
 }
 
