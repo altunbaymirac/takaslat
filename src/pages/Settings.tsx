@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { playDing } from '../lib/sound';
@@ -10,6 +10,8 @@ import {
 } from '../services/api';
 import { showToast } from '../components/Toast';
 import ProfileEditModal from '../components/ProfileEditModal';
+import Turnstile, { type TurnstileHandle } from '../components/Turnstile';
+import { TURNSTILE_SITE_KEY } from '../lib/turnstile';
 import { useSEO } from '../hooks/useSEO';
 
 const legalContactEmail = import.meta.env.VITE_LEGAL_CONTACT_EMAIL as string | undefined;
@@ -71,6 +73,10 @@ export default function Settings() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  // Şifre sıfırlama ve doğrulama maili, bot koruması açıkken captcha ister.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
+  const needsCaptcha = !!TURNSTILE_SITE_KEY && !captchaToken;
 
   useEffect(() => {
     if (!currentUser) return;
@@ -99,13 +105,14 @@ export default function Settings() {
   async function sendVerificationLink() {
     setEmailLoading(true);
     try {
-      const res = await requestEmailVerification();
+      const res = await requestEmailVerification(captchaToken ?? undefined);
       setEmailSent(true);
       showToast(res.message, 'success');
     } catch {
       showToast('Bağlantı gönderilemedi, tekrar dene', 'error');
     } finally {
       setEmailLoading(false);
+      captchaRef.current?.reset();
     }
   }
 
@@ -113,13 +120,14 @@ export default function Settings() {
     if (!currentUser?.email) return;
     setResetLoading(true);
     try {
-      await forgotPassword(currentUser.email);
+      await forgotPassword(currentUser.email, captchaToken ?? undefined);
       setResetSent(true);
       showToast('Şifre değiştirme bağlantısı e-postana gönderildi', 'success');
     } catch {
       showToast('Bağlantı gönderilemedi, biraz sonra tekrar dene', 'error');
     } finally {
       setResetLoading(false);
+      captchaRef.current?.reset();
     }
   }
 
@@ -243,7 +251,7 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={sendVerificationLink}
-                disabled={emailLoading}
+                disabled={emailLoading || needsCaptcha}
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 whitespace-nowrap"
               >
                 {emailLoading ? 'Gönderiliyor…' : 'Bağlantı gönder'}
@@ -257,11 +265,16 @@ export default function Settings() {
               : 'E-postana gönderilecek bağlantıyla yeni şifre belirlersin.'}
           >
             {!resetSent && (
-              <button type="button" onClick={sendPasswordReset} disabled={resetLoading} className={secondaryBtn}>
+              <button type="button" onClick={sendPasswordReset} disabled={resetLoading || needsCaptcha} className={secondaryBtn}>
                 {resetLoading ? 'Gönderiliyor…' : 'Şifremi değiştir'}
               </button>
             )}
           </Row>
+          {TURNSTILE_SITE_KEY && (
+            <div className="py-3.5">
+              <Turnstile ref={captchaRef} onToken={setCaptchaToken} />
+            </div>
+          )}
         </Section>
 
         {/* Gizlilik ve veriler */}

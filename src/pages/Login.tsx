@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { forgotPassword, signInWithGoogle } from '../services/api';
@@ -6,6 +6,8 @@ import { showToast } from '../components/Toast';
 import { useSEO } from '../hooks/useSEO';
 import { checkRateLimit, resetRateLimit, getRemainingAttempts } from '../lib/rateLimit';
 import { normalizeInternalRedirect } from '../lib/navigation';
+import Turnstile, { type TurnstileHandle } from '../components/Turnstile';
+import { TURNSTILE_SITE_KEY } from '../lib/turnstile';
 
 type Mode = 'login' | 'forgot' | 'sent';
 
@@ -24,22 +26,25 @@ export default function Login() {
   const [needs2FA,      setNeeds2FA]      = useState(false);
   const [error,         setError]         = useState('');
   const [loading,       setLoading]       = useState(false);
+  const [captchaToken,  setCaptchaToken]  = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
 
   const remaining = getRemainingAttempts(mode === 'forgot' ? 'forgotPassword' : 'login', email || 'global');
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    if (TURNSTILE_SITE_KEY && !captchaToken) { setError('Lütfen robot olmadığını doğrula.'); return; }
     setLoading(true);
     try {
       if (mode === 'login') {
         checkRateLimit('login', email);
-        await loginUser(email, password, twoFactorCode || undefined);
+        await loginUser(email, password, twoFactorCode || undefined, captchaToken ?? undefined);
         resetRateLimit('login', email);
         navigate(redirectTo);
       } else if (mode === 'forgot') {
         checkRateLimit('forgotPassword', email);
-        await forgotPassword(email);
+        await forgotPassword(email, captchaToken ?? undefined);
         setMode('sent');
         showToast('E-posta gönderildi', 'success');
       }
@@ -49,6 +54,8 @@ export default function Login() {
       if (mode === 'login' && message.toLowerCase().includes('kod')) setNeeds2FA(true);
     } finally {
       setLoading(false);
+      // Token tek kullanımlık; her denemeden sonra yenilenmeli.
+      captchaRef.current?.reset();
     }
   }
 
@@ -142,7 +149,8 @@ export default function Login() {
                   </div>
                 )}
 
-                <button type="submit" disabled={loading || remaining === 0}
+                <Turnstile ref={captchaRef} onToken={setCaptchaToken} className="flex justify-center" />
+                <button type="submit" disabled={loading || remaining === 0 || (!!TURNSTILE_SITE_KEY && !captchaToken)}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
                 >
                   {loading ? '…' : mode === 'login' ? 'Giriş Yap' : 'Sıfırlama Bağlantısı Gönder'}

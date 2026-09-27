@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useSEO } from '../hooks/useSEO';
@@ -8,6 +8,9 @@ import { signInWithGoogle } from '../services/api';
 import { showToast } from '../components/Toast';
 import { CITIES_81 } from '../data/cities';
 import { normalizeInternalRedirect } from '../lib/navigation';
+import { detectBot } from '../lib/botGuard';
+import Turnstile, { type TurnstileHandle } from '../components/Turnstile';
+import { TURNSTILE_SITE_KEY } from '../lib/turnstile';
 
 export default function Register() {
   useSEO({ title: 'Kayıt Ol', description: 'Takaslat\'a ücretsiz kayıt ol ve araç takasına hemen başla.' });
@@ -23,6 +26,11 @@ export default function Register() {
   const [error,        setError]        = useState('');
   const [loading,      setLoading]      = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
+  // Bot koruması: bal küpü alanı, formun açıldığı an ve Turnstile token'ı.
+  const [website,      setWebsite]      = useState('');
+  const [startedAt] = useState(() => Date.now());
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
   const [termsOpen,    setTermsOpen]    = useState(false);
   const pwScore = checkPasswordStrength(password);
   const remaining = getRemainingAttempts('register', 'global');
@@ -40,12 +48,19 @@ export default function Register() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    // Bota neyin yakalandığını söylemiyoruz; gerçek bir kullanıcı takılırsa
+    // (ör. çok hızlı otomatik doldurma) birkaç saniye sonra tekrar dener.
+    if (detectBot({ honeypot: website, startedAt })) {
+      setError('Kayıt tamamlanamadı, birkaç saniye sonra tekrar dene.');
+      return;
+    }
+    if (TURNSTILE_SITE_KEY && !captchaToken) { setError('Lütfen robot olmadığını doğrula.'); return; }
     if (password.length < 6) { setError('Şifre en az 6 karakter olmalı'); return; }
     if (pwScore.score < 1) { setError('Daha güçlü bir şifre seç'); return; }
     setLoading(true);
     try {
       checkRateLimit('register', 'global');
-      await registerUser(name, email, password, city || undefined);
+      await registerUser(name, email, password, city || undefined, captchaToken ?? undefined);
       acceptTerms();
       resetRateLimit('register', 'global');
       navigate(redirectTo);
@@ -53,6 +68,8 @@ export default function Register() {
       setError(err instanceof Error ? err.message : 'Kayıt başarısız');
     } finally {
       setLoading(false);
+      // Token tek kullanımlık; her denemeden sonra yenilenmeli.
+      captchaRef.current?.reset();
     }
   }
 
@@ -173,9 +190,26 @@ export default function Register() {
               </span>
             </label>
 
+            {/* Bal küpü: ekran dışında, ekran okuyucudan ve klavyeden gizli. */}
+            <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+              <label>
+                Web siteniz
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <Turnstile ref={captchaRef} onToken={setCaptchaToken} className="flex justify-center" />
+
             <button
               type="submit"
-              disabled={loading || remaining === 0 || !termsChecked}
+              disabled={loading || remaining === 0 || !termsChecked || (!!TURNSTILE_SITE_KEY && !captchaToken)}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
             >
               {loading ? 'Hesap oluşturuluyor…' : 'Kayıt Ol'}

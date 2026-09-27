@@ -229,11 +229,12 @@ const PROFILE_SELECT = 'id, name, city, avatar, rating, total_swaps, role, email
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-export async function register(payload: { name: string; email: string; password: string; city?: string }) {
+// captchaToken: Supabase'te bot koruması açıksa zorunlu (bkz. components/Turnstile).
+export async function register(payload: { name: string; email: string; password: string; city?: string; captchaToken?: string }) {
   const { data, error } = await supabase.auth.signUp({
     email: payload.email,
     password: payload.password,
-    options: { data: { name: payload.name } },
+    options: { data: { name: payload.name }, captchaToken: payload.captchaToken },
   })
   if (error) throw new Error(error.message)
   if (!data.user) throw new Error('Kayit basarisiz')
@@ -256,9 +257,9 @@ export async function signInWithGoogle() {
   if (error) throw new Error(error.message);
 }
 
-export async function login(email: string, password: string, _twoFactorCode?: string) {
+export async function login(email: string, password: string, _twoFactorCode?: string, captchaToken?: string) {
   void _twoFactorCode
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } })
   if (error) throw new Error(error.message)
   if (!data.user) throw new Error('Giris basarisiz')
 
@@ -319,9 +320,10 @@ export async function updateMe(patch: { name?: string; city?: string; avatar?: s
   return { ...patch }
 }
 
-export async function forgotPassword(email: string): Promise<{ message: string; devCode?: string }> {
+export async function forgotPassword(email: string, captchaToken?: string): Promise<{ message: string; devCode?: string }> {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
+    captchaToken,
   })
   if (error) throw new Error(error.message)
   return { message: 'Sifre sifirlama e-postasi gonderildi' }
@@ -365,10 +367,10 @@ export async function setEmailNotificationPref(enabled: boolean): Promise<void> 
   if (error) throw new Error(error.message)
 }
 
-export async function requestEmailVerification(): Promise<{ message: string }> {
+export async function requestEmailVerification(captchaToken?: string): Promise<{ message: string }> {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user?.email) throw new Error('Kullanıcı bulunamadı')
-  const { error } = await supabase.auth.resend({ type: 'signup', email: user.email })
+  const { error } = await supabase.auth.resend({ type: 'signup', email: user.email, options: { captchaToken } })
   if (error) throw new Error(error.message)
   return { message: 'Doğrulama bağlantısı e-postanıza gönderildi' }
 }

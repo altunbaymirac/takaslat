@@ -108,8 +108,8 @@ interface AppState {
   loadNotifications: () => Promise<void>;
   loadAuctions:  () => Promise<void>;
   pushNotification:  (notification: Notification) => void;
-  loginUser:     (email: string, password: string, twoFactorCode?: string) => Promise<void>;
-  registerUser:  (name: string, email: string, password: string, city?: string) => Promise<void>;
+  loginUser:     (email: string, password: string, twoFactorCode?: string, captchaToken?: string) => Promise<void>;
+  registerUser:  (name: string, email: string, password: string, city?: string, captchaToken?: string) => Promise<void>;
   logoutUser:    () => void;
   initAuth:      () => Promise<void>;
   updateProfile: (patch: { name?: string; city?: string; avatar?: string; phone?: string }) => Promise<void>;
@@ -368,8 +368,8 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      loginUser: async (email, password, twoFactorCode) => {
-        const res = (await apiLogin(email, password, twoFactorCode) as unknown) as {
+      loginUser: async (email, password, twoFactorCode, captchaToken) => {
+        const res = (await apiLogin(email, password, twoFactorCode, captchaToken) as unknown) as {
           user?: AuthUser;
           token?: string;
           requires2FA?: boolean;
@@ -390,8 +390,8 @@ export const useAppStore = create<AppState>()(
         await get().loadNotifications();
       },
 
-      registerUser: async (name, email, password, city) => {
-        const res = (await apiRegister({ name, email, password, city }) as unknown) as { user: AuthUser; token: string };
+      registerUser: async (name, email, password, city, captchaToken) => {
+        const res = (await apiRegister({ name, email, password, city, captchaToken }) as unknown) as { user: AuthUser; token: string };
         setToken(res.token);
         set({
           token:           res.token,

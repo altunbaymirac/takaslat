@@ -25,6 +25,48 @@ Aynı Resend API anahtarı ikisinde de kullanılır.
 
 ---
 
+## ÖNCE: bot koruması (SMTP'den önce yapılmalı)
+
+Ağustos–Eylül'de kayıt formu bir botla doldurularak sahte hesaplar açıldı
+(rastgele isimler, Gmail nokta hilesi adresleri, hepsi "Adana").
+Custom SMTP açıldığı anda **her bot kaydı gerçek bir doğrulama maili
+tetikler.** Bu adresler ya yok ya da başkasına ait; geri dönen ve spam'e
+işaretlenen mailler Resend'deki domain itibarını düşürür, hesap askıya
+alınabilir, ücretsiz kota (günde 100) botlara gider.
+
+Bu yüzden sıra: **Turnstile → sonra SMTP.**
+
+Kayıt formunda hesap gerektirmeyen bir ilk katman (görünmez bal küpü alanı
+ve süre tuzağı) zaten devrede. Asıl koruma Cloudflare Turnstile — Supabase
+bunu sunucuda doğruladığı için formu atlayıp API'ye doğrudan vuran bot da
+geçemez.
+
+### Kurulum — SIRA ÖNEMLİ
+
+1. **Cloudflare** (ücretsiz hesap) → **Turnstile → Add widget**
+   - Widget name: `Takaslat`
+   - Hostnames: `takaslat.com`, `www.takaslat.com`
+   - Widget mode: **Managed**
+   - Çıkan **Site Key** ve **Secret Key**'i kopyala.
+2. **Vercel** → Project → Settings → Environment Variables:
+   `VITE_TURNSTILE_SITE_KEY` = Site Key → **Redeploy**.
+3. **Kontrol:** `/register` ve `/login` sayfalarında "robot değilim" kutusu
+   görünmeli ve işaretlenince buton aktifleşmeli. **Görmeden 4. adıma geçme.**
+4. **Supabase** → Authentication → **Attack Protection** (eski adı: Bot and
+   Abuse Protection) → **Enable Captcha protection** → Provider: **Turnstile**
+   → Secret Key → Save.
+5. Çıkış yapıp tekrar giriş yap, sonra yeni bir hesapla kaydolmayı dene.
+
+> 4. adımı 2–3'ten önce yaparsan, site captcha göndermediği için **kimse
+> giriş yapamaz.** Böyle olursa Supabase'te korumayı kapatman yeterli.
+
+### Mevcut bot hesaplarını temizleme
+
+`supabase/bot_accounts.sql` → önce özet ve listeyi çalıştır, listeyi incele;
+içinde gerçek kullanıcı olmadığından eminsen en alttaki silme bloğunu aç.
+
+---
+
 ## 1. Hesap mailleri — EN ACİL
 
 ### Neden acil
