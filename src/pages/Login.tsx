@@ -81,7 +81,7 @@ export default function Login() {
           {/* E-posta gönderildi ekranı */}
           {mode === 'sent' && (
             <div className="py-4 text-center space-y-4">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">E-posta</div>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">E-posta</div>
               <p className="text-sm text-slate-600">
                 <strong>{email}</strong> adresine şifre sıfırlama bağlantısı gönderdik.
               </p>
@@ -98,7 +98,7 @@ export default function Login() {
           {mode !== 'sent' && (
             <>
               {error && (
-                <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl banner-enter">
+                <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl banner-enter dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60">
                   {error}
                 </div>
               )}

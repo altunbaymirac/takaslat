@@ -14,11 +14,11 @@ import { showToast } from '../components/Toast';
 // ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS: Record<OfferStatus, { label: string; dot: string; badge: string }> = {
-  Beklemede:    { label: 'Beklemede',    dot: 'bg-amber-400',  badge: 'bg-amber-50  text-amber-700  border-amber-200'  },
-  Görüşülüyor:  { label: 'Görüşülüyor',  dot: 'bg-blue-500',   badge: 'bg-blue-50   text-blue-700   border-blue-200'   },
-  Onaylandı:    { label: 'Onaylandı',    dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-  Tamamlandı:   { label: 'Tamamlandı',   dot: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-700 border-emerald-200'},
-  Reddedildi:   { label: 'Reddedildi',   dot: 'bg-red-400',    badge: 'bg-red-50    text-red-700    border-red-200'    },
+  Beklemede:    { label: 'Beklemede',    dot: 'bg-amber-400',  badge: 'bg-amber-50  text-amber-700  border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60'  },
+  Görüşülüyor:  { label: 'Görüşülüyor',  dot: 'bg-blue-500',   badge: 'bg-blue-50   text-blue-700   border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'   },
+  Onaylandı:    { label: 'Onaylandı',    dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60' },
+  Tamamlandı:   { label: 'Tamamlandı',   dot: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60'},
+  Reddedildi:   { label: 'Reddedildi',   dot: 'bg-red-400',    badge: 'bg-red-50    text-red-700    border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60'    },
 };
 
 function fmt(n: number) {
@@ -52,7 +52,7 @@ function ConvItem({
     <button
       onClick={onClick}
       className={`w-full text-left px-4 py-3.5 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-        isActive ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
+        isActive ? 'bg-blue-50 border-l-2 border-l-blue-600 dark:bg-blue-950/40' : ''
       }`}
     >
       <div className="flex items-start gap-3">
@@ -79,7 +79,7 @@ function ConvItem({
               {st.label}
             </span>
             {isIncoming && (
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">Gelen</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full dark:bg-slate-700">Gelen</span>
             )}
           </div>
         </div>
@@ -384,7 +384,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
             <button
               type="button"
               onClick={() => setRevisionOpen(true)}
-              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300"
+              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/60"
             >
               Teklifi Revize Et
             </button>
@@ -497,13 +497,13 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
               <div className="flex gap-2">
                 <button
                   onClick={() => void handleStatusChange('Görüşülüyor')}
-                  className="flex-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 rounded-xl transition-colors"
+                  className="flex-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 rounded-xl transition-colors dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60 dark:hover:bg-blue-900/60"
                 >
                   Görüşmeye Başla
                 </button>
                 <button
                   onClick={() => void handleStatusChange('Reddedildi')}
-                  className="flex-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 rounded-xl transition-colors"
+                  className="flex-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 rounded-xl transition-colors dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60 dark:hover:bg-red-900/60"
                 >
                   ✕ Reddet
                 </button>
@@ -526,7 +526,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
                 <button
                   onClick={() => void handleStatusChange('Onaylandı')}
                   disabled={isIncoming ? offer.toAccepted : offer.fromAccepted}
-                  className="flex-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 disabled:opacity-60 text-blue-700 border border-blue-200 py-2 rounded-xl transition-colors"
+                  className="flex-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 disabled:opacity-60 text-blue-700 border border-blue-200 py-2 rounded-xl transition-colors dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60 dark:hover:bg-blue-900/60"
                 >
                   {(isIncoming ? offer.toAccepted : offer.fromAccepted)
                     ? 'Onayın alındı, karşı taraf bekleniyor'
@@ -534,7 +534,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
                 </button>
                 <button
                   onClick={() => void handleStatusChange('Reddedildi')}
-                  className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl transition-colors"
+                  className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl transition-colors dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60 dark:hover:bg-red-900/60"
                 >
                   ✕
                 </button>
@@ -582,7 +582,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
                 )}
                 <button
                   onClick={() => void handleStatusChange('Reddedildi')}
-                  className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl transition-colors"
+                  className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-2 px-3 rounded-xl transition-colors dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60 dark:hover:bg-red-900/60"
                   title="İptal et"
                 >
                   ✕
@@ -678,7 +678,7 @@ function ChatPanel({ offer, isIncoming, onBack }: { offer: SwapOffer; isIncoming
         </div>
       ) : (
         <div className={`px-4 py-3 border-t border-slate-200 dark:border-slate-700 ${
-          offer.status === 'Tamamlandı' ? 'bg-emerald-50' : 'bg-red-50'
+          offer.status === 'Tamamlandı' ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-red-50 dark:bg-red-950/40'
         }`}>
           <div className="text-center text-sm font-medium">
             {offer.status === 'Tamamlandı'
@@ -941,9 +941,9 @@ export default function Conversations() {
             {/* Stats bar */}
             <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-2.5 flex justify-around flex-shrink-0">
               {[
-                { label: 'Bekleyen',   value: incoming.filter(o => o.status === 'Beklemede').length,  color: 'text-amber-600'   },
-                { label: 'Aktif',      value: offers.filter(o => o.status === 'Görüşülüyor').length,  color: 'text-blue-600'    },
-                { label: 'Tamamlanan', value: offers.filter(o => o.status === 'Tamamlandı').length,   color: 'text-emerald-600' },
+                { label: 'Bekleyen',   value: incoming.filter(o => o.status === 'Beklemede').length,  color: 'text-amber-600 dark:text-amber-300'   },
+                { label: 'Aktif',      value: offers.filter(o => o.status === 'Görüşülüyor').length,  color: 'text-blue-600 dark:text-blue-300'    },
+                { label: 'Tamamlanan', value: offers.filter(o => o.status === 'Tamamlandı').length,   color: 'text-emerald-600 dark:text-emerald-300' },
               ].map(s => (
                 <div key={s.label} className="text-center">
                   <p className={`text-base font-bold ${s.color}`}>{s.value}</p>

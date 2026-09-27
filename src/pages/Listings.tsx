@@ -190,107 +190,115 @@ export default function Listings() {
 
       <FilterBar resultCount={filtered.length} onFilterChange={() => setPage(1)} />
 
-      {/* ── Cümleyle arama (AI) ── */}
-      <button
-        type="button"
-        onClick={() => setAiOpen((open) => !open)}
-        aria-expanded={aiOpen}
-        className="mt-2 flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-2.5 text-left text-sm font-semibold text-slate-600 transition-colors hover:border-blue-500 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-blue-300"
+      {/* ── Cümleyle arama (AI): başlık ve içerik tek kartta ── */}
+      <div
+        className={`mt-2 overflow-hidden rounded-lg border bg-white transition-colors dark:bg-slate-800 ${
+          aiOpen
+            ? 'border-slate-200 dark:border-slate-700'
+            : 'border-dashed border-slate-300 hover:border-blue-500 dark:border-slate-700'
+        }`}
       >
-        <svg className="h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-        </svg>
-        Ne aradığını cümleyle anlat, AI senin için eşleştirsin
-        <svg className={`ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform ${aiOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+        <button
+          type="button"
+          onClick={() => setAiOpen((open) => !open)}
+          aria-expanded={aiOpen}
+          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-slate-600 transition-colors hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300"
+        >
+          <svg className="h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          Ne aradığını cümleyle anlat, AI senin için eşleştirsin
+          <svg className={`ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform ${aiOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-      {aiOpen && (
-        <div className="mt-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <textarea
-            value={aiQuery}
-            onChange={e => setAiQuery(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runHomeAI(); }
-            }}
-            placeholder="Ne arıyorsun? Örn: 2020 ve üstü sedan, otomatik, hasarsız, 500.000 km altı"
-            rows={3}
-            className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
+        {aiOpen && (
+          <div className="border-t border-slate-200 p-4 dark:border-slate-700">
+            <textarea
+              value={aiQuery}
+              onChange={e => setAiQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runHomeAI(); }
+              }}
+              placeholder="Ne arıyorsun? Örn: 2020 ve üstü sedan, otomatik, hasarsız, 500.000 km altı"
+              rows={3}
+              className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
 
-          <details className="mt-2">
-            <summary className="cursor-pointer select-none text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-              Gelişmiş seçenekler (opsiyonel)
-            </summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3 rounded-xl bg-slate-50 dark:bg-slate-900 p-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Kendi ilanım</label>
-                <select
-                  value={aiSourceListingId}
-                  onChange={e => setAiSourceListingId(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                >
-                  <option value="">Seçmeden ara</option>
-                  {myListings.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
-                </select>
+            <details className="mt-2">
+              <summary className="cursor-pointer select-none text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                Gelişmiş seçenekler (opsiyonel)
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3 rounded-xl bg-slate-50 dark:bg-slate-900 p-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Kendi ilanım</label>
+                  <select
+                    value={aiSourceListingId}
+                    onChange={e => setAiSourceListingId(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    <option value="">Seçmeden ara</option>
+                    {myListings.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Para farkı</label>
+                  <select
+                    value={aiCashDirection}
+                    onChange={e => setAiCashDirection(e.target.value as 'any' | 'pay' | 'receive')}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    <option value="any">Fark önemli değil</option>
+                    <option value="pay">Üste para öderim</option>
+                    <option value="receive">Para farkı alırım</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tutar (₺)</label>
+                  <input
+                    type="number"
+                    value={aiCashAmount}
+                    onChange={e => setAiCashAmount(e.target.value)}
+                    placeholder="Örn: 100000"
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Para farkı</label>
-                <select
-                  value={aiCashDirection}
-                  onChange={e => setAiCashDirection(e.target.value as 'any' | 'pay' | 'receive')}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                >
-                  <option value="any">Fark önemli değil</option>
-                  <option value="pay">Üste para öderim</option>
-                  <option value="receive">Para farkı alırım</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tutar (₺)</label>
-                <input
-                  type="number"
-                  value={aiCashAmount}
-                  onChange={e => setAiCashAmount(e.target.value)}
-                  placeholder="Örn: 100000"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                />
-              </div>
+            </details>
+
+            {aiError && (
+              <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-900/20 dark:text-red-400 banner-enter">
+                {aiError}
+              </p>
+            )}
+
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-slate-400">Enter ile ara · Shift+Enter yeni satır</p>
+              <button
+                type="button"
+                onClick={runHomeAI}
+                disabled={aiLoading || aiQuery.trim().length < 3}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <>
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Arıyor...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                    AI ile Ara
+                  </>
+                )}
+              </button>
             </div>
-          </details>
-
-          {aiError && (
-            <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-900/20 dark:text-red-400 banner-enter">
-              {aiError}
-            </p>
-          )}
-
-          <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs text-slate-400">Enter ile ara · Shift+Enter yeni satır</p>
-            <button
-              type="button"
-              onClick={runHomeAI}
-              disabled={aiLoading || aiQuery.trim().length < 3}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-            >
-              {aiLoading ? (
-                <>
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Arıyor...
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                  </svg>
-                  AI ile Ara
-                </>
-              )}
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Recently Viewed ── */}
       {recentlyViewedListings.length > 0 && (

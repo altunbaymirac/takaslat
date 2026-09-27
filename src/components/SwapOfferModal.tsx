@@ -242,7 +242,7 @@ export default function SwapOfferModal({ listing, onClose }: Props) {
                     type="button"
                     onClick={generateMessage}
                     disabled={aiLoading}
-                    className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300"
+                    className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/60"
                   >
                     {aiLoading ? 'Yazıyor...' : 'AI taslak'}
                   </button>

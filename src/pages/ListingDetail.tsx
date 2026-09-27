@@ -52,9 +52,19 @@ function SpecRow({ label, value, accent }: {
 
 // ─── Öne çıkan özellik rozeti ─────────────────────────────────────────────────
 
-function HighlightBadge({ text, color }: { icon: string; text: string; color: string }) {
+// Öne çıkan özellikler tek, her iki temada okunur nötr stilde. Renk yalnızca
+// gerçekten uyarı taşıyan durumda (ör. hasar kaydı) kullanılır; aksi hâlde
+// her rozetin farklı pastel tonu anlam taşımadan göz yoruyordu.
+const HIGHLIGHT_TONES = {
+  neutral: 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600',
+  warn:    'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/60 dark:text-red-200 dark:border-red-900',
+} as const;
+
+type HighlightTone = keyof typeof HIGHLIGHT_TONES;
+
+function HighlightBadge({ text, tone = 'neutral' }: { text: string; tone?: HighlightTone }) {
   return (
-    <div className={`rounded-md px-3 py-2 text-sm font-semibold ${color}`}>
+    <div className={`rounded-md border px-3 py-2 text-sm font-semibold ${HIGHLIGHT_TONES[tone]}`}>
       <span>{text}</span>
     </div>
   );
@@ -417,30 +427,30 @@ export default function ListingDetail() {
     : `/listing/${listing.id}`;
 
   // Otomatik öne çıkan özellikler
-  const highlights: { icon: string; text: string; color: string }[] = [];
+  const highlights: { text: string; tone?: HighlightTone }[] = [];
   if (v) {
-    if (!v.hasAccidentRecord)       highlights.push({ icon: '✅', text: 'Hasar Kaydı Yok',        color: 'bg-emerald-50 text-emerald-700' });
-    if ((v.km ?? 0) < 50_000)       highlights.push({ icon: '🏃', text: 'Düşük Kilometre',         color: 'bg-blue-50 text-blue-700'     });
-    if ((v.year ?? 0) >= 2021)      highlights.push({ icon: '✨', text: `${v.year} Model`,          color: 'bg-blue-50 text-blue-700' });
-    if (v.fuel === 'Hibrit')        highlights.push({ icon: '⚡', text: 'Hibrit',                  color: 'bg-blue-50 text-blue-700'     });
-    if (v.fuel === 'Elektrik')      highlights.push({ icon: '⚡', text: 'Elektrikli',              color: 'bg-blue-50 text-blue-700'     });
-    if (v.transmission === 'Otomatik') highlights.push({ icon: '🕹️', text: 'Otomatik Vites',    color: 'bg-slate-100 text-slate-600'  });
-    if (v.hasAccidentRecord)        highlights.push({ icon: '⚠️', text: 'Hasar Kaydı Var',        color: 'bg-red-50 text-red-600'       });
+    if (!v.hasAccidentRecord)       highlights.push({ text: 'Hasar Kaydı Yok' });
+    if ((v.km ?? 0) < 50_000)       highlights.push({ text: 'Düşük Kilometre' });
+    if ((v.year ?? 0) >= 2021)      highlights.push({ text: `${v.year} Model` });
+    if (v.fuel === 'Hibrit')        highlights.push({ text: 'Hibrit' });
+    if (v.fuel === 'Elektrik')      highlights.push({ text: 'Elektrikli' });
+    if (v.transmission === 'Otomatik') highlights.push({ text: 'Otomatik Vites' });
+    if (v.hasAccidentRecord)        highlights.push({ text: 'Hasar Kaydı Var', tone: 'warn' });
   }
   if (e) {
-    if (e.warranty === 'Devam ediyor')      highlights.push({ icon: '🛡️', text: 'Garantisi devam ediyor', color: 'bg-emerald-50 text-emerald-700' });
-    if ((e.batteryHealth ?? 0) >= 90)       highlights.push({ icon: '🔋', text: `Batarya %${e.batteryHealth}`, color: 'bg-emerald-50 text-emerald-700' });
-    else if (e.batteryHealth && e.batteryHealth < 80) highlights.push({ icon: '🪫', text: `Batarya %${e.batteryHealth}`, color: 'bg-amber-50 text-amber-700' });
-    if ((e.accessories?.length ?? 0) >= 3)  highlights.push({ icon: '📦', text: 'Tam aksesuarlı',            color: 'bg-blue-50 text-blue-700' });
-    if (e.accessories?.includes('Orijinal kutu')) highlights.push({ icon: '🎁', text: 'Orijinal kutusunda',  color: 'bg-blue-50 text-blue-700' });
+    if (e.warranty === 'Devam ediyor')      highlights.push({ text: 'Garantisi devam ediyor' });
+    if ((e.batteryHealth ?? 0) >= 90)       highlights.push({ text: `Batarya %${e.batteryHealth}` });
+    else if (e.batteryHealth && e.batteryHealth < 80) highlights.push({ text: `Batarya %${e.batteryHealth}`, tone: 'warn' });
+    if ((e.accessories?.length ?? 0) >= 3)  highlights.push({ text: 'Tam aksesuarlı' });
+    if (e.accessories?.includes('Orijinal kutu')) highlights.push({ text: 'Orijinal kutusunda' });
   }
   if (p) {
-    if (p.balcony)                          highlights.push({ icon: '🌿', text: 'Balkonlu',          color: 'bg-emerald-50 text-emerald-700' });
-    if (p.elevator)                         highlights.push({ icon: '🛗', text: 'Asansörlü',         color: 'bg-blue-50 text-blue-700' });
-    if (p.parking)                          highlights.push({ icon: '🅿️', text: 'Otoparklı',        color: 'bg-blue-50 text-blue-700' });
-    if (p.furnished)                        highlights.push({ icon: '🛋️', text: 'Eşyalı',            color: 'bg-amber-50 text-amber-700' });
-    if (p.titleDeed === 'Kat Mülkiyetli')   highlights.push({ icon: '📜', text: 'Kat Mülkiyetli',    color: 'bg-emerald-50 text-emerald-700' });
-    if ((p.buildingAge ?? 99) <= 5)         highlights.push({ icon: '🏗️', text: 'Yeni Bina',         color: 'bg-blue-50 text-blue-700' });
+    if (p.balcony)                          highlights.push({ text: 'Balkonlu' });
+    if (p.elevator)                         highlights.push({ text: 'Asansörlü' });
+    if (p.parking)                          highlights.push({ text: 'Otoparklı' });
+    if (p.furnished)                        highlights.push({ text: 'Eşyalı' });
+    if (p.titleDeed === 'Kat Mülkiyetli')   highlights.push({ text: 'Kat Mülkiyetli' });
+    if ((p.buildingAge ?? 99) <= 5)         highlights.push({ text: 'Yeni Bina' });
   }
   // Yakıt ikonu
   const fuelIcon: Record<string, string> = {
@@ -508,7 +518,7 @@ export default function ListingDetail() {
 
           {/* Galeri */}
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="relative aspect-video bg-slate-100">
+            <div className="relative aspect-video bg-slate-100 dark:bg-slate-700">
               <img
                 src={listing.images[activeImage]}
                 alt={listing.title}
@@ -697,7 +707,7 @@ export default function ListingDetail() {
             {visibleTags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {visibleTags.map((tag) => (
-                  <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-medium">
+                  <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-medium dark:bg-slate-700 dark:text-slate-200">
                     {tag}
                   </span>
                 ))}
@@ -1174,7 +1184,7 @@ export default function ListingDetail() {
           </Link>
 
           {/* Güvenlik notu */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 dark:bg-slate-800/60 dark:border-slate-600">
             <p className="text-xs text-slate-500 font-medium mb-1">Güvenli Takas</p>
             <p className="text-xs text-slate-400 leading-relaxed">
               Teklifler uygulama üzerinden yapılır. Ödeme veya transfer taleplerine ihtiyatlı yaklaşın.

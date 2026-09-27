@@ -265,7 +265,7 @@ export default function Admin() {
       </div>
 
       {loadError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60" role="alert">
           <p className="font-semibold">Panel verileri yüklenemedi</p>
           <p className="mt-1 break-words">{loadError}</p>
           <button onClick={() => void load()} className="mt-2 font-semibold text-blue-700 hover:text-blue-800">
@@ -298,10 +298,10 @@ export default function Admin() {
                 const health = getListingHealth(listing);
                 const tone = toneForScore(health.score);
                 const toneClass: Record<string, string> = {
-                  emerald: 'bg-blue-50 text-blue-700 border-blue-200',
-                  blue:    'bg-blue-50 text-blue-700 border-blue-200',
-                  amber:   'bg-amber-50 text-amber-700 border-amber-200',
-                  red:     'bg-red-50 text-red-700 border-red-200',
+                  emerald: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60',
+                  blue:    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60',
+                  amber:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60',
+                  red:     'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60',
                 };
                 return (
                   <div key={listing.id} className="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -317,7 +317,7 @@ export default function Admin() {
                           Kalite %{health.score}
                         </span>
                         {health.missing.length > 0 && (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                             {health.missing.length} eksik
                           </span>
                         )}
@@ -370,7 +370,7 @@ export default function Admin() {
                       ) : (
                         <span className="font-semibold text-slate-500 dark:text-slate-400">İlan silinmiş</span>
                       )}
-                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">
                         {REPORT_REASONS[report.reason] ?? report.reason}
                       </span>
                       {report.listing && !report.listing.isActive && (
@@ -436,10 +436,10 @@ export default function Admin() {
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{request.listing?.title ?? 'İlan'}</p>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         request.status === 'approved'
-                          ? 'bg-emerald-50 text-emerald-700'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                           : request.status === 'rejected'
-                            ? 'bg-red-50 text-red-700'
-                            : 'bg-amber-50 text-amber-700'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
                       }`}>
                         {request.status === 'approved' ? 'Onaylandı' : request.status === 'rejected' ? 'Reddedildi' : 'Bekliyor'}
                       </span>
@@ -501,15 +501,15 @@ export default function Admin() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-slate-900 dark:text-slate-100">{user.name}</span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        user.role === 'ADMIN' ? 'bg-blue-100 text-blue-700' :
-                        user.role === 'MODERATOR' ? 'bg-blue-100 text-blue-700' :
+                        user.role === 'ADMIN' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
+                        user.role === 'MODERATOR' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
                         'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                       }`}>
                         {user.role}
                       </span>
                       {user.emailVerified
-                        ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">E-posta doğrulandı</span>
-                        : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">E-posta doğrulanmadı</span>
+                        ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">E-posta doğrulandı</span>
+                        : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">E-posta doğrulanmadı</span>
                       }
                     </div>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">

@@ -684,7 +684,7 @@ export default function CreateListing() {
   if (submitted) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
-        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 dark:bg-emerald-900/40">
           <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
@@ -1084,7 +1084,7 @@ export default function CreateListing() {
                               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">İsteğe bağlı olarak PDF veya rapor fotoğrafları ekleyebilirsin.</p>
                             </div>
                             <label className="block cursor-pointer">
-                              <div className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition-colors hover:border-blue-500 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300">
+                              <div className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition-colors hover:border-blue-500 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/60">
                                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V4.5m0 0L7.5 9M12 4.5 16.5 9M4.5 15.75v2.25A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5v-2.25" />
                                 </svg>
@@ -1469,7 +1469,7 @@ export default function CreateListing() {
                     type="button"
                     onClick={handleEstimateValue}
                     disabled={aiLoading || !form.brand || !form.model}
-                    className="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-200 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
+                    className="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-200 px-3 py-1 rounded-full transition-colors flex items-center gap-1 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60 dark:hover:bg-emerald-900/60"
                   >
                     {aiLoading ? 'Hesaplanıyor…' : 'AI ile hesapla'}
                   </button>
@@ -1496,7 +1496,7 @@ export default function CreateListing() {
               )}
               <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Minimum ilan değeri ₺1.000</p>
               {valueHint && (
-                <div className="mt-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                <div className="mt-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs dark:bg-emerald-950/40 dark:border-emerald-900/60">
                   <p className="font-semibold text-emerald-800 mb-0.5">AI Değer Aralığı ({valueHint.basedOn} ilan)</p>
                   <p className="text-emerald-700">
                     {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(valueHint.low)}
@@ -1515,7 +1515,7 @@ export default function CreateListing() {
                     type="button"
                     onClick={handleAiDescribe}
                     disabled={aiLoading || !form.brand || !form.model}
-                    className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed border border-amber-200 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
+                    className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed border border-amber-200 px-3 py-1 rounded-full transition-colors flex items-center gap-1 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60 dark:hover:bg-amber-900/60"
                   >
                     <span>✦</span>
                     {aiLoading ? 'Yazılıyor…' : 'AI ile yaz'}
@@ -1540,7 +1540,7 @@ export default function CreateListing() {
                 <div>
                   <p className="text-sm font-bold text-slate-900 dark:text-slate-100">AI yayın öncesi kontrol</p>
                   <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
-                    Açıklama, fiyat, görsel ve teknik alanlara göre ilanın güven skorunu çıkarır.
+                    Açıklama, fiyat, görsel ve teknik alanlara göre ilanın kalite puanını çıkarır.
                   </p>
                 </div>
                 <button
@@ -1576,7 +1576,7 @@ export default function CreateListing() {
                       <button
                         type="button"
                         onClick={() => update('description', qualityHint.improvedDescription)}
-                        className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+                        className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/60"
                       >
                         AI açıklamasını uygula
                       </button>
@@ -1714,7 +1714,7 @@ export default function CreateListing() {
               )}
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 dark:bg-blue-950/40 dark:border-blue-900/60">
               <h4 className="font-medium text-blue-800 text-sm mb-2">İlan Özeti</h4>
               <div className="text-sm text-blue-700 space-y-1">
                 <p>Konum: {form.city}{form.district ? ` / ${form.district}` : ''}</p>

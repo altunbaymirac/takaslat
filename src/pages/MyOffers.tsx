@@ -4,11 +4,11 @@ import { useSEO } from '../hooks/useSEO';
 import { showToast } from '../components/Toast';
 
 const statusConfig: Record<OfferStatus, { label: string; color: string; bg: string }> = {
-  'Beklemede': { label: 'Beklemede', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-  'Görüşülüyor': { label: 'Görüşülüyor', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-  'Onaylandı': { label: 'Onaylandı', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  'Tamamlandı': { label: 'Tamamlandı', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  'Reddedildi': { label: 'Reddedildi', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
+  'Beklemede': { label: 'Beklemede', color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60' },
+  'Görüşülüyor': { label: 'Görüşülüyor', color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60' },
+  'Onaylandı': { label: 'Onaylandı', color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60' },
+  'Tamamlandı': { label: 'Tamamlandı', color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60' },
+  'Reddedildi': { label: 'Reddedildi', color: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-900/60' },
 };
 
 function OfferCard({ offer, isIncoming, onStatusChange }: {
@@ -27,9 +27,9 @@ function OfferCard({ offer, isIncoming, onStatusChange }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {isIncoming ? (
-              <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Gelen Teklif</span>
+              <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full dark:bg-blue-950/40 dark:text-blue-300">Gelen Teklif</span>
             ) : (
-              <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Gönderilen Teklif</span>
+              <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full dark:bg-blue-950/40 dark:text-blue-300">Gönderilen Teklif</span>
             )}
             <span className={`text-xs font-medium border px-2 py-0.5 rounded-full ${status.bg} ${status.color}`}>
               {status.label}
@@ -173,7 +173,7 @@ export default function MyOffers() {
         </h2>
         {incoming.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-8 text-center">
-            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 dark:bg-slate-700">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>

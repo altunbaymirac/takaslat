@@ -30,9 +30,9 @@ function SuggestionCard({ s, fallbackListing }: {
     new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
 
   const scoreColor =
-    s.compatibilityScore >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : s.compatibilityScore >= 60 ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : 'bg-red-50 text-red-700 border-red-200';
+    s.compatibilityScore >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60'
+    : s.compatibilityScore >= 60 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60'
+    : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60';
 
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-3 shadow-sm">
@@ -55,7 +55,7 @@ function SuggestionCard({ s, fallbackListing }: {
           </p>
           <div className="flex flex-wrap gap-1 mb-1.5">
             {s.reasons.map((r, i) => (
-              <span key={i} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-medium">{r}</span>
+              <span key={i} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-medium dark:bg-blue-950/40 dark:text-blue-300">{r}</span>
             ))}
           </div>
           {s.negotiationTip && (
@@ -214,7 +214,7 @@ export default function AIAssistant() {
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden modal-overlay" onClick={closeAIPanel} />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-[100dvh] w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200 panel-slide-right">
+      <div className="fixed right-0 top-0 h-[100dvh] w-full max-w-[420px] bg-slate-50 z-50 flex flex-col shadow-2xl border-l border-slate-200 panel-slide-right dark:bg-slate-900 dark:border-slate-600">
 
         {/* ── Header ── */}
         <div className="flex flex-shrink-0 items-center justify-between bg-blue-700 px-4 py-3.5">
@@ -244,7 +244,7 @@ export default function AIAssistant() {
 
         {/* ── Context listing ── */}
         {currentListing && (
-          <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
+          <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center gap-3 flex-shrink-0 dark:bg-blue-950/40 dark:border-blue-900/60">
             <img src={currentListing.images[0]} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-semibold text-blue-700 truncate">{currentListing.title}</p>
@@ -318,7 +318,7 @@ export default function AIAssistant() {
                   key={a}
                   disabled={loading}
                   onClick={() => sendMessage(a)}
-                  className="w-full text-left text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-3 py-2 rounded-xl transition-colors disabled:opacity-50 leading-relaxed"
+                  className="w-full text-left text-sm font-semibold text-slate-900 bg-amber-300 hover:bg-amber-400 border border-amber-400 px-3 py-2 rounded-xl transition-colors disabled:opacity-50 leading-snug"
                 >
                   {a}
                 </button>
@@ -337,7 +337,7 @@ export default function AIAssistant() {
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
               placeholder="Soru veya talep yazın..."
               disabled={loading}
-              className="flex-1 text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 placeholder-slate-400"
+              className="flex-1 text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 placeholder-slate-400 dark:bg-slate-800/60 dark:border-slate-600"
             />
             <button
               onClick={() => sendMessage()}

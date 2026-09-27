@@ -309,7 +309,7 @@ export default function SmartTools() {
           <button
             onClick={runAdvice}
             disabled={!aiText.trim() || aiLoading}
-            className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-40 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300"
+            className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-40 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/60"
           >
             {aiLoading ? 'AI çalışıyor...' : 'Genel Takas Danışmanı'}
           </button>

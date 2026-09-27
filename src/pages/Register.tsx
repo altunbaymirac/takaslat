@@ -77,7 +77,7 @@ export default function Register() {
           <h1 className="text-xl font-bold text-slate-900 mb-6">Yeni hesap oluştur</h1>
 
           {refId && (
-            <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2">
+            <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2 dark:bg-blue-950/40 dark:border-blue-900/60">
               <span className="text-xl">🎁</span>
               <div>
                 <p className="text-xs font-bold text-blue-700">Davet ile geliyorsun!</p>
@@ -87,7 +87,7 @@ export default function Register() {
           )}
 
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl banner-enter">
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl banner-enter dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60">
               {error}
             </div>
           )}
@@ -232,7 +232,7 @@ export default function Register() {
             </div>
             <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
               <p><strong>Platform:</strong> Takaslat bir aracı platformdur; takas işlemlerinin tarafı değildir.</p>
-              <p className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800">
+              <p className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60">
                 <strong>Vergi Uyarısı:</strong> Takas işlemleri Türk vergi mevzuatı kapsamında gelir vergisi veya KDV'ye konu olabilir. Takaslat bu yükümlülüklerden sorumlu tutulamaz.
               </p>
               <p><strong>Güvenli takas:</strong> Araç devri noterden yapılmalı, kapora öncesi aracı yerinde görün.</p>
