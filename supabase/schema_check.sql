@@ -111,6 +111,9 @@ beklenen_bucket(ad) AS (VALUES
 ),
 
 beklenen_trigger(ad, tablo) AS (VALUES
+  -- Sistem alanlarını (moderation_status, view_count) ilan sahibinin elle
+  -- değiştirmesini engeller. Yoksa sahip kendi ilanını onaylı yapabilir.
+  ('protect_listing_system_fields', 'listings'),
   ('notify_offer_created',      'offers'),
   ('notify_offer_status',       'offers'),
   ('notify_message',            'messages'),
@@ -171,6 +174,20 @@ WHERE to_regclass('public.' || ad) IS NOT NULL
     WHERE pt.pubname = 'supabase_realtime'
       AND pt.schemaname = 'public'
       AND pt.tablename = beklenen_realtime.ad
+  )
+
+UNION ALL
+
+-- İlanların herkese açık SELECT politikası onay durumunu da şart koşmalı;
+-- koşmazsa onay bekleyen ilanlar anında yayında olur.
+SELECT 'MODERASYON KAPISI AÇIK',
+       'listings SELECT politikası',
+       'onay bekleyen ilanlar herkese görünür'
+WHERE to_regclass('public.listings') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'listings' AND cmd = 'SELECT'
+      AND qual LIKE '%moderation_status%'
   )
 
 UNION ALL
