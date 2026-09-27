@@ -1,3 +1,5 @@
+> **Güncel ve eksiksiz kurulum rehberi: [`supabase/MAIL_KURULUMU.md`](../../MAIL_KURULUMU.md)** — hesap mailleri (kayıt doğrulama, şifre) ve bildirim mailleri birlikte anlatılıyor.
+
 # Takaslat Bildirim E-postası (Resend)
 
 `notifications` tablosuna bir satır düştüğünde kullanıcıya bildirim maili atar.
