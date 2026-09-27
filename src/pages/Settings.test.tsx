@@ -5,11 +5,13 @@ import { useAppStore, type AuthUser } from '../store/useAppStore';
 
 const getPref = vi.fn<() => Promise<boolean>>();
 const setPref = vi.fn<(enabled: boolean) => Promise<void>>();
+const forgotPassword = vi.fn<(email: string) => Promise<{ message: string }>>();
 
 vi.mock('../services/api', () => ({
   requestEmailVerification: vi.fn(async () => ({ message: 'gönderildi' })),
   getEmailNotificationPref: () => getPref(),
   setEmailNotificationPref: (enabled: boolean) => setPref(enabled),
+  forgotPassword: (email: string) => forgotPassword(email),
 }));
 
 const showToast = vi.fn();
@@ -40,8 +42,10 @@ beforeEach(() => {
   getPref.mockReset();
   setPref.mockReset();
   showToast.mockReset();
+  forgotPassword.mockReset();
   getPref.mockResolvedValue(true);
   setPref.mockResolvedValue(undefined);
+  forgotPassword.mockResolvedValue({ message: 'ok' });
   useAppStore.setState({ currentUser: user, currentUserId: user.id });
 });
 
@@ -80,5 +84,15 @@ describe('Ayarlar — e-posta bildirimi tercihi', () => {
     renderSettings();
 
     await waitFor(() => expect(mailToggle()).toHaveAttribute('aria-pressed', 'true'));
+  });
+});
+
+describe('Ayarlar — şifre değiştirme', () => {
+  it('bağlantıyı kullanıcının kendi e-postasına gönderir', async () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Şifremi değiştir' }));
+
+    await waitFor(() => expect(forgotPassword).toHaveBeenCalledWith('test@takaslat.com'));
+    expect(await screen.findByText(/Bağlantı gönderildi/)).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { requestEmailVerification } from '../services/api';
@@ -20,16 +20,6 @@ export default function TrustCenter() {
   const currentUser = useAppStore((state) => state.currentUser);
   const [emailSent, setEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const score = useMemo(() => {
-    if (!currentUser) return 0;
-    let value = 50;
-    if (currentUser.emailVerified) value += 25;
-    if (currentUser.phoneVerified) value += 10;
-    if ((currentUser.totalSwaps ?? 0) > 0) value += 10;
-    if ((currentUser.rating ?? 0) >= 4.7) value += 5;
-    return Math.min(100, value);
-  }, [currentUser]);
 
   if (!currentUser) {
     return (
@@ -68,12 +58,8 @@ export default function TrustCenter() {
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Hesap güven skoru</p>
-          <p className="mt-2 text-4xl font-bold text-slate-950 dark:text-white">%{score}</p>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div className="h-full rounded-full bg-blue-600" style={{ width: `${score}%` }} />
-          </div>
-          <dl className="mt-5 space-y-3 text-sm">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Hesap durumu</p>
+          <dl className="mt-4 space-y-3 text-sm">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-slate-600 dark:text-slate-300">E-posta</dt>
               <dd className={currentUser.emailVerified ? 'font-semibold text-blue-700 dark:text-blue-300' : 'font-semibold text-slate-500'}>

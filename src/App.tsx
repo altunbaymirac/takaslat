@@ -136,7 +136,7 @@ function AppInner() {
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.052 3.38c.866-1.5 3.03-1.5 3.896 0l7.355 12.746zM12 16.5h.008v.008H12V16.5z" />
                     </svg>
-                    <span>E-posta adresin henüz doğrulanmadı. Güven skorun düşük görünebilir.</span>
+                    <span>E-posta adresin henüz doğrulanmadı. Doğrulanmış hesaplar karşı tarafa daha çok güven verir.</span>
                   </p>
                   <Link
                     to="/settings"

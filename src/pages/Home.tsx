@@ -28,7 +28,7 @@ const FAQS = [
   },
   {
     q: 'Karşı tarafın güvenilir olduğunu nasıl anlarım?',
-    a: 'Her kullanıcının profilinde geçmiş takasları, aldığı değerlendirmeler ve hesap doğrulama durumu şeffaf şekilde gösterilir. Güven skoruna bakarak karar verebilirsin.',
+    a: 'Her kullanıcının profilinde geçmiş takasları, aldığı değerlendirmeler ve hesap doğrulama durumu şeffaf şekilde gösterilir. Bu bilgilere bakarak karar verebilirsin.',
   },
   {
     q: 'Takas sırasında anlaşmazlık olursa ne olur?',
@@ -243,7 +243,7 @@ export default function Home() {
                 ),
               },
               {
-                title: 'Güven Skoru',
+                title: 'Şeffaf Profiller',
                 desc: 'Her kullanıcının geçmiş takasları, yorumları ve profil doğrulaması şeffaf şekilde görünür.',
                 color: 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30',
                 iconColor: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',

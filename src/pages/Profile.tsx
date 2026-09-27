@@ -101,14 +101,6 @@ export default function Profile() {
       : null;
 
   const isSelf = currentUser?.id === id;
-  const trustScore = Math.min(100,
-    35 +
-    (emailVerified ? 20 : 0) +
-    (phoneVerified ? 20 : 0) +
-    (ownerSwaps > 0 ? 15 : 0) +
-    (ownerRating != null && ownerRating >= 4.7 ? 10 : 0)
-  );
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -176,9 +168,6 @@ export default function Profile() {
               <p className="text-xs text-white/50 mt-2">Henüz değerlendirme yok · (0 takas)</p>
             )}
             <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white ring-1 ring-white/20">
-                Güven skoru %{trustScore}
-              </span>
               {emailVerified && (
                 <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-bold text-emerald-100 ring-1 ring-emerald-300/20">
                   ✓ E-posta doğrulandı
