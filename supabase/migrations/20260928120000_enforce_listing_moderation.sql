@@ -1,61 +1,78 @@
 -- ============================================================================
--- Moderasyon kapısını gerçekten kapat
+-- Sonradan moderasyon: ilan anında yayında, kaldırma kalıcı
 --
--- Prod'da ilanların herkese açık SELECT politikası hâlâ şemanın ilk
--- sürümünden geliyor: USING (is_active = true). Yani `moderation_status`
--- 'pending' olan ilanlar da anında yayında — detay sayfası açılıyor, teklif
--- alınabiliyor. Admin panelindeki onay kuyruğu hiçbir şeyi kapıda tutmuyor.
+-- SORUN 1 — kaldırma kalıcı değildi.
+--   İlanların herkese açık SELECT politikası prod'da hâlâ şemanın ilk
+--   sürümünden geliyordu: USING (is_active = true). İlan sahibinin kendi
+--   ilanı üzerinde UPDATE yetkisi olduğu için, yönetici bir ilanı kaldırdıktan
+--   (is_active = false) sonra sahibi onu tekrar true yapıp yayına
+--   döndürebiliyordu. Yani moderasyon kararı geri alınabilirdi.
 --
--- Doğru politika security_hardening.sql'de zaten yazılıydı ama prod'a
--- uygulanmamış. Burada onu yürürlüğe koyuyoruz, yanında iki koruma ile:
+-- SORUN 2 — "teklif ver" butonu çalışmıyordu.
+--   Yeni ilanlar moderation_status = 'pending' doğuyor ve yukarıdaki gevşek
+--   politika yüzünden herkese görünüyordu; ama create_offer, revise_offer,
+--   create_listing_report, create_listing_question ve increment_listing_view
+--   ilanın 'approved' olmasını şart koşuyor. Sonuç: yayında görünen ama
+--   teklif alamayan, şikayet edilemeyen, soru sorulamayan ilanlar.
 --
---   1. Sahip ve yöneticiler kendi/tüm ilanlarını görmeye devam eder
---      (panodaki "onay bekliyor" ilanları kaybolmasın).
---   2. protect_listing_system_fields trigger'ı: ilan sahibi UPDATE yetkisine
---      sahip olduğu için, bu trigger olmadan kendi ilanının
---      moderation_status'ünü 'approved' yapıp kapıyı delebilir.
+-- KARAR: sonradan moderasyon. İlan anında yayına girer, kötüsü sonradan
+-- kaldırılır. Bunu sistemin geri kalanıyla tutarlı hale getirmenin en güvenli
+-- yolu, ilanları doğrudan 'approved' doğurmak: böylece hâlihazırdaki tüm
+-- 'approved' kontrolleri olduğu gibi çalışmaya devam eder ve create_offer
+-- gibi kritik fonksiyonları yeniden yazmak gerekmez.
 --
--- DİKKAT — davranış değişikliği: bu dosya uygulandığı anda onay bekleyen
--- ilanlar herkese görünmez olur. Uygulamadan önce admin panelindeki
--- "İnceleme" kuyruğunu boşalt, yoksa bekleyen ilanlar sahipleri dışında
--- kimseye görünmez (sahibi kendi panosunda görmeye devam eder).
+-- Kaldırma mekanizması artık 'rejected'. Sahibi bu alana dokunamadığı için
+-- (protect_listing_system_fields) yönetici kararı kalıcıdır.
 -- ============================================================================
 
 BEGIN;
 
--- ─── 1. Herkese açık görünürlük: yalnızca onaylanmış ve aktif ────────────────
+-- ─── 1. Yeni ilan doğrudan yayında ──────────────────────────────────────────
 
-DROP POLICY IF EXISTS "Aktif ilanlar herkese açık" ON public.listings;
-CREATE POLICY "Aktif ilanlar herkese açık"
-  ON public.listings FOR SELECT
-  USING (is_active = TRUE AND moderation_status = 'approved');
+ALTER TABLE public.listings
+  ALTER COLUMN moderation_status SET DEFAULT 'approved';
 
--- Sahip kendi ilanlarını her durumda görür (onay bekleyenler dahil).
-DROP POLICY IF EXISTS "Sahip tüm ilanlarını görebilir" ON public.listings;
-CREATE POLICY "Sahip tüm ilanlarını görebilir"
-  ON public.listings FOR SELECT
-  USING (auth.uid() = owner_id);
-
--- Yöneticiler moderasyon kuyruğunu görebilmeli.
-DROP POLICY IF EXISTS "Yöneticiler tüm ilanları görebilir" ON public.listings;
-CREATE POLICY "Yöneticiler tüm ilanları görebilir"
-  ON public.listings FOR SELECT
-  USING (public.is_platform_admin());
-
--- ─── 2. Yeni ilan her zaman kuyruğa girer ───────────────────────────────────
+-- Bekleyen ilanlar da yayına alınsın; sonradan moderasyonda "bekleyen" diye
+-- bir ara durum yok. (Reddedilmişlere dokunulmuyor.)
+UPDATE public.listings
+SET moderation_status = 'approved'
+WHERE moderation_status = 'pending';
 
 DROP POLICY IF EXISTS "Giriş yapmış ilan ekleyebilir" ON public.listings;
 CREATE POLICY "Giriş yapmış ilan ekleyebilir"
   ON public.listings FOR INSERT
   WITH CHECK (
     auth.uid() = owner_id
-    AND moderation_status = 'pending'
+    AND moderation_status = 'approved'
     AND view_count = 0
   );
 
--- ─── 3. Sahip sistem alanlarını elle değiştiremez ───────────────────────────
--- Sahibin UPDATE yetkisi var; bu trigger olmadan kendi ilanını onaylı
--- yapabilir veya görüntülenme sayısını şişirebilir.
+-- ─── 2. Görünürlük: reddedilen ilan geri dönemez ────────────────────────────
+-- is_active ilan sahibinin kendi anahtarı (ilanını duraklatabilmeli).
+-- Yönetici kararı ayrı bir alanda tutulur ki sahibi geri alamasın.
+
+DROP POLICY IF EXISTS "Aktif ilanlar herkese açık" ON public.listings;
+CREATE POLICY "Aktif ilanlar herkese açık"
+  ON public.listings FOR SELECT
+  USING (is_active = TRUE AND moderation_status <> 'rejected');
+
+DROP POLICY IF EXISTS "Sahip tüm ilanlarını görebilir" ON public.listings;
+CREATE POLICY "Sahip tüm ilanlarını görebilir"
+  ON public.listings FOR SELECT
+  USING (auth.uid() = owner_id);
+
+DROP POLICY IF EXISTS "Yöneticiler tüm ilanları görebilir" ON public.listings;
+CREATE POLICY "Yöneticiler tüm ilanları görebilir"
+  ON public.listings FOR SELECT
+  USING (public.is_platform_admin());
+
+-- ─── 3. Sahip sistem alanlarına dokunamaz ───────────────────────────────────
+-- Bu trigger olmadan sahip kendi ilanının moderation_status'ünü 'approved'
+-- yapıp kaldırma kararını geri alabilir ya da görüntülenmesini şişirebilir.
+--
+-- Depodaki orijinal mantık: yalnızca SAHİBİN kendi güncellemesi kısıtlanır.
+-- increment_listing_view sahibi zaten hariç tuttuğu (owner_id IS DISTINCT
+-- FROM auth.uid()) için görüntülenme sayacı bu kontrole takılmaz.
 
 CREATE OR REPLACE FUNCTION public.protect_listing_system_fields()
 RETURNS TRIGGER
@@ -64,9 +81,6 @@ SECURITY DEFINER
 SET search_path = public
 AS $fn$
 BEGIN
-  -- Yalnızca ilan sahibinin kendi yaptığı güncellemeyi kısıtlıyoruz.
-  -- increment_listing_view sahibi zaten hariç tuttuğu için (owner_id IS
-  -- DISTINCT FROM auth.uid()) görüntülenme sayacı bu kontrole takılmaz.
   IF auth.uid() = OLD.owner_id AND NOT public.is_platform_admin() AND (
     NEW.owner_id IS DISTINCT FROM OLD.owner_id OR
     NEW.moderation_status IS DISTINCT FROM OLD.moderation_status OR
