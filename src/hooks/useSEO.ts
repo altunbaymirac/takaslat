@@ -11,7 +11,7 @@ interface SEOOptions {
 
 const DEFAULT_TITLE       = 'Takaslat | Akıllı Takas Platformu';
 const DEFAULT_DESCRIPTION = 'Araç, ev ve arsa takas ilanlarını keşfet. Ücretsiz ilan ver, teklif al ve güvenle takas yap.';
-const DEFAULT_IMAGE       = '/pwa-512.png';
+const DEFAULT_IMAGE       = '/og-image.png';
 const PROD_ORIGIN         = 'https://www.takaslat.com';
 const PRIVATE_PATH_PREFIXES = [
   '/admin', '/dashboard', '/settings', '/conversations', '/offers',
